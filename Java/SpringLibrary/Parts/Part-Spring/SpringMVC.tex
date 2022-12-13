@@ -1,0 +1,285 @@
+\section{Spring MVC 注解}
+
+\subsection{MVC 控制层相关注解}
+
+\subsubsection{@RequestMapping}
+
+作用: 将 Web 请求与请求处理类中的方法进行映射
+
+\begin{Java}
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Mapping
+public @interface RequestMapping {
+    // 省略具体实现
+}
+\end{Java}
+
+它有以下的六个配置属性:
+\begin{itemize}
+    \item value: 映射请求的 URL 或者别名。
+    \item method: 兼容HTTP的方法名
+    \item params: 根据HTTP参数的存在、缺省或值对请求进行过滤
+    \item header: 根据HTTP Header的存在、缺省或值对请求进行过滤
+    \item consume: 设定在HTTP请求正文中允许使用的媒体类型
+    \item product: 在HTTP响应体中允许使用的媒体类型
+\end{itemize}
+
+在使用@RequestMapping之前，请求处理类还需要使用 @Controller 进行标记。
+
+\begin{Java}
+@Controller
+@RequestMapping("/home")
+public class HomeController {
+    ......
+}
+\end{Java}
+
+\paragraph*{@GetMapping}
+
+用于于处理HTTP GET请求，并将请求映射到具体的处理方法中。具体来说，@GetMapping是一个组合注解，它相当于是@RequestMapping(method=RequestMethod.GET)的快捷方式。下面几个映射注解也类似。
+
+\begin{Java}
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@RequestMapping(method = RequestMethod.GET)
+public @interface GetMapping {
+    // 省略具体实现
+}
+\end{Java}
+
+给个例子，下面几个不给了:
+
+\begin{Java}
+@Controller
+@RequestMapping("/home")
+public class HomeController {
+    @GetMapping("/users")
+    public List<User> findAllUsers() {
+        List<User> users = userService.findAll();
+        return users;
+    }
+    ......
+}
+\end{Java}
+
+\paragraph*{@PostMapping}
+
+注解用于处理HTTP POST请求。
+
+\begin{Java}
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@RequestMapping(method = RequestMethod.POST)
+public @interface PostMapping {
+    // 省略具体实现
+}
+\end{Java}
+
+\paragraph*{@PutMapping}
+
+注解用于处理HTTP PUT请求，
+
+\begin{Java}
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@RequestMapping(method = RequestMethod.PUT)
+public @interface PutMapping {
+    // 省略具体实现
+}
+\end{Java}
+
+\paragraph*{@DeleteMapping}
+
+注解用于处理HTTP Delete请求，
+
+\begin{Java}
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@RequestMapping(method = RequestMethod.DELETE)
+public @interface DeleteMapping {
+    // 省略具体实现
+}
+\end{Java}
+
+\paragraph*{@PatchMapping}
+
+注解用于处理HTTP PATCH请求，
+
+\begin{Java}
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@RequestMapping(method = RequestMethod.DELETE)
+public @interface DeleteMapping {
+    // 省略具体实现
+}
+\end{Java}
+
+\subsubsection{@ResponseBody}
+
+用于将Controller的方法返回的对象，通过 springmvc 提供的HttpMessageConverter接口转换为指定格式的数据如：json、xml等，通过Response响应给客户端。
+
+\begin{Java}
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface ResponseBody { }    
+\end{Java}
+
+\subsubsection{@RequestParam}
+
+该注解用于将请求参数绑定到控制器的方法参数上:
+
+\begin{Java}
+@Target(ElementType.PARAMETER)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface RequestParam {
+    @AliasFor("name")
+    String value() default "";
+    @AliasFor("value")
+    String name() default "";
+    boolean required() default true;
+    String defaultValue() default ValueConstants.DEFAULT_NONE;
+}
+\end{Java}
+
+在参数上加入该注解后有如下效果:
+\begin{itemize}
+    \item 不加该注解的前端和后端参数名需要一致。
+    \item 加该注解的参数为必传参数，不加为非必传，也可通过 \texttt{required = false} 设置为非必传。
+    \item 可以通过 \texttt{value} 指定参数名。
+    \item 可以通过 \texttt{defaultValue} 指定参数默认值。
+\end{itemize}
+
+\subsubsection{@RequestBody}
+
+用于将请求中请求体包含的数据传递给请求参数，一个处理器方法只能使用一次:
+
+\begin{Java}
+@Target(ElementType.PARAMETER)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface RequestBody {
+    boolean required() default true;
+}
+\end{Java}
+
+
+\subsubsection{@EnableWebMvc}
+
+该注解可以开启 SpringMVC 多项辅助功能:
+
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Documented
+@Import(DelegatingWebMvcConfiguration.class)
+public @interface EnableWebMvc { }
+\end{Java}
+
+\subsubsection{@DateTimeFormat}
+
+该注解用于将传入的 String 类型参数转换为 Data 类型，用于设定日期时间型数据格式。
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.ANNOTATION_TYPE})
+public @interface DateTimeFormat {
+    String style() default "SS";
+    ISO iso() default ISO.NONE;
+    String pattern() default "";
+    String[] fallbackPatterns() default {};
+    enum ISO { DATE, TIME, DATE_TIME, NONE }
+}    
+\end{Java}
+
+举个例子:
+
+\begin{Java}
+@DateTimeFormat(pattern="yyyy-MM-dd HH:mm:ss")
+private Date date;
+\end{Java}
+
+\subsection{MVC 视图相关注解}
+
+\subsubsection{@ModelAttribute}
+
+@ModelAttribute主要的作用是将数据添加到模型对象中，用于视图页面显示。@ModelAttribute注释的位置不同,和其他注解一起使用时有很多种用法。\footnote{参考文献: \url{https://blog.csdn.net/yue_xx/article/details/105740360}}
+
+\begin{Java}
+@Target({ElementType.PARAMETER, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface ModelAttribute {
+    @AliasFor("name")
+    String value() default "";
+    @AliasFor("value")
+    String name() default "";
+    boolean binding() default true;
+}
+\end{Java}
+
+主要用途可分为注解在方法上和注解在参数上:
+\begin{itemize}
+    \item 用在方法上，@ModelAttribute 注解的方法会在 Controller 每个方法被执行前调用。根据返回值不同也有区分。
+    \begin{itemize}
+        \item void 方法: 一般会在方法的参数中使用 Model 参数，在方法体内将模型数据添加到模型对象中。
+\begin{Java}
+@ModelAttribute 
+public void NoneReturn(@RequestParam String data, Model model) { 
+    model.addAttribute("指定一个名称",data); 
+}
+\end{Java}
+        \item 具体类型方法: 一般用@ModelAttribute的value属性指定model属性的名称。model属性对应的对象就是方法的返回值。不指定名称，则model属性名就会默认是返回类型的首字母小写。
+\begin{Java}
+@ModelAttribute(name = "tacoOrder")
+public TacoOrder order() {
+    return new TacoOrder();
+}
+\end{Java}
+        \item @ModdelAttribute和@RequestMapping共同注解一个方法时: 此时方法的返回值并不是表示一个视图名称，而是model属性的值，此时的视图名称就是@RequestMapping中指定的访问路径的最后一层去掉扩展名。
+\begin{Java}
+@RequestMapping(value = "指定一个访问路径") 
+@ModelAttribute("指定一个名称") 
+public String Fix() { 
+    return "猛虎蔷薇"; 
+} 
+\end{Java}
+    \end{itemize}
+    \item 标记在方法的参数上，会将客户端传递过来的参数按名称注入到指定对象中，并且会将这个对象自动加入ModelMap中，便于View层使用。
+\end{itemize}
+
+\subsubsection{@SessionAttributes}
+
+若希望在多个请求之间共用数据，则可以在控制器类上标注一个 @SessionAttributes,配置需要在session中存放的数据范围，Spring MVC将存放在model中对应的数据暂存到 HttpSession 中。
+
+\begin{Java}
+@Target({ElementType.TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+@Documented
+public @interface SessionAttributes {
+    @AliasFor("names")
+    String[] value() default {};
+    @AliasFor("value")
+    String[] names() default {};
+    Class<?>[] types() default {};
+}
+\end{Java}
+
+
+
+
+
+
+
+
+\newpage

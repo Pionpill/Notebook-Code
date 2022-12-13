@@ -1,0 +1,34 @@
+\section{SpringBoot 注解}
+\subsection{SpringBoot 常见注解}
+\subsubsection{@SpringBootApplication}
+
+@SpringBootApplication 表明这是一个 Spring 引导应用程序，默认 SpringBoot 项目的启动类会被该注解修饰。
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Inherited
+@SpringBootConfiguration
+@EnableAutoConfiguration
+@ComponentScan(excludeFilters = { 
+    @Filter(type = FilterType.CUSTOM,classes = TypeExcludeFilter.class), 
+    @Filter(type = FilterType.CUSTOM, classes =AutoConfigurationExcludeFilter.class) })
+public @interface SpringBootApplication {
+    // ... 此处省略源码
+}
+\end{Java}
+
+可以看出，该注解是由三个注解组成，这里做简单说明，细节请查询相应的注解:
+\begin{itemize}
+    \item @ComponentScan: 自动扫描并加载符合条件的组件。
+    \item @EnableAutoConfiguration: 借助@Import的支持，收集和注册特定场景相关的bean定义。
+    \item @SpringBootConfiguration: 标注当前类是配置类，并会将当前类内声明的一个或多个以@Bean注解标记的方法的实例纳入到spring容器中，并且实例名就是方法名。
+\end{itemize}
+
+参考文献:
+\begin{itemize}
+    \item CSDN: \url{https://blog.csdn.net/qq_28289405/article/details/81302498}
+\end{itemize}
+
+\newpage

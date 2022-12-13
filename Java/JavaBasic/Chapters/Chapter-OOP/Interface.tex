@@ -1,0 +1,466 @@
+\section{接口，lambda表达式，内部类}
+\subsection{接口}
+\subsubsection{接口的概念}
+
+在 Java 程序设计语言中，接口不是类，而是对希望符合这个接口的类的一组需求。
+
+下面我们看一个 \texttt{Comparable} 接口\footnote{在旧版 Java 中，使用的是 Object 而不是泛型类型。虽然泛型类型要在之后说明，但现在已经很少用 Object 进行强制类型转换，泛型已经成为绝大多数程序员的首选。}。
+\begin{Java}
+public interface Comparable<T> {
+    int compareTo(T other);
+}
+\end{Java}
+这说明，任何实现该接口的类都必须包含 \texttt{compareTo} 方法，这个方法有一个泛型参数 \texttt{other}，并返回整数。
+
+接口中的所有方法都是 \texttt{public}。因此在接口中声明方法时，不必提供关键字 \texttt{public}。
+
+接口中不应该提供实例字段和实例方法(新版 Java 已经可以提供简单的实例方法)。这个任务应该交给实现接口的类来完成。
+
+为了让类实现一个接口，通常需要完成以下几步操作。
+\begin{enumerate}
+    \item 将类声明为实现给定的接口。
+\begin{Java}
+class Employee implements Comparable<Employee>
+\end{Java}
+    \item 对接口中的所有方法提供定义。
+\begin{Java}
+class Employee implements Comparable<Employee> {
+    public int compareTo(Employee other) {
+        return Double.compare(this.salary, other.salary);
+    }
+}
+\end{Java}
+\end{enumerate}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{warning}
+            在接口申明中可以省略 \texttt{public}。但是在实现接口时，必须把方法声明为 \texttt{public}，否则编译器会报错。
+        \end{warning}
+    }
+}
+
+既然接口只有一个方法，那么我们为什么不直接实现该方法，而要多一步实现接口的操作呢? 这主要有两个原因:
+\begin{itemize}
+    \item 一是在参数类型中我们可以书写接口类型，这样就能确保实参都实现了该接口。方便后续操作。
+    \item 二是 Java 是一种工程化语言，往往具有复杂的继承关系，实现接口方便项目管理。
+\end{itemize}
+
+\subsubsection{接口的属性}
+
+接口不是类，不能使用 \texttt{new} 运算符实例化一个接口。但能却能声明接口变量，接口变量必须引用实现了这个接口的类对象:
+\begin{Java}
+Comparable x = new Employee("Pionpill");
+\end{Java}
+
+接口在许多方面表现的都与类一样，比如接口变量可以使用 \texttt{instance} 检查，接口可以继承接口。接口中的成员有以下特点:
+\begin{itemize}
+    \item 成员方法: 声明时必须为 \texttt{public}，可以省略。实现时必须为 \texttt{public}，但不可以省略。
+    \item 成员属性: 接口中不能包含实例字段，但是可以包含常量。接口中的字段默认为 \texttt{public static final}。
+\end{itemize}
+
+既然现代的接口已经可以实现某些简单的方法，那么抽象类与接口的差别在哪呢。设计接口的最主要原因是 Java 只允许类的单继承，而类在实现接口时可以多继承:
+\begin{Java}
+class Employee implements Cloneable, Comparable
+\end{Java}
+
+\subsubsection{静态和私有方法}
+
+在 Java8 中，允许在接口中添加静态方法。理论上讲，这没有任何语法错误，但是这有悖于接口的初衷。目前为止，通常的做法是将静态方法放在伴随类中。在标准库中，经常会有成对出现的接口和实用工具类，如 \texttt{Collection/Collections}。
+
+随着 Java 的更新，在 Java11 标准库中已经将很多静态方法放在接口中，这样一来，这就没有必要再为实用工具方法另外提供一个伴随类。
+
+在 Java9 中，接口中的方法是可以为 \texttt{private} 的。既可以修饰静态方法也可以是实例方法。但作用十分有限。
+
+\subsubsection{默认方法}
+
+可以为接口方法提供一个默认实现。必须用 \texttt{default} 修饰符标记这样一个方法。
+
+\begin{Java}
+public interface Comparable<T> {
+    default int compareTo(T other) {
+        return 0
+    }
+}
+\end{Java}
+
+当然这并没有太大的用处，毕竟每一个实现接口的类都会覆盖里面的方法。
+
+不过某些情况下，这会有些用:
+\begin{itemize}
+    \item 接口演化问题: 如果随着接口更新，加入了新的方法，对应的实现类就会报错，这时候设置一个默认方法就可以避免这种错误。
+    \item 默认方法可以调用其他方法，这可以简化一些操作。
+\end{itemize}
+
+既然接口可以多继承，那必然会导致同名方法冲突，幸运的是，Java 解决这类冲突的规则十分简单:
+\begin{itemize}
+    \item 超类优先。如果超类与接口具有同名方法，那么采取超类中实现的具体方法。
+    \item 接口冲突。如果两个接口提供了相同的默认方法，那么必须覆盖这个方法来解决冲突。
+\end{itemize}
+
+多继承带来的冲突远不止这些，但 Java 的解决思路大致如上，如果具体的实现类与接口冲突，则才需类中的方法，接口有没有提供默认方法并灭有什么区别。这正是 ``类优先'' 原则。
+
+\subsubsection{回调}
+
+回调(callback)简单来讲是指某一件事发生时进行调用。一般回调的是函数，在 Java 中可以传入回调对象，对象能携带更多的数据。
+
+回调对象必须实现 \texttt{java.awt.event} 包的 \texttt{ActionListener} 接口:
+
+\begin{Java}
+public interface ActionListener {
+    void actionPerformed(ActionEvent event);
+}
+\end{Java}
+
+\subsubsection{\texttt{Comparator} 接口}
+
+顾名思义，\texttt{Comparator} 接口实现了元素的比较。例如 \texttt{String} 类实现了 \texttt{Comparable<String>}，\texttt{String.compareTo} 方法可以按字典顺序比较字符串。
+
+加入我们需要按长度递增的顺序对字符串进行排序，若不是按字典顺序进行排序。则可以使用 \texttt{Arrays.sort} 方法的第二个版本。使用数组和比较器作为参数。比较器是实现了 \texttt{Comparator} 接口的类的实例。
+
+\begin{Java}
+public interface Comparator<T> {
+    int compare(T first,T second);
+}
+\end{Java}
+
+要按长度比较字符串，可以如下定义一个实现 \texttt{Comparator<String>} 的类:
+
+\begin{Java}
+class LengthComparator implements Comparator<String> {
+    public int compare(String first, String second) {
+        return first.length() - second.length();
+    }
+}
+\end{Java}
+
+需要对数组进行排序时，则为 \texttt{Arrays.sort} 方法传入对应的对象:
+\begin{Java}
+String[] friends = {"Peter","Paul","Mike"}
+Arrays.sort(friends, new LengthComparator());
+\end{Java}
+
+在下面章节会了解到，用 lambda 表达式可以更方便地进行比较。
+
+\subsubsection{对象克隆}
+
+众所周知，克隆(即拷贝)可以分为浅拷贝与深拷贝，Java 中除了基本数据类型是传值，其他都是传引用，也即传引用时进行浅拷贝。因此，如果我们运行如下代码:
+
+\begin{Java}
+var ori = new Employee("Mike",5000);
+Employee copy = ori;
+copy.setSalary(10000);
+\end{Java}
+
+那么源对象的薪资也会改变。因为浅拷贝两个引用在内存中指向同一块区域。
+
+如果需要深拷贝，则需使用 \texttt{clone} 方法:
+
+\begin{Java}
+Employee copy = ori.clone();
+copy.setSalary(10);
+\end{Java}
+
+\texttt{clone} 是 \texttt{Object} 的 \texttt{protected} 方法，因此我们无法直接调用这个方法。只有 \texttt{Employee} 类可以克隆 \texttt{Employee} 对象。为什么要这样限制呢，假设我们克隆的字段中包含对其他对象的引用，那么我们没有实现彻底的深拷贝。因此 \textbf{clone} 方法需要我们手动改写。
+
+对于每一个类，需要确定:
+\begin{itemize}
+    \item 默认的 \texttt{clone} 方法是否满足需求。
+    \item 是否可以在可变的子对象上调用 \texttt{clone} 来修补默认的 \texttt{clone} 方法。
+    \item 是否不该使用 \texttt{clone}。
+\end{itemize}
+
+如果需要实现该方法，则类必须:
+\begin{itemize}
+    \item 实现 \texttt{Cloneable} 接口;
+    \item 重新定义 \texttt{clone} 方法，并指定 \texttt{public} 访问修饰符。
+\end{itemize}
+
+即使 \texttt{clone} 的默认实现能够满足要求，还是需要实现 \texttt{Cloneable} 接口，将 \texttt{clone} 定义为 \texttt{public}:
+
+\begin{Java}
+class Employee implements Cloneable {
+    public Employee clone() throws CloneNotSupportedException{
+        return (Employee) super.clone();
+    }
+}   
+\end{Java}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{warning}
+            在实现 \texttt{clone} 方法的过程中，我们必须考虑这样一个问题，如果我们在父类 \texttt{Employee} 中实现了 \texttt{clone} 方法，且 \texttt{Employee} 派生出了子类 \texttt{Manager}，那么父类的 \texttt{Clone} 方法能很好地对子类进行深拷贝吗? 出于这个原因，\texttt{Object} 类中的 \texttt{clone} 方法被设置为了 \texttt{protected}，且标准库中仅有 5\% 的方法实现了 \texttt{clone} 方法。
+        \end{warning}
+    }
+}
+
+\subsection{lambda 表达式}
+
+\subsubsection{lambda 表达式的语法}
+
+lambda 表达式可以看作一个函数，他的表现形式为: \textbf{参数 -> 表达式}。例如:
+
+\begin{Java}
+(String first, String second) -> first.length - second.length()
+\end{Java}
+
+如果表达式过长，可以将代码放进 \{\} 中，并显示地包含 \texttt{return} 语句。
+
+\begin{Java}
+(String first, String second) -> {
+    if (first.length() > second.length()) return -1;
+    else if (first.length() < second.length()) return 1;
+    else return 0;
+}
+\end{Java}
+
+还有以下注意点:
+\begin{itemize}
+    \item 即使没有参数，也必须提供 \(\), 这和无参数方法一样。
+    \item 如果参数类型通过上下文可以推导出来，那么可以省略不写。
+    \item 如果只有一个参数，那么可以省略小括号。
+    \item 返回值类型无需指定，上下文会自动推导。
+\end{itemize}
+
+\subsubsection{函数式接口}
+
+对于只有一个抽象方法的接口，需要这种接口的对象时，可以提供一个 lambda 表达式。这种接口称为函数式接口。
+
+例如 \texttt{Array.sort} 方法，它的第二个参数需要一个 \texttt{Comparator} 实例，\texttt{Comparator}就是只有一个方法的接口，所以可以提供一个 lambda 表达式:
+
+\begin{Java}
+Arrays.sort(words, (first,second) -> first.length() - second.length());
+\end{Java}
+
+lambda 表达式可以转换为接口，这一点让 lambda 表达式很有吸引力。具体的语法很简短:
+
+\begin{Java}
+var timer = new Timer(1000, event -> 
+    {
+        System.out.println("Hello, World!");
+        Toolkit.getDefaultToolKit().beep();
+    });
+\end{Java}
+
+与实现了 ActionListener 接口的类相比，这段代码可读性要好很多。
+
+\subsubsection{方法引用}
+
+有时， lambda 表达式涉及一个方法:
+\begin{Java}
+var timer = new Timer(1000, event -> System.out.println(event));
+\end{Java}
+
+如果直接把 \texttt{println} 方法传递到 \texttt{Timer} 构造器就更好了:
+\begin{Java}
+var timer = new Timer(1000, System.out::println);    
+\end{Java}
+
+表达式 System.out.println 是一个方法引用(method reference)，它指示编译器生成一个函数式接口的实例，覆盖这个接口的抽象方法来调用给定的方法。在上面的例子中，会生成一个 \texttt{ActionListener}，它的 \texttt{actionPerformed(ActionEvent e)} 方法要调用 \texttt{System.out.println(e)}。
+
+再比如:
+\begin{Java}
+Arrays.sort(strings, String::compareToIgnoreCase)
+\end{Java}
+
+需要使用 :: 运算符分隔方法名与对象或类名，主要有三种情况:
+\begin{enumerate}
+    \item \textit{object::instanceMethod}
+    \item \textit{class::instanceMethod}
+    \item \textit{class::staticMethod}
+\end{enumerate}
+
+第一种情况下，方法引用等价于向方法传递参数的 lambda 表达式。对于\texttt{System.out::println}，对象是 \texttt{System.out}，所以方法表达式等价于 \texttt{x -> System.out.println(x)}。
+
+第二种情况下，第一个参数会成为方法的隐式参数。例如，\texttt{String::compareToIgnoreCase} 等同于 \texttt{(x,y) -> x.compareToIgnoreCase(y)}。
+
+第三种情况下，所有参数都传递到静态方法，\texttt{Math::pow} 等价于 \texttt{(x,y) -> Math.pow(x,y)}。
+
+只有当 lambda 表达式的体只调用一个方法而不做其他操作时，才能把 lambda 表达式重写为方法引用:
+\begin{Java}
+s -> s.length() == 0
+\end{Java}
+
+这里有一个方法调用。但是还有一个比较，所以这里不能使用方法引用。
+
+此外，在方法引用中还可以使用到 \texttt{this} 与 \texttt{super} 关键字。
+
+\subsubsection{构造器引用}
+
+构造器引用与方法引用很类似，只不过方法名为 \texttt{new}。例如 \texttt{Person::new} 是 \texttt{Person} 构造器的一个引用。
+
+\subsubsection{变量作用域}
+
+假如我们要写下面这样的代码:
+\begin{Java}
+public static void repeatMessage(String text, int delay) {
+    ActionListener listener = event -> {
+        System.out.println(text);
+        Toolkit.getDefaultToolKit().beep();
+    };
+    new Timer(delay, listener).start();
+}
+\end{Java}
+
+将 lambda 表达式看作函数，我们就写出了一个闭包。而使用闭包必然会涉及到很多变量问题\footnote{见 \url{https://blog.csdn.net/Hunt_bo/article/details/107699137}}。为了避免不必要的内存泄漏等玛法，我们在 lambda 表达式中需要遵守如下规定:
+
+\begin{itemize}
+    \item 在 lambda 表达式中只使用不会改变的变量。
+\end{itemize}
+
+\subsubsection{处理 lambda 表达式}
+
+假设我们需要重复一个动作 n 次，将这个动作和重复次数传递到一个 repeat 方法:
+\begin{Java}
+repeat(10, () -> System.out.println("Hello, World!"));
+\end{Java}
+
+要接受这个 lambda 表达式，需要选择一个函数式接口，这里我们使用了 \texttt{Runnable} 接口(含有一个 \texttt{run} 抽象方法):
+
+\begin{Java}
+public static void repeat(int n,Runnable action) {
+    for (int i = 0; i < n; i++) action.run();
+}
+\end{Java}
+
+调用 \texttt{action.run()} 时会执行 lambda 表达式的函数体。
+
+\subsection{内部类}
+
+内部类(inner class)是定义在另一个类中的类。这样的好处有:
+\begin{itemize}
+    \item 内部类可以对同一个包中的其他类隐藏。
+    \item 内部类方法可以访问定义这个类的作用域中的数据，包括原本私有的数据。
+\end{itemize}
+
+内部类原先对于间接地实现回调非常重要，不过如今 lambda 表达式在这方面做的更好。
+
+\subsubsection{使用内部类访问对象状态}
+
+这里使用一个不太实用的例子进行说明:
+
+\begin{Java}
+public class TalkingClock {
+    public static void main(String[] args) {
+        TalkingClock clock = new TalkingClock(1000,true);
+        clock.start();
+        JOptionPane.showMessageDialog(null, "Quit?");
+        System.exit(0);
+    }
+}
+
+class TalkingClock {
+    private int interval;
+    private boolean beep;
+
+    public TalkingClock(int interval, boolean beep) {
+        this.interval = interval;
+        this.beep = beep;
+    }
+
+    public void start() {
+        ActionListener listener = new TimePrinter();
+        Timer timer = new Timer(interval, listener);
+        timer.start();
+    }
+
+    public class TimePrinter implements ActionListener{
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            System.out.println("At the stone, the time is " + Instant.ofEpochMilli(e.getWhen()));
+            if (beep) Toolkit.getDefaultToolkit().beep();
+        }
+    }
+}
+\end{Java}
+
+这里的 \texttt{TimePrinter} 位于 \texttt{TalkingClock} 类内部。这并不意味着每个 \texttt{TalkingClock} 有一个 \texttt{TimePrinter} 实例字段。如前所示，\texttt{TimePrinter} 对象是由 \texttt{TalkingClock} 类的方法构造的。
+
+\texttt{TimePrinter} 类没有实例字段或者名为 \texttt{beep} 的变量。实际上，\texttt{beep} 指示 \texttt{TalkingClock} 对象中创建这个 \texttt{TimePrinter} 的字段。
+
+一个内部方法可以访问自身的数据字段，也可以访问创建它的外围类对象的数据字段。为此，内部类的对象总有一个隐士i你用，指向创建它的外部对象。这个引用在内部类的定义中是不可见的。我们称之为 outer。下面代码等价:
+
+\begin{Java}
+if (beep) Toolkit.getDefaultToolKit().beep();
+if (outer.beep) Toolkit.getDefaultToolKit().beep();
+\end{Java}
+
+因为 \texttt{TimePrinter} 类没有定义构造器，所以编辑器为它生成了一个无参数构造器：
+\begin{Java}
+public TimePrinter(TalkingClock clock) {
+    outer = clock
+}
+\end{Java}
+
+而在构造 \texttt{TimePrinter} 对象时，编译器就会将当前语音时钟的 this 引用传递给这个构造器。
+
+\begin{Java}
+ActionListener listener = new TimePrinter(this);
+\end{Java}
+
+关于内部类，还有几个注意点:
+\begin{itemize}
+    \item 内部类中声明的所有静态字段都必须是 \texttt{final}，并初始化为一个编译时常量。
+    \item 内部类不能有 static 方法。
+\end{itemize}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            在编译过程中，内部类会使用 \$ 转换为普通的类，保留第一个对外部类的 引用。
+        \end{notice}
+    }
+}
+
+\subsubsection{局部内部类}
+
+仔细查看 \texttt{TalkingClock} 代码会发现，类型 \texttt{TimePrinter} 的名字只出现了一次，也即只被使用了一次。遇到这种情况，可以在一个方法中局部地定义这个类。
+
+\begin{Java}
+public void start(int interval, boolean beep) {
+    class TimePrinter implements ActionListener {
+        public void actionPerformed(ActionEvent event) {
+            System.out.println("XXX");
+            if (beep) Toolkit.getDefaultToolKit().beep();
+        }
+    }
+    var listener = new TimePrinter();
+    var timer = new Timer(interval, listener);
+    timer.start();
+}
+\end{Java}
+
+局部类的作用域被限定在块中，不可以有访问说明符。局部类的优势是对块外部的世界完全隐藏，可以访问块中的局部变量。
+
+\subsubsection{匿名内部类}
+
+使用局部内部类时，通常还可以再进一步。假如只想创建这个类的一个对象，甚至不需要为类指定名字。
+
+\begin{Java}
+public void start(int interval, boolean beep) {
+    var listener = new ActionListener() {
+            public void actionPerformed(ActionEvent event) {
+                System.out.println("XXX");
+                if (beep) Toolkit.getDefaultToolKit().beep();
+            }
+        };
+    var timer = new Timer(interval, listener);
+    timer.start();
+}
+\end{Java}
+
+它的含义是: 创建一个类的新对象，这个类实现了 \texttt{ActionListener} 接口，需要实现的方法在括号内定义。一般语法如下:
+
+\begin{Java}
+new SuperType(construction parameters) {
+    inner class methods and data
+}
+\end{Java}
+
+其中，\texttt{SuperType} 可以是接口。由于匿名内部类没有名字，也就不能提供构造器。
+
+\subsubsection{静态内部类}
+
+有时候，使用内部类只是为了把一个类隐藏在另一个类的内部，并不需要内部类有外部类对象的引用。为此，可以把内部类声明为 static，这样就不会生成那个引用。
+
+\newpage

@@ -1,0 +1,235 @@
+\section{容器基础与工具}
+
+\subsection{Arrays 数组工具类}
+
+\subsubsection{Array 动态数组类}
+
+与这几章大部分类不同的是，Array 类位于 java.lang.reflect 包下，其他都位于 java.util 包下。可能是因为 Array 都是 native 方法。
+
+Array 为数组类，为我们提供了动态创建和访问Java数组的方法。它是最高效的，但是其容量是固定的，并且无法动态改变，且存放同一数据类型的数据。与 Arrays 相同，他的所有方法都是静态的，并且全部方法根本上都是 native 的。
+
+Array 只包含三类方法: newInstance 用于创建数组；get, set 方法用于获取与设置数组元素，由于是 native 的不讲了。
+
+\subsubsection*{newInstance 创建数组}
+
+newInstance 方法是唯一不直接被 native 修饰的方法，用于创建一个定长数组:
+
+\begin{Java}
+public static Object newInstance(Class<?> componentType, int length)
+    throws NegativeArraySizeException {
+    return newArray(componentType, length);
+}
+
+@IntrinsicCandidate
+private static native Object newArray(Class<?> componentType, int length)
+    throws NegativeArraySizeException;
+\end{Java}
+
+可以看到，本质上还是用 native 方法实现，这也是 Array 高效的原因。
+
+newInstance 还有一个重载的同名函数，用于创建多维数组。
+
+\subsubsection{Arrays 工具类}
+
+Arrays包含各种操作数组的方法(例如排序和搜索)。该类还包含一个静态工厂，允许将数组视为列表。Arrays类里的方法都是静态方法, 下面介绍几个常用方法。
+
+\subsubsection*{sort 排序}
+
+排序，默认使用双轴快速排序算法，在排序前会对传入的下标(如果有)进行检查。
+
+\begin{Java}
+public static void sort(int[] a, int fromIndex, int toIndex) {
+    rangeCheck(a.length, fromIndex, toIndex);
+    DualPivotQuicksort.sort(a, 0, fromIndex, toIndex);
+}
+\end{Java}
+
+JDK8 提供了另一种排序方案: parallelSort 用于处理大数据。它的实现逻辑和 sort 类似。
+
+\begin{Java}
+public static void parallelSort(int[] a, int fromIndex, int toIndex) {
+    rangeCheck(a.length, fromIndex, toIndex);
+    DualPivotQuicksort.sort(a, ForkJoinPool.getCommonPoolParallelism(), fromIndex, toIndex);
+}
+\end{Java}
+
+可以看出，两种排序方式仅有一个值不同，这两个啊脾虚方法特点如下:
+\begin{itemize}
+    \item \textbf{sort}: 单线程，适用于处理小数据。
+    \item \textbf{parallelSort}: 多线程并行排序，将数据分段调用多核心处理再合并，是用于处理大量数据。
+\end{itemize}
+
+一般的，数组长度大于 10000，采用并行排序，其他采用普通排序即可。
+
+此外，还有一个私有的 legacyMergeSort 方法:
+
+\begin{Java}
+private static void legacyMergeSort(Object[] a) {
+    Object[] aux = a.clone();
+    mergeSort(aux, a, 0, a.length, 0);
+}
+\end{Java}
+
+JDK7 之前用的是归并排序，这个方法是用来兼容旧版的，此外所有归并排序都是私有方法，只有特性情况下会在 sort 中调用该方法。
+
+\subsubsection*{parallelPrefix 并行相关计算}
+
+给出某种运算方法，对数组中下标为 1 的元素开始进行计算:
+
+\begin{Java}
+public static void parallelPrefix(int[] array, IntBinaryOperator op) {
+    Objects.requireNonNull(op);
+    if (array.length > 0)
+        new ArrayPrefixHelpers.IntCumulateTask
+                (null, op, array, 0, array.length).invoke();
+}
+\end{Java}
+
+其中 IntBinaryOperator(不同类型有对应不同的接口) 是函数式编程接口:
+
+\begin{Java}
+@FunctionalInterface
+public interface IntBinaryOperator {
+    int applyAsInt(int left, int right);
+}
+\end{Java}
+
+一般的，配合 lambda 表达式使用，例如:
+\begin{Java}
+int arr[] = {1,2,3,4};
+Arrays.parallelPrefix(arr, (left, right) -> left + right);
+// arr: {1,3,6,10}
+\end{Java}
+
+有两点需要注意:
+\begin{itemize}
+    \item 运算从第二个元素开始，即下标为 1 的元素。
+    \item 每次运算都会修改元素值。
+\end{itemize}
+
+可以将其看作循环运算的一种简便写法，不过用的人不多。
+
+\subsubsection*{setAll 迭代计算}
+
+和 parallelPrefix 类似，不过 parallelPrefix 会计算前后相关的元素，但 setAll 不会。还有一个并行方法: parallelSetAll
+
+\begin{Java}
+public static <T> void setAll(T[] array, IntFunction<? extends T> generator) {
+    Objects.requireNonNull(generator);
+    for (int i = 0; i < array.length; i++)
+        array[i] = generator.apply(i);
+}
+\end{Java}
+
+\subsubsection*{copyOf 复制数组}
+
+有两个复制数组的函数如下:
+
+\begin{Java}
+public static int[] copyOf(int[] original, int newLength)
+public static int[] copyOfRange(int[] original, int from, int to)
+\end{Java}
+
+用于复制一个新的数组，可以指定长度或范围。
+
+copyOf 比较常用，源码如下:
+\begin{Java}
+@IntrinsicCandidate
+public static <T,U> T[] copyOf(U[] original, int newLength, Class<? extends T[]> newType) {
+    @SuppressWarnings("unchecked")
+    T[] copy = ((Object)newType == (Object)Object[].class)
+        ? (T[]) new Object[newLength]
+        : (T[]) Array.newInstance(newType.getComponentType(), newLength);
+    // 这是个 native 方法
+    System.arraycopy(original, 0, copy, 0, Math.min(original.length, newLength));
+    return copy;
+}
+\end{Java}
+
+
+\subsubsection*{其他常用方法}
+
+\begin{Java}
+// 元素交换
+private static void swap(Object[] x, int a, int b)
+// 二分查找
+public static int binarySearch(int[] a, int fromIndex, int toIndex,int key)
+// 等于判断
+public static boolean equals(int[] a, int[] a2)
+// 比较判断
+public static int compare(int[] a, int[] b)
+// 找第一个不相等的元素
+public static int mismatch(int[] a, int[] b)
+// 填充：改变范围内元素值
+public static void fill(int[] a, int fromIndex, int toIndex, int val)
+// 计算 hashCode
+public static int hashCode(int a[])
+// toString
+public static String toString(int[] a)
+// 流处理，返回 Stream
+public static <T> Stream<T> stream(T[] array, int startInclusive, int endExclusive)
+// 转换为集合
+public static <T> List<T> asList(T... a);
+\end{Java}
+
+并行迭代：在多线程中会应用，参考文章: \url{https://blog.csdn.net/sunboylife/article/details/103307072}
+
+\begin{Java}
+public static <T> Spliterator<T> spliterator(T[] array, int startInclusive, int endExclusive)
+\end{Java}
+
+\subsection{Collections 集合工具类}
+
+Collections 不仅对 Collection 接口提供了方法，对 Map 也提供了一些处理方法。
+
+\subsubsection*{功能性函数}
+
+Collection 通用:
+
+\begin{Java}
+// 找最小值
+public static <T extends Object & Comparable<? super T>> T min(Collection<? extends T> coll)
+// 找最大值
+public static <T extends Object & Comparable<? super T>> T max(Collection<? extends T> coll)
+// 返回视图
+public static <E> Collection<E> checkedCollection(Collection<E> c, Class<E> type)
+// 获取对象出现次数
+public static int frequency(Collection<?> c, Object o)
+// 判断结合是否相交
+public static boolean disjoint(Collection<?> c1, Collection<?> c2)
+// 添加元素
+public static <T> boolean addAll(Collection<? super T> c, T... elements)
+\end{Java}
+
+针对 List 类型，Arrays 有的方法几乎都有，此外还添加的函数有:
+
+\begin{Java}
+// 洗牌，打乱
+public static void shuffle(List<?> list)
+// 左移/右移
+public static void rotate(List<?> list, int distance)
+// 找子列表
+public static int indexOfSubList(List<?> source, List<?> target)
+// 找最后一个子列表
+public static int lastIndexOfSubList(List<?> source, List<?> target)
+\end{Java}
+
+\subsubsection*{获取集合对象}
+
+Collections 写了很多内置类，方便开发者使用。
+
+\begin{Java}
+// 获取不可变的集合对象
+public static <T> Collection<T> unmodifiableCollection(Collection<? extends T> c)
+// 获取线程安全的集合对象
+public static <T> Collection<T> synchronizedCollection(Collection<T> c)
+// 返回空且不可变对象
+public static final <T> List<T> emptyList()
+// 返回特定且不可变对象
+public static <T> List<T> singletonList(T o)
+// 转换为枚举
+public static <T> Enumeration<T> enumeration(final Collection<T> c)
+public static <T> ArrayList<T> list(Enumeration<T> e)
+\end{Java}
+
+\newpage

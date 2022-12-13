@@ -1,0 +1,227 @@
+\section{泛型程序设计}
+
+\subsection{类型参数的好处}
+
+在 Java 中增加泛型类之前，泛型程序设计都是通过继承实现的。 \texttt{ArrayList} 类只维护一个 \texttt{Object} 引用的数组:
+
+\begin{Java}
+public class ArrayList {
+    private Object[] elementData;
+    ...
+    public Object get(int i) {...}
+    public void add(Object o) {...}
+}
+\end{Java}
+
+这种方法存在两个问题: 当取值时必须进行强制类型转换；没有错误检查，可以将任何类型的值加入到数组中。
+
+泛型提供了一个更好的解决方案: \textit{类型参数}(type parameter)。\texttt{ArrayList} 类有一个类型参数用来指示元素的类型:
+
+\begin{Java}
+var files = new ArrayList<String>();
+\end{Java}
+
+这样的好处如下:
+\begin{itemize}
+    \item 代码具有更好的可读性。
+    \item 编译器会进行类型检查。
+\end{itemize}
+
+使用泛型编程有多容易，编写泛型类就有多困难。因为编写者需要预判各种各样的类作为类型参数。
+
+\subsection{定义简单泛型}
+
+\subsubsection{泛型类}
+
+泛型类就是有一个或多个类型变量的类:
+\begin{Java}
+public class Pair<T> {
+    private T first;
+    private T second;
+
+    public Pair() {first = null; second = null;}
+    public Pair(T first, T second) {this.first = first; this.second = second;}
+
+    public T getFirst() {return first;}
+    public T getSecond() {return second;}
+
+    public void setFirst(T newValue) {first = newValue;}
+    public void setSecond(T newValue) {second = newValue;}
+}
+\end{Java}
+
+类似的，可以定义多个字段类型:
+
+\begin{Java}
+public class Pair<T,U> {...}
+\end{Java}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            Java 库使用变量 E 表示集合的元素类型，K/V 分别便是键和值。T 表示任意类型。
+        \end{notice}
+    }
+}
+
+\subsubsection{泛型方法}
+
+在泛型方法中，需要把参数类型放在修饰符后面，返回值类型前面。定义一个带参数类型的方法:
+
+\begin{Java}
+public static <T> T getMiddle(T... a) {...}
+\end{Java}
+
+在调用泛型方法时，可以明确参数类型，也可以不写参数类型，因为编译器会自动推导出参数类型。
+
+\begin{Java}
+String middle = ArrayAlg.<String>getMiddle("John","Q.");
+String middle = ArrayAlg.getMiddle("John","Q.");
+\end{Java}
+
+\subsubsection{类型变量的限定}
+
+有时，类或方法需要对类型变量加以约束，比如我们希望类型 T 实现了 \texttt{compareTo} 方法，可以这样写:
+
+\begin{Java}
+public static <T extends Comparable> T min(T[] a) ...
+\end{Java}
+
+如果需要多个限制条件，可以这样写:
+
+\begin{Java}
+T extends Comparable & Serializable
+\end{Java}
+
+\subsection{泛型代码与虚拟机}
+
+虚拟机没有泛型类型对象，所有对象都属于普通类。
+
+\subsubsection{类型擦除}
+
+无论如何定义一个泛型类型，都会自动提供一个相应的原始类型。这个原始类型的名字就是去掉类型参数后的泛型类型名。类型变量会被擦除，并替换为限定类型(或者，无限定变量被替换为 Object)。
+
+例如:
+\begin{Java}
+public class Pair {
+    private Object first;
+    private Object second;
+
+    public Pair() {first = null; second = null;}
+    public Pair(Object first, Object second) {this.first = first; this.second = second;}
+
+    public Object getFirst() {return first;}
+    public Object getSecond() {return second;}
+
+    public void setFirst(Object newValue) {first = newValue;}
+    public void setSecond(Object newValue) {second = newValue;}
+}
+\end{Java}
+
+因为 T 没有被限定，所以被替换为了 \texttt{Object}。如果有限定，比如 \texttt{Comparable}。那么类型将不是 \texttt{Object} 而是 \texttt{Comparable}。
+
+\subsubsection{转换泛型表达式}
+
+编写一个泛型方法调用时，如果擦除了返回类型，编译器会插入强制类型转换。例如:
+\begin{Java}
+Pair<Employee> buddies = ...;
+Employee buddy = buddies.getFirst();
+\end{Java}
+
+\texttt{getFirst} 擦除类型后的返回类型是 \texttt{Object}。编译器自动插入转换到 \texttt{Employee} 的强制类型转换。
+
+\subsubsection{转换类型方法}
+
+在类型擦除的过程中，会遇到很多复杂的问题。比如，我在代码中使用了 \texttt{super} 调用父类的方法，而类型擦除后，我们无法知道这个类型的父类是谁，也即无法保持多态。
+
+Java 虚拟机会使用名为桥方法的方式重写或者引用等方式保持多态。总而言之，虚拟机帮你避免类型擦除与多态发生冲突。
+
+对于 Java 泛型，我们需要记住以下几个事实:
+\begin{itemize}
+    \item 虚拟机中没有泛型，只有普通的类和方法。
+    \item 所有类型参数都会被替代。
+    \item 会合成桥方法保持多态。
+    \item 为了保持安全，必要时插入强制类型转换。
+\end{itemize}
+
+\subsection{限制与局限性}
+
+\subsubsection*{不能用基本类型实例化类型参数}
+
+基本类型不能作为类型参数，应该 使用对应的包装器，如 \texttt{double -> Double}。这是因为 \texttt{Object} 无法存储 \texttt{double} 值。
+
+\subsubsection*{运行时类型查询只适用于原始类型}
+
+虚拟机中的对象总有一个特定的非泛型类型。因此，所有类型查询只产生原始类型:
+
+\begin{Java}
+if (a instanceof Pair<String>) //Error
+if (stringPair.getClass() == employeePair.getClass()) // equal
+\end{Java}
+
+\subsubsection*{不允许创建参数化类型的数组}
+
+例如:
+\begin{Java}
+var table = new Pair<String>[10];
+\end{Java}
+
+擦除之后，\texttt{table} 类型是 \texttt{Pair[]}，转换为 \texttt{Object[]}。
+
+数组会记住它的元素类型，如果试图存储其他类型的元素，会抛出错误。
+
+尽管可以通过数组存储的检查，但仍会导致一个类型错误。因此不允许创建参数化类型的数组。
+
+\subsubsection*{Varargs 警告}
+
+varargs 拆开来: var args。即多参数警告。具体为向参数个数可变的方法传递泛型类型的实例。
+
+在传递参数个数可变的实例时，实际上传的就是参数数组。这就违背了之前的规则，但这种情况下，我们只会得到一个警告，而不是错误。
+
+可以使用添加注解 \texttt{@SupportWarnings("unchecked")} 的方式消除警告。Java7 中可以使用 \texttt{@SafeVarargs}。
+
+\subsubsection*{不能实例化类型变量}
+
+考虑这样一个代码:
+\begin{Java}
+public Pair() {first = new T(); second = new T();} // Error
+\end{Java}
+
+由于 \texttt{T()} 会被转换为 \texttt{Object()} 所以上述代码肯定会出问题。
+
+同样的也不能实例化泛型数组。
+
+\subsubsection*{其他缺陷}
+
+还有一些不是很常见的缺陷:
+
+\begin{itemize}
+    \item 不能在静态字段或方法中引用类型变量。
+    \item 不能抛出或捕获泛型类的实例。
+    \item 可以取消对检查型异常的检查。
+    \item 注意擦除后的冲突。
+\end{itemize}
+
+\subsection{泛型类型的继承规则}
+
+只需要记住，无论 S 与 T 有什么继承关系，Pair<S> 与 Pair<T> 都没有任何关系。也即泛型类型之间没有任何关系。
+
+\subsection{通配符类型}
+
+\subsubsection{通配符上下界}
+
+在通配符类型中，允许类型参数发生变化。
+
+\begin{Java}
+Pair <? extends Employee>
+\end{Java}
+
+表示任何泛型 \texttt{Pair} 类型，它的类型参数是 \texttt{Employee} 的子类，如 \texttt{Pair<Manager>}。
+
+其中 ? 代表类型不限制，\texttt{extends} 关键字则制定了类型的上界。类似的，还有 \texttt{super} 关键字，限制为所有的超类型。
+
+\subsubsection{无限定通配符}
+
+无限定通配符就是 <?> 代表不确定类型\footnote{参考文献:\url{https://blog.csdn.net/yu_duan_hun/article/details/123975211}}。
+
+\newpage

@@ -1,0 +1,184 @@
+\section{Wrapper 包装类}
+
+String 对八个基本数据类型提供了对应的包装类，根据类型我分为了以下几种:
+
+\begin{itemize}
+    \item 整型: Byte, Short, Integer, Long
+    \item 浮点型: Float, Double
+    \item 布尔: Boolean
+    \item 字符: Character
+\end{itemize}
+
+其中整型方法类似，布尔型没什么好讲的。包装类是装饰器模式的一种应用，部分人也将 Wrapper 等价于装饰器模式。
+
+\subsection{Integer 数值型包装类}
+
+\begin{Java}
+public final class Integer extends Number 
+    implements Comparable<Integer>, Constable, ConstantDesc {}
+\end{Java}
+
+\subsubsection{构造对象}
+
+最简单的，使用构造函数，Integer 的构造函数有两个:
+
+\begin{Java}
+@Deprecated(since="9", forRemoval = true)
+public Integer(int value) {
+    this.value = value;
+}
+
+@Deprecated(since="9", forRemoval = true)
+public Integer(String s) throws NumberFormatException {
+    this.value = parseInt(s, 10);
+}
+\end{Java}
+
+注意，这两个构造函数虽然可以用，但都被舍弃了，推荐使用静态的 ValueOf 方法。类似的有两类静态方法：
+
+\begin{Java}
+@IntrinsicCandidate
+public static Integer valueOf(int i) {
+    if (i >= IntegerCache.low && i <= IntegerCache.high)
+        return IntegerCache.cache[i + (-IntegerCache.low)];
+    return new Integer(i);
+}
+
+public static Integer valueOf(String s, int radix) throws NumberFormatException {
+    return Integer.valueOf(parseInt(s,radix));
+}
+
+public static Integer valueOf(String s) throws NumberFormatException {
+    return Integer.valueOf(parseInt(s, 10));
+}
+\end{Java}
+
+其中传入 int 型的方法做了一些优化，缓存了-128—127的Integer值，如遇到[-128,127]范围的值需要转换为Integer时会直接从IntegerCache中获取\footnote{IntegerCache 拓展: \url{https://blog.csdn.net/cockroach02/article/details/88857551}}。IntegerCache 存储在 JVM 方法区运行时常量池中。另外 @IntrinsicCandidate 注解表示在虚拟机中做了优化。
+
+传入 String 类型的方法，除了可增加一个参数: 基数外，调用了 parseInt 方法。 parseInt 的工作很简单：检查字符串是否合法并进行转换。
+
+\subsubsection{类型转换}
+
+首先是 toString 函数，Integer 提供了各种各样的转换为字符串的方法，这里不一一说明:
+
+\begin{Java}
+// 全能款：转为为各种 String 类型
+public static String toString(int i, int radix) { ... }
+public static String toUnsignedString(int i, int radix) { ... }
+// 便携款：相当于制定了 radix
+public static String toHexString(int i) { ... }
+......
+\end{Java}
+
+其次是 parse 函数，用于将各种字符串或字符序列进行解析，注意返回的是 int 类型的值:
+
+\begin{Java}
+// 解析 String
+public static int parseInt(String s, int radix) { ... }
+public static int parseUnsignedInt(String s, int radix) { ... }
+// 解析 序列
+public static int parseInt(CharSequence s, int beginIndex, int endIndex, int radix) throws NumberFormatException {}
+\end{Java}
+
+最后是 Value 函数，用于转换为其他类型的整型/浮点值:
+
+\begin{Java}
+// 本质就是强制类型转换，其他类型一样
+public long longValue() { return (long)value; }
+\end{Java}
+
+\subsubsection{数学运算}
+
+Integer 提供了基本的数学运算函数，本质上和直接使用符号运算效果相同:
+
+\begin{Java}
+// 比较运算
+public static int compare(int x, int y) {
+    return (x < y) ? -1 : ((x == y) ? 0 : 1);
+}
+// 除法运算
+public static int divideUnsigned(int dividend, int divisor) {
+    return (int)(toUnsignedLong(dividend) / toUnsignedLong(divisor));
+}
+// 取余运算
+public static int remainderUnsigned(int dividend, int divisor) {
+    return (int)(toUnsignedLong(dividend) % toUnsignedLong(divisor));
+}
+\end{Java}
+
+另外提供了一些好用位运算方法:
+
+\begin{Java}
+// 最高的一位，理解为比数字小的最大 2 的整数倍，例如 17 -> 16  7-> 4
+public static int highestOneBit(int i) {
+    return i & (MIN_VALUE >>> numberOfLeadingZeros(i));
+}
+// 最低的一位，解释起来比较麻烦，自行理解
+public static int lowestOneBit(int i) { 
+    return i & -i;
+}
+// 前置 0 的个数，注意占 32 bit
+@IntrinsicCandidate
+public static int numberOfLeadingZeros(int i) { ... }
+// 后置 0 的个数
+@IntrinsicCandidate
+public static int numberOfTrailingZeros(int i) { ... }
+// 二进制中 1 的个数
+@IntrinsicCandidate
+public static int bitCount(int i) { ... }
+\end{Java}
+
+\subsubsection{Float 浮点型}
+
+Float 大部分方法和 Integer 类似，这里只说点特别的:
+
+\begin{Java}
+// 判断是否是 NaN (Not a Number)
+public static boolean isNaN(float v) {
+    return (v != v);
+}
+// 判断是否无穷
+public static boolean isInfinite(float v) { ... }
+\end{Java}
+
+\subsection{Character 字符型包装类}
+
+\subsubsection{常用函数}
+
+判断型常用函数:
+
+\begin{Java}
+// 判断大小写字符
+public static boolean isLowerCase(char ch) { ... }
+public static boolean isUpperCase(char ch) { ... }
+// 判断数字还是字符
+public static boolean isDigit(char ch) { ... }
+public static boolean isLetter(char ch) { ... }
+public static boolean isLetterOrDigit(char ch) { ... }
+// 判断是否为空
+public static boolean isWhitespace(char ch) { ... }
+\end{Java}
+
+转换型常用函数
+
+\begin{Java}
+public static char toLowerCase(char ch) { ... }
+public static char toUpperCase(char ch) { ... }
+\end{Java}
+
+\subsection{自动装箱与拆箱机制}
+
+包装类提供的语法糖自然是自动装箱与拆箱机制，下面是编译器自动帮我们完成的事情:
+
+\begin{Java}
+// ========== 自动装箱 ==========
+Integer a = 1;
+Integer a = Integer.valueOf(1); // 实际过程
+// ========== 自动拆箱 ==========
+int b = a;
+int b = a.intValue();           // 实际过程
+int c = a + a;
+int c = a.intValue() + a.intValue();    // 实际过程
+\end{Java}
+
+\newpage

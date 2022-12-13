@@ -1,0 +1,227 @@
+\section{异常，断言和日志}
+
+\subsection{错误处理}
+
+\subsubsection{异常分类}
+
+在 Java 程序设计语言中，异常对象都是派生于 \texttt{Throwable} 类的一个实例对象。
+
+\begin{figure}[H]
+    \scriptsize
+    \centering
+    \begin{tikzpicture}[scale = 1]
+        \begin{class}[text width=2cm]{Throwable}{0,0}
+        \end{class}
+        \begin{class}[text width=2cm]{Error}{-2,-2}
+            \inherit{Throwable}
+        \end{class}
+        \begin{class}[text width=2cm]{Exception}{2,-2}
+            \inherit{Throwable}
+        \end{class}
+        \begin{class}[text width=2cm]{IOException}{0,-4}
+            \inherit{Exception}
+        \end{class}
+        \begin{class}[text width=2.2cm]{RuntimeException}{4,-4}
+            \inherit{Exception}
+        \end{class}
+    \end{tikzpicture}
+    \caption{Java 中的异常层次结构}
+    \label{fig:Java 中的异常层次结构}
+\end{figure}
+
+\texttt{Exception} 派生的两个分支需要重点关注，一般的规则是: 由编程错误导致的异常属于 \texttt{RuntimeException}；如果程序本省没问题，但由于 I/O 错误这类问题导致的异常属于其他异常。
+
+Java 语言规范将派生于 \texttt{Error} 类或 \texttt{RuntimeException} 类的所有异常称为\textit{非检查型}(unchecked)异常，所有其他异常称为\textit{检查型}(checked)异常。编译器将检查你是否为所有的检查型异常提供了异常处理器。
+
+\subsubsection{声明检查型异常}
+
+如果遇到了无法处理的情况，Java 方法可以抛出一个异常。方法不仅需要告诉编译器将要返回什么值，还要告诉编译器可能发生什么错误。比如在读取文件时，可能文件不存在，或者文件内容为空。
+
+要在方法的首部指出这个方法可能抛出一个异常:
+\begin{Java}
+public FileInputStream(String name) throws FileNotFoundException
+\end{Java}
+
+如果发生了糟糕的情况，构造器将不会重新初始化一个对象，而是抛出对应的错误，并搜索如何处理错误。
+
+不需要声明 Java 的内部错误，即从 Error 继承的异常。任何程序代码都有可能抛出那些异常，比如数组下标问题。
+
+\subsubsection{创建异常类}
+
+如果有必要，我们可以定义一个派生自 \texttt{Exception} 或其子类的异常类。自定义的这个类应该包含两个构造器，一个默认构造器，一个包含详细描述信息的构造器(超类 \texttt{Throwable} 的 \texttt{toString} 方法会返回一个字符串，其中包含这个详细信息。)。
+
+\begin{Java}
+class FileFormatException extends IOException {
+    public FileFormatException() {}
+    public FileFormatException(String gripe) {
+        super(gripe);
+    }
+}
+\end{Java}
+
+\subsection{捕获异常}
+\subsubsection{捕获异常}
+
+如果发生了某个异常，但没有在任何地方捕获这个异常，程序就会终止。想要捕获一个异常，就需要 \texttt{try/catch} 语句。异常语句很好理解，不再赘述，下面给出基本语法:
+
+\begin{Java}
+try {
+    code
+}
+catch (FileNotFoundException | UnknownHostException e) {
+    XXX
+}
+catch (IOException e) {
+    XXX
+}
+finally {
+    XXX
+}
+\end{Java}
+
+介绍一个特殊的方法 \texttt{initCause} 这个方法是对异常来进行包装的。目的就是为了出了问题的时候追根究底。举个例子，在底层中有一个异常 A 被捕获到后进行了处理，这导致上层抛出了异常 B，虽然此时捕获到了 B 异常，但是只能说明 B 出现了异常，而不知道是什么导致了 B 异常。
+
+如果此时我们使用 \texttt{initCause} 方法对异常进行包装，我们就可以通过 \texttt{getCause} 方法获得原始的 A 异常。
+
+\begin{Java}
+class A {
+    try {
+        ...
+    } catch(AException a) {
+        BException b = new BEexception();
+        b.initCause(a);
+        throw b;
+    }
+}
+...
+class B {
+    try {
+        ...
+    } catch(BException b) {
+        b.getCause(); //得到导致B异常的原始异常
+    }
+}
+\end{Java}
+
+\subsubsection{\texttt{try-with-Resources} 语句}
+
+\texttt{try-with-Resources} 语句最简单的形式为:
+
+\begin{Java}
+try (Resource res = ...) {
+    work with res
+}
+\end{Java}
+
+\texttt{try} 块退出时，会自动调用 \texttt{res.close()}。下面给出一个典型的例子:
+
+\begin{Java}
+try (var in = new Scanner (
+    new FileInputStream("/usr/share/dict/words"), StandardCharsets.UTF_8))
+{
+    while (in.hasNext())
+        System.out.println(in.next());
+}
+\end{Java}
+
+这个块正常退出时，或者存在异常时，都会自动调用 \texttt{in.close()} 方法，就好像使用了 \texttt{finally} 块一样。
+
+\subsubsection{处理异常的技巧}
+
+\begin{enumerate}
+    \item 异常不能代替测试: 捕获并抛出异常消耗的资源远高于简单的测试。
+    \item 不要将语句分装在多个 try 语句块中，这会导致代码块激增。
+    \item 充分利用异常层次结构，派生合适的异常子类。
+    \item 不要压制异常，即使异常出现的概率很低。
+    \item 检查错误时，``苛刻''要比放任更好。比起返回 null，直接报错往往更好。
+    \item 不要羞于传递异常，如果不是必要，传递比自己捕获往往更合适。
+\end{enumerate}
+
+\subsection{使用断言}
+
+\subsubsection{断言的概念}
+
+断言机制允许在\textit{代码测试}期间向代码中插入一些检查，而在生产代码中会\textit{自动删除}这些检查。Java 语言引入了关键字 assert。
+
+\begin{Java}
+assert condition;
+assert condition:expression;
+\end{Java}
+
+其中，表达式将传给 \texttt{AssertionError} 对象，以便以后显示。
+
+需要重申的是，断言仅在测试阶段起作用。而且断言往往是针对致命性错误。因此在程序设计中不可以过于依赖断言。
+
+\subsubsection{启用很禁用断言}
+
+默认情况下，断言是禁用的。可以在运行程序时，使用 \texttt{-enableassertions -ea} 选择启用断言。
+
+也可以指定某个类或某个包启用断言:
+\begin{Java}
+java -ea:MyClass -ea:com.company.lib MyApp
+\end{Java}
+
+也可以使用 \texttt{-disableassertions -da} 选择禁用断言。
+
+\subsection{日志}
+
+最简单的 debug 方式莫过于使用 \texttt{System.out.print} 观察程序行为，但是在我们解决完问题后需要删除这些语句，如果出问题了，还需要新增语句。日志 API 可以很好的解决这个繁琐的过程，该 API 优点如下:
+
+\begin{itemize}
+    \item 可以很容易取消全部日志记录，或者仅仅取消某个级别以下的日志，而且很容易打开日志。
+    \item 日志的代码开销很小，灵活度很高。
+    \item 日志记录可以被定向到控制台，文件等等。
+    \item 日志系统有单独的控制器，可以被格式化。
+\end{itemize}
+
+\subsubsection{使用日志}
+
+简单的日志记录，可以使用全局日志记录器并调用其 \texttt{info} 方法:
+
+\begin{Java}
+Logger.getGlobal().info("File->Open menu item selected");
+\end{Java}
+
+在合适的地方可以通过调用如下函数取消所有日志:
+\begin{Java}
+Logger.getGlobal().setLevel(Level.OFF);
+\end{Java}
+
+可以调用 \texttt{getLogger} 方法创建或获取日志记录器:
+
+\begin{Java}
+private static final Logger myLogger = Logger.getLogger("com.mycompany.myapp");
+\end{Java}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            未被任何变量引用的日志记录器可能会被垃圾回收。为了防止这种情况发生，要像上面的例子中一样，用静态变量存储日志记录器的引用。
+        \end{notice}
+    }
+}
+
+通常有 7 个日志级别: \texttt{SERVER, WARNING, INFO, CONFIG, FINE, FINER, FINEST}
+
+默认情况下，实际只记录前三个级别，也可以设置一个不同的级别:
+
+\begin{Java}
+logger.setLevel(level.FINE);
+\end{Java}
+
+这样，FINE 以及所有更高级别的日志都会被记录。此外还可以通过 \texttt{LEVEL.ALL LEVEL.OFF} 开关所有级别的日志记录。或者指定级别:
+
+\begin{Java}
+logger.log(level.FINE, message);
+\end{Java}
+
+记录日志的最常见用途是记录那些预料之外的异常。可以使用下面两个便利方法在日志记录中包含异常的描述:
+
+\begin{Java}
+void throwing(String className, String methodName, Throwable t);
+void log(Level l, String message, Throwable t);
+\end{Java}
+
+Java 的日志还包含过滤器，处理器等等功能。本人觉得脱了项目谈这些过于抽象，这里省略，请读者自行查阅资料。
+
+\newpage

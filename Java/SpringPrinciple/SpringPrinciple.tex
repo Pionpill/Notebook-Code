@@ -1,0 +1,92 @@
+\documentclass{PionpillNote-book}
+\usetikzlibrary {intersections,through,arrows.meta,graphs,shapes.misc,positioning,shapes.misc,positioning,calc}
+\usetikzlibrary{animations}
+\usetikzlibrary {shapes.geometric}
+\usetikzlibrary {animations}
+\usetikzlibrary {shapes.multipart}
+\usetikzlibrary {positioning}
+\usetikzlibrary {fit,shapes.geometric}
+\usetikzlibrary {automata}
+\usetikzlibrary {quotes}
+\usetikzlibrary {matrix}
+\usetikzlibrary {backgrounds}
+\usetikzlibrary {scopes}
+\usetikzlibrary {calc}
+\usetikzlibrary {intersections}
+\usetikzlibrary {svg.path}
+\usetikzlibrary {decorations}
+\usetikzlibrary {patterns}
+\usetikzlibrary {decorations.pathmorphing}
+\usetikzlibrary {shadows}
+\usetikzlibrary {bending}
+
+\title{Spring Principle}
+\author{
+    Pionpill \footnote{笔名：北岸，电子邮件：673486387@qq.com，Github：\url{https://github.com/Pionpill}} \\
+    本文档为作者学习 Spring 理论时的笔记。\\
+}
+
+\date{\today}
+
+\begin{document}
+
+\pagestyle{plain}
+\maketitle
+
+\noindent\textbf{前言：}
+
+笔者为软件工程系在校本科生，有计算机学科理论基础(操作系统，数据结构，计算机网络，编译原理等)，本人在撰写此笔记时已有 Java 开发经验，基础知识不再赘述。
+
+本书各部分内容及主要参考文献如下:
+\begin{table}[H]
+    \footnotesize
+    \centering
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{l|l|l}
+        \toprule
+        \textbf{部分} & \textbf{内容} & \textbf{主要参考} \\
+        \midrule
+        Spring FrameWork & IoC(beans, context), AOP & 《Spring 揭秘》: 王福强，2009 版 \\
+        Spring MVC & Servlet, MVC & 《看透Spring MVC：源代码分析与实践》：韩路彪，2015 版 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+本文重点是 Spring 原理，入门及实战可以参考网上的一些视频教程。
+
+本人的编写及开发环境如下：
+\begin{itemize}
+    \item Java: Java11
+    \item SpringBoot: 2.7.3
+    \item OS: Windows11 
+    \item MySQL: 8.0.3
+\end{itemize}
+
+\date{\today}
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\setcounter{page}{1} 
+\pagestyle{fancy}
+
+\part{Spring FrameWork}
+\chapter{Spring 的 IoC 容器}
+\import{Parts/Part-FrameWork/Chapter-IoC}{IoC-Basic.tex}
+\import{Parts/Part-FrameWork/Chapter-IoC}{IoC-ServiceProvider.tex}
+\import{Parts/Part-FrameWork/Chapter-IoC}{BeanFactory.tex}
+\import{Parts/Part-FrameWork/Chapter-IoC}{ApplicationContext.tex}
+\chapter{Spring 的 AOP 框架}
+\import{Parts/Part-FrameWork/Chapter-AOP}{AOP-Basic.tex}
+\import{Parts/Part-FrameWork/Chapter-AOP}{AOP-One.tex}
+
+\part{Spring MVC}
+\chapter{Spring MVC 核心组件}
+\import{Parts/Part-MVC/Chapter-Core}{Servlet.tex}
+\import{Parts/Part-MVC/Chapter-Core}{Module.tex}
+
+
+
+\end{document}

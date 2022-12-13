@@ -1,0 +1,175 @@
+\section{Module}
+
+\subsection{Module 简介}
+
+这里主要介绍在 DispatchServlet 中初始化的九大组件，这些组件内部还可能使用到一些子组件。
+
+\subsubsection*{HandlerMapping}
+
+HandlerMapping 的作用是根据 request 找到对应的处理器 Handler 和 Interceptors，HandlerMapping 接口里只有一个公有方法:
+
+\begin{Java}
+@Nullable
+HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception;
+\end{Java}
+
+在 HandlerExecutionChain 里只包含两个主要元素:
+
+\begin{Java}
+private final Object handler;
+private final List<HandlerInterceptor> interceptorList = new ArrayList<>();
+\end{Java}
+
+在纯 Spring MVC 中，多个 HandlerMapping 的搜索顺序需要手动配置。
+
+\subsubsection*{HandlerAdapter}
+
+HandlerAdapter 是用来处理 Handler 的，他有三个主要方法:
+\begin{itemize}
+    \item supports: 判断是否可以使用某个 Handler;
+    \item handle: 使用 handler 干活;
+    \item getLastModified: 获取资源的 Last-Modified。(被废弃！)
+\end{itemize}
+
+\begin{Java}
+public interface HandlerAdapter {
+    boolean supports(Object handler);
+    @Nullable
+    ModelAndView handle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception;
+    @Deprecated
+    long getLastModified(HttpServletRequest request, Object handler);
+}
+\end{Java}
+
+之所以要使用HandlerAdapter是因为Spring MVC中并没有对处理器做任何限制，处理器可以以任意合理的方式来表现，可以是一个类，也可以是一个方法，还可以是别的合理的方式，从handle方法可以看出它是Object的类型。这种模式就给开发者提供了极大的自由。
+
+使用哪个 HandlerAdapter 的过程在 DispatchServlet 的 getHandlerAdapter 方法中，通过遍历素有 Adapter 检查哪个可以处理当前的 Handler：
+
+\begin{Java}
+protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletException {
+    if (this.handlerAdapters != null) {
+        for (HandlerAdapter adapter : this.handlerAdapters) {
+            if (adapter.supports(handler)) {
+                return adapter;
+            }
+        }
+    }
+    throw new ServletException(XXX);
+}
+\end{Java}
+
+\subsubsection*{HandlerExceptionResolver}
+
+HandlerExceptionResolver 根据异常设置ModelAndView，之后再交给render方法进行渲染。HandlerExceptionResolver 是在 Render 之前工作的，只是用于解析对请求做处理的过程中产生的异常。
+
+\begin{Java}
+public interface HandlerExceptionResolver {
+    @Nullable
+    ModelAndView resolveException(HttpServletRequest request, HttpServletResponse response, @Nullable Object handler, Exception ex);
+}
+\end{Java}
+
+HandlerExceptionResolver结构非常简单，只有一个方法，只需要从异常解析出Model-AndView就可以了。具体实现可以维护一个异常为key、View为value的Map，解析时直接从Map里获取View，如果在Map里没有相应的异常可以返回默认的View。
+
+\subsubsection*{ViewResolver}
+
+ViewResolver用来将String类型的视图名和Locale解析为View类型的视图，ViewResolve接口也非常简单，只有一个方法，定义如下：
+
+\begin{Java}
+public interface ViewResolver {
+    @Nullable
+    View resolveViewName(String viewName, Locale locale) throws Exception;
+}
+\end{Java}
+
+View是用来渲染页面的，通俗点说就是要将程序返回的参数填入模板里，生成html（也可能是其他类型）文件。这里有两个关键的问题：使用哪个模板？用什么技术填入参数？
+
+ViewResolver需要找到渲染所用的模板和所用的技术（也就是视图的类型）进行渲染，具体的渲染过程则交给不同的视图自己完成。我们最常使用的UrlBasedViewResolver系列的解析器都是针对单一视图类型进行解析的，只需要找到使用的模板就可以了，比如，InternalResourceViewResolver只针对jsp类型的视图。
+
+\subsubsection*{RequestToViewNameTranslator}
+
+ViewResolver是根据ViewName查找View，但有的Handler处理完后并没有设置View也没有设置viewName，这时就需要从request获取viewName了，而如何从request获取view-Name就是RequestToViewNameTranslator要做的事情。RequestToViewNameTranslator接口定义如下：
+
+\begin{Java}
+public interface RequestToViewNameTranslator {
+	@Nullable
+	String getViewName(HttpServletRequest request) throws Exception;
+}
+\end{Java}
+
+RequestToViewNameTranslator在Spring MVC容器里只可以配置一个，所以所有request到ViewName的转换规则都要在一个Translator里面全部实现。
+
+\subsubsection*{LocalResolver}
+
+解析视图需要两个参数：一个是视图名，另一个是Locale。视图名是处理器返回的（或者使用RequestToViewNameTranslator解析的默认视图名），Locale是从哪里来的呢？这就是LocaleResolver要做的事情。
+
+LocaleResolver 用于从 request 解析出 Locale。Locale就是zh-cn之类，表示一个区域。有了这个就可以对不同区域的用户显示不同的结果，这就是i18n（国际化）的基本原理，LocaleResolver是i18n的基础。LocaleResolver接口定义如下：
+
+\begin{Java}
+public interface LocaleResolver {
+    Locale resolveLocale(HttpServletRequest request);
+    void setLocale(HttpServletRequest request, @Nullable HttpServletResponse response, @Nullable Locale locale);
+}
+\end{Java}
+
+接口定义非常简单，只有2个方法，分别表示：从request解析出Locale和将特定的Locale设置给某个request。容器会将localeResolver设置到request的attribute中，代码如下：
+
+\begin{Java}
+request.setAttribute(LOCALE_RESOLVER_ATTRIBUTE, this.localeResolver);
+\end{Java}
+
+Spring MVC中主要在两个地方用到了Locale：
+\begin{itemize}
+    \item ViewResolver 解析视图的时候。
+    \item 使用到国际化资源或者主题的时候。
+\end{itemize}
+
+\subsubsection*{ThemeResolver}
+
+ThemeResolver从名字就可以看出是解析主题用的。ThemeResolver接口定义如下：
+
+\begin{Java}
+public interface ThemeResolver {
+    String resolveThemeName(HttpServletRequest request);
+    void setThemeName(HttpServletRequest request, @Nullable HttpServletResponse response, @Nullable String themeName);
+}
+\end{Java}
+
+不同的主题其实就是换了一套图片、显示效果以及样式等。Spring MVC中一套主题对应一个properties文件，里面存放着跟当前主题相关的所有资源，如图片、css样式表等。
+
+Spring MVC中跟主题有关的类主要有ThemeResolver、ThemeSource和Theme。ThemeResolver的作用是从request解析出主题名; ThemeSource则是根据主题名找到具体的主题; Theme是ThemeSource找出的一个具体的主题，可以通过它获取主题里具体的资源。
+
+\subsubsection*{MultipartResolver}
+
+MultipartResolver用于处理上传请求，处理方法是将普通的request包装成MultipartHttpServletRequest，后者可以直接调用getFile方法获取到File，如果上传多个文件，还可以调用getFileMap得到FileName→File结构的Map，这样就使得上传请求的处理变得非常简单。
+
+当然，这里做的其实是锦上添花的事情，如果上传的请求不用MultipartResolver封装成MultipartHttpServletRequest，直接用原来的request也是可以的，所以在Spring MVC中此组件没有提供默认值。MultipartResolver定义如下：
+
+\begin{Java}
+public interface MultipartResolver {
+    boolean isMultipart(HttpServletRequest request);
+    MultipartHttpServletRequest resolveMultipart(HttpServletRequest request) throws MultipartException;
+    void cleanupMultipart(MultipartHttpServletRequest request);
+}
+\end{Java}
+
+这里一共有三个方法，作用分别是判断是不是上传请求、将request包装成MultipartHttpServletRequest、处理完后清理上传过程中产生的临时资源。对上传请求可以简单地判断是不是multipart / form-data类型。
+
+\subsubsection*{FlashMapManager}
+
+FlashMap 主要用在 redirect 中传递参数。而FlashMapManager是用来管理FlashMap的。
+
+\begin{Java}
+public interface FlashMapManager {
+    @Nullable
+    FlashMap retrieveAndUpdate(HttpServletRequest request, HttpServletResponse response);
+    void saveOutputFlashMap(FlashMap flashMap, HttpServletRequest request, HttpServletResponse response);
+}
+\end{Java}
+
+retrieveAndUpdate方法用于恢复参数，并将恢复过的和超时的参数从保存介质中删除；saveOutputFlashMap用于将参数保存起来。
+
+默认实现是 SessionFlashMapManager，它是将参数保存到session中。
+
+\subsection{HandlerMapping}
+

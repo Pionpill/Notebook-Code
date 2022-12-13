@@ -1,0 +1,256 @@
+\section{ApplicationContext}
+
+ApplicationContext除了拥有BeanFactory支持的所有功能之外，还进一步扩展了基本容器的功能，包括BeanFactoryPostProcessor、BeanPostProcessor以及其他特殊类型bean的自动识别、容器启动后bean实例的自动初始化、国际化的信息支持、容器内事件发布等。
+
+\subsection{统一资源加载策略}
+
+\subsubsection{Spring 中的 Resource}
+
+Spring框架内部使用 Resource 接口作为所有资源的抽象和访问接口。
+
+Resource接口可以根据资源的不同类型，或者资源所处的不同场合，给出相应的具体实现。Spring框架在这个理念的基础上，提供了一些实现类:
+
+\begin{itemize}
+    \item \textbf{ByteArrayResource}: 将字节（byte）数组提供的数据作为一种资源进行封装，如果通过InputStream形式访问该类型的资源，该实现会根据字节数组的数据，构造相应的ByteArrayInputStream并返回。
+    \item \textbf{ClassPathResource}: 该实现从Java应用程序的ClassPath中加载具体资源并进行封装，可以使用指定的类加载器（ClassLoader）或者给定的类进行资源加载。
+    \item \textbf{FileSystemResource}: 对java.io.File类型的封装，所以，我们可以以文件或者URL的形式对该类型资源进行访问，只要能跟File打的交道，基本上跟FileSystemResource也可以。
+    \item \textbf{UrlResource}: 通过java.net.URL进行的具体资源查找定位的实现类，内部委派URL进行具体的资源操作。
+    \item \textbf{InputStreamResource}: 将给定的InputStream视为一种资源的Resource实现类，较为少用。
+\end{itemize}
+
+如果以上资源实现还不能满足要求，那么我们可以根据相应场景给出自己的实现，只需要实现 \texttt{Resource} 接口，通常继承 \texttt{AbstractResource} 即可。
+
+\subsubsection{\texttt{ResourceLoader}}
+
+资源是有了，但如何去查找和定位这些资源，则应该是 \texttt{ResourceLoader} 的职责所在。\texttt{ResourceLoader} 接口是资源查找定位策略的统一抽象。
+
+\begin{Java}
+public interface ResourceLoader {   
+    String CLASSPATH_URL_PREFIX = ResourceUtils.CLASSPATH_URL_PREFIX;   
+    Resource getResource(String location);   
+    ClassLoader  getClassLoader();  
+} 
+\end{Java}
+
+其中最主要的就是 \texttt{getResource} 方法，通过它，我们就可以根据指定的资源位置，定位到具体的资源实例。
+
+Spring 提供了几个 \texttt{getResource} 的实现类，关系如下:
+
+\begin{figure}[H]
+    \scriptsize
+    \centering
+    \begin{tikzpicture}[scale = 1]
+        \begin{interface}[text width=2cm]{Resource}{0,0}    
+        \end{interface}
+        \begin{interface}[text width=2cm]{ResourceLoader}{5,0}    
+        \end{interface}
+        \begin{class}[text width=3cm]{DefaultResoourceLoader}{2,-2}    
+            \implement{ResourceLoader}
+        \end{class}
+        \begin{interface}[text width=3cm]{ResourcePatternResolver}{8,-2}    
+            \implement{ResourceLoader}
+        \end{interface}
+        \begin{class}[text width=3cm]{FileSystemResourceLoader}{2,-4}    
+            \inherit{DefaultResoourceLoader}
+        \end{class}
+        \begin{interface}[text width=5cm]{PathMatchingResourcePatternResolver}{8,-4}    
+            \inherit{ResourcePatternResolver}
+        \end{interface}
+        \unidirectionalAssociation{ResourceLoader}{}{}{Resource}
+    \end{tikzpicture}
+    \caption{ResourceLoader 类层次图}
+    \label{fig:ResourceLoader 类层次图}
+\end{figure}
+
+\noindent\textbf{DefaultResourceLoader}
+
+\texttt{DefaultResourceLoader} 顾名思义，是 \texttt{ResourceLoader} 是默认实现类，该类的默认查找处理逻辑如下:
+
+\begin{itemize}
+    \item 检查资源路径是否以 classpath: 前缀打头，如果是，则尝试构造\texttt{ClassPathResource} 类型资源并返回。
+    \item 否则，(a) 尝试通过URL，根据资源路径来定位资源，如果没有抛出MalformedURLException，有则会构造UrlResource类型的资源并返回；(b)如果还是无法根据资源路径定位指定的资源，则委派getResourceByPath(String)方法来定位，DefaultResourceLoader的getResourceByPath(String)方法默认实现逻辑是，构造ClassPathResource类型的资源并返回。
+\end{itemize}
+
+\texttt{FileSystemResourceLoader} 覆写了 \texttt{getResourceByPath} 方法，使之从文件系统加载资源并以 \texttt{FileSystemResource} 类型返回。这样，我们就可以取得预想的资源类型。
+
+\noindent\textbf{ResourcePatternResolver}
+
+\texttt{ResourceLoader} 每次只能根据资源路径返回确定的单个 \texttt{Resource} 实例，而 \texttt{ResourcePa tternResolver} 则可以根据指定的资源路径匹配模式，每次返回多个Resource实例。
+
+\texttt{ResourceLoader} 最常用的实现是 \texttt{PathMatchingResourcePatternResolver}。
+
+\subsubsection{\texttt{ApplicationContext} 与 \texttt{ResourceLoader}}
+
+\texttt{ApplicationContext} 继承了 \texttt{ResourcePatternResolver} 下面是其继承逻辑，有了前面的铺垫，结合下图可以很清楚地对 \texttt{ApplicationContext} 有一个更完善的认知。
+
+\begin{figure}[H]
+    \scriptsize
+    \centering
+    \begin{tikzpicture}[scale = 1]
+        \begin{interface}[text width=2cm]{ResourceLoader}{0,0}
+        \end{interface}
+        \begin{interface}[text width=3cm]{ResourcePatternResolver}{5,-2}
+            \inherit{ResourceLoader}
+        \end{interface}
+        \begin{interface}[text width=3cm]{ApplicationContext}{5,-4}
+            \inherit{ResourcePatternResolver}
+        \end{interface}
+        \begin{interface}[text width=3cm]{DefaultResourceLoader}{0,-4}
+            \implement{ResourceLoader}
+        \end{interface}
+        \begin{interface}[text width=4cm]{ConfigurableApplicationContext}{5,-6}
+            \inherit{ApplicationContext}
+        \end{interface}
+        \begin{class}[text width=6cm]{AbstractApplicationContext}{0,-8}
+            \inherit{DefaultResourceLoader}
+            \implement{ConfigurableApplicationContext}
+            \operation{getResourcePatternResolver():ResourcePatternResolver}
+        \end{class}
+        \begin{class}[text width=4cm]{ConfigurableApplicationContext}{8,-8}
+            \implement{ResourcePatternResolver}
+        \end{class}
+        \aggregation{AbstractApplicationContext}{}{}{ConfigurableApplicationContext}
+    \end{tikzpicture}
+    \caption{ApplicationContext 继承关系}
+    \label{fig:ApplicationContext 继承关系}
+\end{figure}
+
+\subsection{容器内部事件发布}
+
+Spring的 \texttt{ApplicationContext} 容器提供的容器内事件发布功能，是通过提供一套基于Java  SE标准自定义事件类而实现的。为了更好地了解这组自定义事件类，我们可以先从Java SE的标准自定义事件类实现的推荐流程说起。
+
+\subsubsection{自定义事件发布}
+
+Java SE提供了实现自定义事件发布（Custom Event publication）功能的基础类，即 java.util. EventObject 类和 java.util.EventListener 接口。所有的自定义事件类型可以通过扩展 \texttt{EventObje ct} 来实现，而事件的监听器则扩展自 \texttt{EventListener}。
+
+我们可以通过扩展 \texttt{EventObject} 类来实现自定义的事件类型:
+
+\begin{Java}
+public class MethodExecutionEvent extends EventObject {   
+    private static final long serialVersionUID = -71960369269303337L;   
+    private String methodName;   
+    public MethodExecutionEvent(Object source) {     
+        super(source);    
+    }    
+    public MethodExecutionEvent(Object source,String methodName)   {      
+        super(source);      
+        this.methodName = methodName;   
+    }    
+    public String getMethodName() {     
+        return  methodName;    
+    }    
+    public void setMethodName(String methodName) {     
+        this.methodName = methodName;   
+    }  
+}
+\end{Java}
+
+当该类型的事件发布之后，相应的监听器即可对该类型的事件进行处理。如果需要，自定义事件类可以根据情况提供更多信息，不用担心自定义事件类的“承受力”。
+
+\textbf{实现针对自定义事件类的事件监听器接口}。自定义的事件监听器需要在合适的时机监听自定义的事件，我们可以在方法开始执行的时候发布该事件，也可以在方法执行即将结束之际发布该事件。
+
+\begin{Java}
+public interface MethodExecutionEventListener extends EventListener {   
+    // 处理方法开始执行的时候发布的MethodExecutionEvent事件   
+    void onMethodBegin(MethodExecutionEvent evt);   
+    // 处理方法执行将结束时候发布的MethodExecutionEvent事件  
+    void onMethodEnd(MethodExecutionEvent evt);
+}
+\end{Java}
+
+\textbf{组合事件类和监听器，发布事件}。有了自定义事件和自定义事件监听器，剩下的就是发布事件，然后让相应的监听器监听并处理事件了。通常情况下，我们会有一个事件发布者（EventPublisher），它本身作为事件源，会在合适的时间点，将相应事件发布给对应的事件监听器。
+
+\begin{Java}
+public class MethodExeuctionEventPublisher { 
+    private List<MethodExecutionEventListener> listeners = new ArrayList<MethodExecutionEventListener>();  
+    
+    public void methodToMonitor()   {      
+        MethodExecutionEvent event2Publish = new  MethodExecutionEvent(this,"methodToMonitor");      
+        publishEvent(MethodExecutionStatus.BEGIN,event2Publish);  
+        //  执行实际的方法逻辑    
+        //  ...      
+        publishEvent(MethodExecutionStatus.END,event2Publish);    
+    }  
+
+    protected void publishEvent(MethodExecutionStatus status, MethodExecutionEvent methodExecutionEvent) {     
+        List<MethodExecutionEventListener> copyListeners = new ArrayList<MethodExecutionEventListener>(listeners);      
+        for(MethodExecutionEventListener  listener:copyListeners) {        
+            if(MethodExecutionStatus.BEGIN.equals(status))          
+                listener.onMethodBegin(methodExecutionEvent);        
+            else          
+                listener.onMethodEnd(methodExecutionEvent);      
+        }
+    }
+
+    ......
+
+    public static void main(String[] args) {     
+        MethodExeuctionEventPublisher eventPublisher = new  MethodExeuctionEventPublisher();     
+        eventPublisher.addMethodExecutionEventListener(new SimpleMethodExecutionEventListener()); 
+        eventPublisher.methodToMonitor();    
+    }
+}
+\end{Java}
+
+\subsubsection{Spring 的容器内部事件发布类结构分析}
+
+Spring 的 \texttt{ApplicationContext} 容器内部允许以 \texttt{ApplicationEvent} 的形式发布事件，容器内注册的 \texttt{ApplicationListener} 类型的 bean 定义会被 \texttt{ApplicationContext} 容器自动识别，它们负责监听容器内发布的所有 \texttt{ApplicationEvent} 类型的事件。也就是说，一旦容器内发布 \texttt{ApplicationEvent} 及其子类型的事件，注册到容器的 \texttt{ApplicationListener} 就会对这些事件进行处理。
+
+\begin{itemize}
+    \item \texttt{ApplicationEvent}: Spring容器内自定义事件类型，继承自 \texttt{EventObject} ，它是一个抽象类，需要根据情况提供相应子类以区分不同情况。默认情况下，Spring提供了三个实现。
+    \begin{itemize}
+        \item \texttt{ContextClosedEvent}: 容器在即将关闭的时候发布的事件类型。
+        \item \texttt{ContextRefreshedEvent}: 容器在初始化或者刷新的时候发布的事件类型。
+        \item \texttt{RequestHandledEvent}: Web请求处理后发布的事件。
+    \end{itemize}
+    \item \texttt{ApplicationListener}: 继承自 \texttt{Eve ntListener}。容器启动时，会自动识别并加载 \texttt{EventListener} 类型 bean 定义，一旦容器内有事件发布，将通知这些注册到容器的 \texttt{EventListener}。
+    \item \texttt{ApplicationContext}: 它继承了 \texttt{ApplicationEventPublisher} 接口，担当的就是事件发布者的角色。
+\end{itemize}
+
+\texttt{ApplicationContext} 内部实现比较复杂，这里单独讲一下。\texttt{ApplicationContext} 容器的具体实现类在实现事件的发布和事件监听器的注册方面，并没有亲自处理，而是把这些活儿转包给了一个称作 \texttt{ApplicationEventMulticaster} 的接口。该接口定义了具体事件监听器的注册管理以及事件发布的方法。他有一个抽象子类: \texttt{AbstractApplicationEventMulyicaster}, Spring 提供了一个子类实现: \texttt{SimpleApplicationEventMulticaster}。
+
+因为 \texttt{ApplicationContext} 容器的事件发布功能全部委托给了 \texttt{ApplicationEventMulti caster} 来做，所以，容器启动伊始，就会检查容器内是否存在名称为 \texttt{applicationEventMultic aster} 的 \texttt{ApplicationEventMulticaster} 对象实例。有的话就使用提供的实现，没有则默认初始化一个 \texttt{SimpleApplicationEventMulticaster} 作为将会使用的 \texttt{ApplicationEventMultic aster} 。
+
+\begin{figure}[H]
+    \scriptsize
+    \centering
+    \begin{tikzpicture}[scale = 1]
+        \begin{interface}[text width=6cm]{ApplicationListener}{0,0}
+            \operation{+ void onApplicationEvent (event:ApplicationEvent)}
+        \end{interface}
+        \begin{interface}[text width=7.5cm]{ApplicationEventMulticaster}{0,-2.5}
+            \operation{+ void multicastEvent (event:ApplicationEvent)}
+            \operation{+ void addApplicationListener (listener: ApplicationListener)}
+            \operation{+ void removeApplicationListener (listener: ApplicationListener)}
+            \operation{+ void removeAllListener ()}
+        \end{interface}
+        \begin{class}[text width=5cm]{AbstracrApplicationEventMulticaster}{0,-5.5}
+            \implement{ApplicationEventMulticaster}
+        \end{class}
+        \begin{class}[text width=5cm]{SimpleApplicationEventMulticaster}{0,-7}
+            \inherit{AbstracrApplicationEventMulticaster}
+        \end{class}
+        \begin{class}[text width=3cm]{ApplicationEvent}{7,-0.5}
+        \end{class}
+        \begin{class}[text width=7cm]{AbstractApplicationContext}{9,-3}
+            \attribute{- applicationEventMulticaster:ApplicationEventMulticaster}
+        \end{class}
+        \composition{AbstractApplicationContext}{}{}{ApplicationEventMulticaster}
+        \unidirectionalAssociation{ApplicationEventMulticaster}{}{notify}{ApplicationListener}
+        \unidirectionalAssociation{ApplicationEventMulticaster}{}{publish}{ApplicationEvent}
+        \unidirectionalAssociation{ApplicationListener}{}{recive}{ApplicationEvent}
+    \end{tikzpicture}
+    \caption{Spring 容器内事件发布实现类图}
+    \label{fig:Spring 容器内事件发布实现类图}
+\end{figure}
+
+\subsubsection{Spring 容器内事件发布的应用}
+
+Spring的 \texttt{ApplicationContext} 容器内的事件发布机制，主要用于单一容器内的简单消息通知和处理，并不适合分布式、多进程、多容器之间的事件通知。我们应该在合适的地点、合适的需求分析的前提下，合理地使用Spring提供的 \texttt{ApplicationContext} 容器内的事件发布机制。
+
+要让我们的业务类支持容器内的事件发布，需要它拥有 \texttt{ApplicationEventPublisher} 的事件发布支持。所以，需要为其注入 \texttt{ApplicationEventPublisher} 实例。可以通过如下两种方式为我们的业务对象注入 \texttt{ApplicationEventPublisher} 的依赖。
+
+\begin{itemize}
+    \item \texttt{ApplicationEventPublisherAware}: 在 \texttt{ApplicationContext} 类型的容器启动时，会自动识别该类型的bean定义并将 \texttt{ApplicationContext} 容器本身作为 \texttt{ApplicationEve ntPublisher} 注入当前对象，而 \texttt{ApplicationContext} 容器本身就是一个 \texttt{ApplicationE ventPublisher}。
+    \item \texttt{ApplicationContextAware}: 既然 \texttt{ApplicationContext} 本身就是一个 \texttt{Application EventPublisher}，那么通过 \texttt{ApplicationContextAware} 几乎达到第一种方式相同的效果。
+\end{itemize}

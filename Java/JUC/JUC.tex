@@ -1,0 +1,75 @@
+\documentclass{PionpillNote-book}
+\usetikzlibrary {intersections,through,arrows.meta,graphs,shapes.misc,positioning,shapes.misc,positioning,calc}
+\usetikzlibrary{animations}
+\usetikzlibrary {shapes.geometric}
+\usetikzlibrary {animations}
+\usetikzlibrary {shapes.multipart}
+\usetikzlibrary {positioning}
+\usetikzlibrary {fit,shapes.geometric}
+\usetikzlibrary {automata}
+\usetikzlibrary {quotes}
+\usetikzlibrary {matrix}
+\usetikzlibrary {backgrounds}
+\usetikzlibrary {scopes}
+\usetikzlibrary {calc}
+\usetikzlibrary {intersections}
+\usetikzlibrary {svg.path}
+\usetikzlibrary {decorations}
+\usetikzlibrary {patterns}
+\usetikzlibrary {decorations.pathmorphing}
+\usetikzlibrary {shadows}
+\usetikzlibrary {bending}
+\usetikzlibrary{decorations.pathreplacing}
+
+\title{JUC 并发编程}
+\author{
+    Pionpill \footnote{笔名：北岸，电子邮件：673486387@qq.com，Github：\url{https://github.com/Pionpill}} \\
+    本文档为作者学习 Java 并发时的笔记。\\
+}
+
+\date{\today}
+
+\begin{document}
+
+\pagestyle{plain}
+\maketitle
+
+\noindent\textbf{前言：}
+
+笔者为软件工程系在校本科生，有计算机学科理论基础(操作系统，数据结构，计算机网络，编译原理等)，本人在撰写此笔记时已有 Java 开发经验，基础知识不再赘述。
+
+本文需要的前置知识: 扎实的 Java 基础，对 JVM 具有一定了解。
+
+本文各部分内容如下:
+\begin{itemize}
+    \item Java 并发编程: 并发编程基础，Java 实现并发的原理。参考 <<Java 并发编程之美>>\footnote{<<Java 并发编程之美>>: 翟陆续 2018 年出版} 。
+\end{itemize}
+
+本人的编写及开发环境如下：
+\begin{itemize}
+    \item Java: Java17
+    \item OS: Windows11
+\end{itemize}
+
+\date{\today}
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\setcounter{page}{1} 
+\pagestyle{fancy}
+
+\chapter{线程与锁}
+\import{Chapters/Chapter-Thread}{Thread.tex}
+\import{Chapters/Chapter-Thread}{Lock.tex}
+
+\chapter{并发工具}
+\import{Chapters/Chapter-Utils}{Tools.tex}
+\import{Chapters/Chapter-Utils}{Lock.tex}
+\import{Chapters/Chapter-Utils}{Collections.tex}
+\import{Chapters/Chapter-Utils}{ThreadPool.tex}
+\import{Chapters/Chapter-Utils}{Synchronizer.tex}
+
+\end{document}

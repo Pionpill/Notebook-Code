@@ -1,0 +1,152 @@
+\section{Spring AOP 一世}
+
+在动态代理和CGLIB的支持下，SpringAOP框架的实现经过了两代。从Spring的AOP框架第一次发布，到Spring2.0发布之前的AOP实现，是Spring第一代AOP实现。Spring2.0发布后的AOP实现是第二代。
+
+不过划分归划分，SpringAOP的底层实现机制却一直没变。唯一改变的，是各种AOP概念实体的表现形式以及Spring AOP的使用方式。
+
+\subsection{Spring AOP 中的 Joinpoint}
+
+AOP 的 JoinPoint 可以有许多种类型，如构造方法调用，字段的设置及获取，方法调用，方法执行等。但在 SpringAOP 中，仅支持方法级别的 Joinpoint。但在实际的开发过程中，这已经可以满足 80\% 的需求了。
+
+Sring AOP 这样做的原因有以下几点:
+\begin{itemize}
+    \item Spring AOP 提供一个强大而简单的 AOP 框架，但不会因为追求强大而变得臃肿。
+    \item 对于类中属性(Field)级别的 Joinpoint，如果提供这个级别的拦截支持，那么久破坏了面向对象的封装，而且完全可以通过 setter 和 getter 方法的拦截达到同样的目的。
+    \item 如果应用要求非常特殊，不妨求助于其他 AOP 产品。如 AspectJ。
+\end{itemize}
+
+\subsection{Spring AOP 中的 PointCut}
+
+Spring中以接口定义 \texttt{Pointcut} 作为其AOP框架中所有Pointcut的最顶层抽象，该接口定义了两个方法用来帮助捕捉系统中的相应Joinpoint，并提供了一个 \texttt{TruePointcut} 类型实例。
+
+如果 \texttt{Pointcut} 类型为 \texttt{TruePointcut} ，默认会对系统中的所有对象，以及对象上所有被支持的Joinpoint进行匹配。
+
+\texttt{Pointcut} 接口定义如下所示:
+
+\begin{Java}
+public interface Pointcut {
+    ClassFilter getClassFilter();
+    MethodMatcher getMethodMatcher();
+    Pointcut TRUE = TruePointcut.INSTANCE;
+}      
+\end{Java}
+
+其中 \texttt{ClassFilter} 和 \texttt{MethodMatcher} 分别用于匹配将执行织入操作的对象以及相应的方法。之所以将这两个分开，是为了重用不同级别的匹配定义。并且可以在不同的级别或者相同的级别上进行组合操作，或者强制让某个子类覆写相应的方法定义等。
+
+\texttt{ClassFilter} 接口的作用是对\texttt{Joinpoint} 所处的对象进行 \texttt{Class} 级别的类型匹配，定义如下:
+
+\begin{Java}
+public interface ClassFilter {
+    boolean matches(Class clazz);
+    ClassFilter TRUE = TrueClassFilter.INSTANCE;
+}
+\end{Java}
+
+当织入的目标对象的Class类型与Pointcut所规定的类型相符时，matches方法将会返回true，否则，返回false，即意味着不会对这个类型的目标对象进行织入操作。比如，如果我们仅希望对系统中Foo类型的类执行织入，则可以如下这样定义ClassFilter：
+
+\begin{Java}
+public boolean matches(Class clazz) {
+    return Foo.class.equals(clazz);
+}
+\end{Java}
+
+相对于 \texttt{ClassFilter} 的简单定义，\texttt{MethodMatcher} 则要复杂得多。毕竟，Spring主要支持的就是方法级别的拦截——“重头戏”可不能单薄啊！\texttt{MethodMatcher}定义如下：
+
+\begin{Java}
+public interface MethodMatcher {
+    boolean matches(Method method, Class targetClass);
+    boolean isRuntime();
+    boolean matches(Method method, Class targetClass, Object[] args);
+    MethodMatcher TRUE = TrueMethodMathcer.INSTANCE;
+}      
+\end{Java}
+
+\texttt{MethodMatcher} 定义了两个 \texttt{matches} 方法，而这两个方法的分界线就是 \texttt{isRuntime} 方法。在对对象具体方法进行拦截的时候，可以忽略每次方法执行的时候调用者传入的参数，也可以每次都检查这些方法调用参数，以强化拦截条件。假设对以下方法进行拦截:
+
+\begin{Java}
+public boolean login(String username, String password);
+\end{Java}
+
+如果只想在login方法之前插入计数功能，那么login方法的参数对于Joinpoint捕捉就是可以忽略的。而如果想在用户登录的时候对某个用户做单独处理，如不让其登录或者给予特殊权限，那么这个方法的参数就是在匹配Joinpoint的时候必须要考虑的。
+
+\begin{itemize}
+    \item 前一种情况下，\texttt{isRuntime} 返回 \texttt{false}，表示不会考虑具体 \texttt{Joinpoint} 的方法参数，这种类型的 \texttt{MethodMatcher} 称之为 \texttt{StaticMethodMatcher} 。
+    
+    因为不用每次都检查参数，那么对于同样类型的方法匹配结果，就可以在框架内部缓存以提高性能。\texttt{isRuntime} 方法返回 \texttt{false} 表明当前的 \texttt{MethodMatcher} 为 \texttt{StaticMe thodMatcher} 的时候，只有\texttt{boolean matches(Method method, Class targetClass);}方法将被执行，它的匹配结果将会成为其所属的 \texttt{Pointcut} 主要依据。
+    \item 当 \texttt{isRuntime} 方法返回 \texttt{true} 时，表明该 \texttt{MethodMatcher} 将会每次都对方法调用的参数进行匹配检查，这种类型的 \texttt{MethodMatcher} 称之为 \texttt{DynamicMethodMatcher} 。
+    
+    因为每次都要对方法参数进行检查，无法对匹配的结果进行缓存，所以，匹配效率相对于\texttt{staticMethodMatcher}来说要差。而且大部分情况下，\texttt{staticMethodMatcher}已经可以满足需要，最好避免使用\texttt{DynamicMethodMatcher}类型。
+\end{itemize}
+
+\subsection{Spring AOP 中的 Advice}
+
+Spring中各种Advice类型实现与AOPAlliance中标准接口之间的关系如下图:
+
+\begin{figure}[H]
+    \scriptsize
+    \centering
+    \begin{tikzpicture}[scale = 1]
+        \begin{interface}[text width=2cm]{Advice}{0,0}
+        \end{interface}
+        \begin{interface}[text width=2cm]{AfterAdvice}{-3,-2}
+            \inherit{Advice}
+        \end{interface}
+        \begin{interface}[text width=2cm]{BeforeAdvice}{0,-2}
+            \inherit{Advice}
+        \end{interface}
+        \begin{interface}[text width=2cm]{Interecptor}{3,-2}
+            \inherit{Advice}
+        \end{interface}
+        \begin{interface}[text width=2.5cm]{AfterReturningAdvice}{-6.5,-4}
+            \inherit{AfterAdvice}
+        \end{interface}
+        \begin{interface}[text width=2cm]{ThrowsAdvice}{-3,-4}
+            \inherit{AfterAdvice}
+        \end{interface}
+        \begin{interface}[text width=2.5cm]{MethodBeforeAdvice}{0,-4}
+            \inherit{BeforeAdvice}
+        \end{interface}
+        \begin{interface}[text width=2.5cm]{MethodInterceptor}{3,-4}
+            \inherit{Interecptor}
+        \end{interface}
+    \end{tikzpicture}
+    \caption{Spring 中的 Advice 缩略图}
+    \label{fig:Spring 中的 Advice 缩略图}
+\end{figure}
+
+Advice 实现了被织入到 Pointcut 规定的 Joinpoint 处的横切逻辑。
+
+在Spring中，Advice按照其自身实例能否在目标对象类的所有实例中共享这一标准，可以划分为两大类，即\texttt{per-class}类型的Advice和\texttt{per-instance}类型的Advice。
+
+\paragraph*{per-class 类型的 Advice}该类型的Advice的实例可以在目标对象类的所有实例之间共享。这种类型的Advice通常只是提供方法拦截的功能，不会为目标对象类保存任何状态或者添加新的特性。上图中没有列出的 \texttt{Introduction} 类型的Advice不属于 \texttt{perclass} 类型的Advice之外，图中的所有Advice均属此列。
+
+\paragraph*{per-instance 类型的 Advice} 该类型的Advice不会在目标类所有对象实例之间共享，而是会为不同的实例对象保存它们各自的状态以及相关逻辑。在SpringAOP中， \texttt{Introduction} 就是唯一的一种 \texttt{per-instance} 型Advice。
+
+\subsection{Spring AOP 中的 Aspect}
+
+Advisor代表Spring中的Aspect，但是，与正常的Aspect不同，Advisor通常只持有一个Pointcut和一个Advice。而理论上，Aspect定义中可以有多个Pointcut和多个Advice，所以，我们可以认为Advisor是一种特殊的Aspect。
+
+我们可以将Advisor简单划分为两个分支，一个分支以 \texttt{PointcutAdvisor} 为首，另一个分支则以 \texttt{IntroductionAdvisor} 为头儿。
+
+系统中只存在单一的横切关注点的情况很少，大多数时候，都会有多个横切关注点需要处理，那么，系统实现中就会有多个Advisor存在。当其中的某些Advisor的Pointcut匹配了同一个Joinpoint的时候，就会在这同一个Joinpoint处执行多个Advice的横切逻辑。
+
+如果这些Advisor所关联的Advice之间没有很强的优先级依赖关系，那么谁先执行，谁后执行都不会造成任何影响。而一旦这几个需要在同一Joinpoint处执行的Advice逻辑存在优先顺序依赖的话，就需要我们来干预了，否则，系统的行为就会偏离我们的预想。
+
+Spring在处理同一Joinpoint处的多个Advisor的时候，实际上会按照指定的顺序和优先级来执行它们，顺序号决定优先级，顺序号越小，优先级越高，优先级排在前面的，将被优先执行。我们可以从0或者1开始指定，因为小于0的顺序号原则上由SpringAOP框架内部使用。默认情况下，如果我们不明确指定各个Advisor的执行顺序，那么Spring会按照它们的声明顺序来应用它们，最先声明的顺序号最小但优先级最大，其次次之。
+
+\subsection{Spring AOP 织入}
+
+Spring AOP 使用 \texttt{ProxyFactory} 作为织入器。\texttt{ProxyFactory} 并非SpringAOP中唯一可用的织入器，而是最基本的一个织入器实现。 \texttt{ProxyFactory} 织入非常简单:
+
+\begin{Java}
+ProxyFactory weaver = new ProxyFactory(yourTargetObject);
+// 或者
+// ProxyFactory weaver = new ProxyFactory();
+// weaver.setTarget(task);
+
+Advisor advisor = ...;
+weaver.addAdvisor(advisor);
+Object proxyObject = weaver.getProxy();
+\end{Java}
+
+\newpage

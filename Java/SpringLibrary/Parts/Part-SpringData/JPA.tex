@@ -1,0 +1,149 @@
+\section{Spring Data JPA 注解}
+
+导入依赖如下:
+
+\begin{Java}
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-jpa</artifactId>
+</dependency>
+\end{Java}
+
+\subsection{表相关注解}
+
+\subsubsection{@Entity}
+
+被该注解标注的实体类将会被 JPA 管理控制，在程序运行时，JPA会识别并映射到指定的数据库表。
+
+\begin{Java}
+@Documented
+@Target(TYPE)
+@Retention(RUNTIME)
+public @interface Entity {
+	String name() default "";
+}
+\end{Java}
+
+属性 name 用于指定实体类名称，默认为实体类的非限定名。
+
+\subsubsection{@Table}
+
+若表名与实体类名称不同时，使用 @Table(name="表名")，与@Entity标注并列使用，置于实体类声明语句之前。如果表名和实体类名相同，那么@Table可以省略。
+
+注意是 javax.persistence.Table 下的 @Table:
+
+\begin{Java}
+@Target(TYPE) 
+@Retention(RUNTIME)
+public @interface Table {
+    String name() default "";
+    String catalog() default "";
+    String schema() default "";
+    UniqueConstraint[] uniqueConstraints() default {};
+    Index[] indexes() default {};
+}
+\end{Java}
+
+@Table 的属性如下:
+\begin{itemize}
+    \item name: 对应表名。
+    \item catalog: 表所属的数据库目录。通常为数据库名。
+    \item schema: 表所属的数据库模式。通常为数据库名。
+    \item uniqueConstraints: 设置约束条件。
+\end{itemize}
+
+\subsubsection{@Id}
+
+@Id 用于实体类的一个属性或者属性对应的getter方法上，被标注的的属性将映射为数据库主键。
+
+\begin{Java}
+@Target({METHOD, FIELD})
+@Retention(RUNTIME)
+public @interface Id {}
+\end{Java}
+
+\subsubsection{@Basic}
+
+@Basic 是实体类与数据库字段映射时最简单的类型。它可以用于持久类属性或实例变量，类型包含基本类型，包装类，枚举类，实现了 Serializable 接口的类型。
+
+\begin{Java}
+@Target({METHOD, FIELD}) 
+@Retention(RUNTIME)
+public @interface Basic {
+    FetchType fetch() default EAGER;
+    boolean optional() default true;
+}
+\end{Java}
+
+两个属性意义如下:
+\begin{itemize}
+    \item fetch: 加载机制：默认 EAGER，即时加载，可以改为 LAZY 懒加载。
+    \item optional: 判断属性是否能为空，默认可以。
+\end{itemize}
+
+
+简言之，与数据库对应的属性都要加上 @Basic，如果你在实体类属性上不加@Basic注解，它也会自动加上@Basic，并使用默认值。一般不需要显示书写，除非要改属性。
+
+\subsubsection{@GeneratedValue}
+
+与@Id一同使用，用于标注主键的生成策略，通过 strategy 属性指定。
+
+\begin{Java}
+@Target({METHOD, FIELD})
+@Retention(RUNTIME)
+public @interface GeneratedValue {
+    GenerationType strategy() default AUTO;
+    String generator() default "";
+}
+\end{Java}
+
+在 javax.persistence.GenerationType 中定义了以下几种可供选择的策略：
+\begin{itemize}
+    \item AUTO: 默认方式，JPA 自动选择合适的策略。
+    \item IDENTITY: 由数据库生成，采用数据库自增长，Oracle 不支持。
+    \item SEQUENCE: 通过数据库序列生成，MySQL 不支持。
+    \item TABLE：通过表产生主键，框架借由表模拟序列产生主键。
+\end{itemize}
+
+generator属性的值是一个字符串,默认为"",其声明了主键生成器的名称。使用非 AUTO 的策略需要结合其他注解使用，不是很常用，不讲了。
+
+\subsubsection{@Transient}
+
+表示该属性并非一个数据库表的字段的映射，ORM框架将忽略该属性，不会对其持久化。
+
+\subsubsection{@Cloumn}
+
+用于定义实体属性:
+
+\begin{Java}
+@Target({METHOD, FIELD}) 
+@Retention(RUNTIME)
+public @interface Column {
+    String name() default "";
+    boolean unique() default false;
+    boolean nullable() default true;
+    boolean insertable() default true;
+    boolean updatable() default true;
+    String columnDefinition() default "";
+    String table() default "";
+    int length() default 255;
+    int precision() default 0;
+    int scale() default 0;
+}
+\end{Java}
+
+\subsubsection{@Embedded @Embeddable}
+
+通过此注解可以在Entity模型中使用一般的java对象,不过此对象还需要用 @Embeddable 注解标注。
+
+\begin{Java}
+@Target({METHOD, FIELD})
+@Retention(RUNTIME)
+public @interface Embedded { }
+\end{Java}
+
+例如：User包括id,name,city,street,zip属性，我们希望city,street,zip属性映射为Address对象，这样，User对象将具有id,name和address这三个属性，Address对象要定义为@Embededable。
+
+参考例子: \url{https://blog.csdn.net/je_ge/article/details/53678238}
+
+\newpage

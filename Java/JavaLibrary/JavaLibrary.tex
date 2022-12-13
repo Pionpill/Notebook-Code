@@ -1,0 +1,85 @@
+\documentclass{PionpillNote-book}
+\usetikzlibrary {intersections,through,arrows.meta,graphs,shapes.misc,positioning,shapes.misc,positioning,calc}
+\usetikzlibrary{animations}
+\usetikzlibrary {shapes.geometric}
+\usetikzlibrary {animations}
+\usetikzlibrary {shapes.multipart}
+\usetikzlibrary {positioning}
+\usetikzlibrary {fit,shapes.geometric}
+\usetikzlibrary {automata}
+\usetikzlibrary {quotes}
+\usetikzlibrary {matrix}
+\usetikzlibrary {backgrounds}
+\usetikzlibrary {scopes}
+\usetikzlibrary {calc}
+\usetikzlibrary {intersections}
+\usetikzlibrary {svg.path}
+\usetikzlibrary {decorations}
+\usetikzlibrary {patterns}
+\usetikzlibrary {decorations.pathmorphing}
+\usetikzlibrary {shadows}
+\usetikzlibrary {bending}
+
+\title{Java Library}
+\author{
+    Pionpill \footnote{笔名：北岸，电子邮件：673486387@qq.com，Github：\url{https://github.com/Pionpill}} \\
+    本文档为作者归纳 Java 时的笔记。\\
+}
+
+\date{\today}
+
+\begin{document}
+
+\pagestyle{plain}
+\maketitle
+
+\noindent\textbf{前言：}
+
+笔者为软件工程系在校本科生，有计算机学科理论基础(操作系统，数据结构，计算机网络，编译原理等)，本人在撰写此笔记时已有 Java 开发经验，基础知识不再赘述。
+
+本文各部分内容如下:
+\begin{itemize}
+    \item Java 基础库: 最基础的 Java 操作的源码解析，主要为 lang 包下几个常用的类。
+    \item Java 容器: util 包下四种容器(集合)解析，只讲基本实现逻辑，不涉及具体算法和多线程内容。
+\end{itemize}
+
+本人的编写及开发环境如下：
+\begin{itemize}
+    \item Java: Java17
+    \item OS: Windows11
+\end{itemize}
+
+\date{\today}
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\setcounter{page}{1} 
+\pagestyle{fancy}
+
+\part{Java 基础库}
+\chapter{基本数据类型相关}
+\import{Parts/Part-Basic/BasicType}{Object.tex}
+\import{Parts/Part-Basic/BasicType}{Wrapper.tex}
+\import{Parts/Part-Basic/BasicType}{String.tex}
+\import{Parts/Part-Basic/BasicType}{BigInteger.tex}
+\chapter{注解与反射}
+\import{Parts/Part-Basic/Reflect}{Annotation.tex}
+\import{Parts/Part-Basic/Reflect}{Reflect.tex}
+\chapter{其他重要库}
+\import{Parts/Part-Basic/Other}{Interface.tex}
+\import{Parts/Part-Basic/Other}{Exception.tex}
+
+\part{Java 容器}
+\chapter{容器工具}
+\import{Parts/Part-Collection/Common}{Tools.tex}
+\chapter{列表，集合与队列}
+\import{Parts/Part-Collection/Collection}{Interface.tex}
+\import{Parts/Part-Collection/Collection}{List.tex}
+\import{Parts/Part-Collection/Collection}{Map.tex}
+\import{Parts/Part-Collection/Collection}{Set.tex}
+\import{Parts/Part-Collection/Collection}{Queue.tex}
+
+\end{document}

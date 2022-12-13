@@ -1,0 +1,527 @@
+\section{Spring Framework 注解}
+\subsection{Spring Bean 基础注解}
+
+这节的前四个个注解功能基本都是一样的，都是将类作为 bean 注入到 spring 容器中进行管理，只不过它们使用的场景不同。后几个注解是对前几个注解的修饰。
+
+选择上，如果确定是 MVC 的哪一层，就选择对应的具体注解(@Controller, @Service, @Repository)标识，如果不确定，但又知道它是各组件，就用 @Component 标识。这四个注解除了可以明确层次关系，没有其他区别。
+
+\subsubsection{@Component}
+
+@Component 标注一个普通的组件类，通知 Spring 将类纳入到 Spring Bean 容器中并进行管理。默认定义的 bean 是单例的。可以通过 @Component(“beanName”) @Scope(“prototype”) 改变，下面同样。
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Indexed
+public @interface Component {
+    String value() default "";
+}
+\end{Java}
+
+\subsubsection{@Controller}
+
+对应 Spring MVC 控制层，主要用户接受用户 http 请求并调用 Service 层返回数据给前端页面。
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Component
+public @interface Controller {
+    @AliasFor(annotation = Component.class)
+    String value() default "";
+}
+\end{Java}
+
+\subsubsection{@Service}
+
+对应 Spring MVC 业务层。主要用于获取 pojo 层的的数据并进行业务处理，
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Component
+public @interface Service {
+    @AliasFor(annotation = Component.class)
+    String value() default "";
+}
+\end{Java}
+
+\subsubsection{@Repository}
+
+@Repository 对应持久层(pojo)。主要用于直接和数据库交互。
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Component
+public @interface Repository {
+    @AliasFor(annotation = Component.class)
+    String value() default "";
+}
+\end{Java}
+
+\subsubsection{@Scope}
+
+@Scope 注解用于指定 Bean 的作用范围，也即采用的设计模式。
+
+\begin{Java}
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Scope {
+    @AliasFor("scopeName")
+	String value() default "";
+	@AliasFor("value")
+	String scopeName() default "";
+    ScopedProxyMode proxyMode() default ScopedProxyMode.DEFAULT;
+}
+\end{Java}
+一般的有两个选项，"singleton" 与 "prototype"，分别代表单例设计模式与原型设计模式。默认采用单例模式。
+
+\subsubsection{@PostConstrucor 与 @PreDestroy}
+
+顾名思义，这两个注解作用的生命周期分别是: 构造方法后和销毁前。对应了 Bean 生命周期的 init-method 和 destroy-method。
+
+\begin{Java}
+@Documented
+@Retention (RUNTIME)
+@Target(METHOD)
+public @interface PostConstruct
+
+@Documented
+@Retention (RUNTIME)
+@Target(METHOD)
+public @interface PreDestroy
+
+\end{Java}
+
+\subsubsection{@Bean}
+
+@Bean 主要用于将一个方法地返返回值注册为 Bean:
+
+\begin{Java}
+@Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Bean
+\end{Java}
+
+为什么要这样设计呢，主要是为了管理外部的 Bean:
+
+\begin{Java}
+@Bean
+public DataSource getDataSource() {
+    DruidDataSource di = new DruidDataSource();
+    ds.setDriverClassName("com.mysql.jdbc.Driver");
+    ...
+    return ds;
+}
+\end{Java}
+
+同时，@Bean 也是自动装配的，如果有形参，容器会自动注入对应类型的形参。
+
+\subsection{Spring Bean 配置注解}
+
+\subsubsection{@Configuration}
+
+声明当前类为配置类，相当于 xml 形式的 Spring 配置。
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Component
+public @interface Configuration {
+    @AliasFor(annotation = Component.class)
+    String value() default "";
+    boolean proxyBeanMethods() default true;
+}
+\end{Java}
+
+\subsubsection{@ComponentScan}
+
+顾名思义，用来扫描 Component 并批量注册 Bean，默认情况下扫描当前包及子包的 Component，可以自定义扫描位置\footnote{延申文献: \url{https://zhuanlan.zhihu.com/p/520827986}}:
+
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@Documented
+@Repeatable(ComponentScans.class)
+public @interface ComponentScan {
+    @AliasFor("basePackages")
+    String[] value() default {};
+    ......
+}
+\end{Java}
+
+\subsubsection{@PropertySource}
+
+@PropertySource 注解用于绑定 properties 文件:
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Repeatable(PropertySources.class)
+public @interface PropertySource {
+    String[] value();
+    ......
+}
+\end{Java}
+
+一般的 @PropertySource 作用在 Config 文件上\footnote{延申文献: \url{https://blog.csdn.net/tenghu8888/article/details/119791417}}。
+
+\subsubsection{@Import}
+
+@import 注解用于导入别的注解，当有多个 Config 时，一般在 Spring 的 Config 中导入其他配置文件。
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Import {
+    Class<?>[] value();
+}
+\end{Java}
+
+举个例子:
+
+\begin{Java}
+@Configuration
+@Import
+public class SpringConfig
+\end{Java}
+
+\subsection{Spring DI 注解}
+
+前面 Spring 已经完成了 Bean 的标识与扫描，但这仅仅是将 Bean 装入了 IoC 容器，下面注解实现了 DI。
+
+\subsubsection{@Autowired}
+
+@Autowired 注解顾名思义，进行自动装配，是一个功能十分强大，实现比较复杂，有争议的注解。
+
+\begin{Java}
+@Target({ElementType.CONSTRUCTOR, ElementType.METHOD, ElementType.PARAMETER, ElementType.FIELD, ElementType.ANNOTATION_TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Autowired {
+    boolean required() default true;
+}    
+\end{Java}
+
+默认情况下，@Autowired 根据类型实现自动装配，构造方法注入和 setter 注入都可以实现。@Autowired 可以直接作用在属性上，而不直接使用 setter 方法注入，它将使用暴力反射的方式将对应的类型注入到属性中\footnote{延申文献: \url{https://blog.csdn.net/Weixiaohuai/article/details/123005140}}。注意，既然使用了暴力反射，就要提供 bean 的无参构造方法。
+
+@Autowired 默认使用也推荐使用类型注入，但类型注入必然会带来问题: 同类型二义性，不知道用哪个。
+
+\subsubsection{@Qualifier}
+
+@Qualifier 用于按名称注入，他必须依赖于 @Autowired 注解。
+
+\begin{Java}
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE, ElementType.ANNOTATION_TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+@Documented
+public @interface Qualifier {
+    String value() default "";
+}
+\end{Java}
+
+使用时，必须先给出 @Autowired 注解:
+
+\begin{Java}
+@Autowired
+@Qualifier("bookDao")   // 对应某个 bean 名为 bookDao
+private BookDao bookDao;
+\end{Java}
+
+当然这样有个问题，耦合度高！！！
+
+\subsubsection{@Value}
+
+注意这里是 Spring Framework 里的 @Value 不是 lombok 的 @Value。
+
+@Autowired 有一个缺陷，他只能注入引用类型，注入基本类型\footnote{想念 Python}要依靠 @Value:
+
+\begin{Java}
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.ANNOTATION_TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Value {
+    String value();
+}
+\end{Java}
+
+@Value 一般用于注入 properties 文件的内容。需要结合 @PropertySource 注解使用。
+
+\begin{Java}
+@PropertySource("classpath:jdbc.properties")    // classpath: 可以不加
+public class JdbcProperties {
+    ......
+}
+
+@Repository
+public class BookDao {
+    @Value(${name})     // jdbc.properties 存在字段和 ${} 内容相同
+    private String name;
+}
+\end{Java}
+
+\subsection{Spring AOP 注解}
+
+这小节的注解需要下面依赖:
+
+\begin{xml}
+<dependency>
+    <groupId>org.aspectj</groupId>
+    <artifactId>aspectjweaver</artifactId>
+</dependency>
+\end{xml}
+
+\subsubsection{@EnableAspectJAutoProxy}
+
+该注解用于启动对应配置类下的 AOP，具体表现为识别 @Aspect 注解\footnote{拓展: \url{https://blog.csdn.net/yuan882696yan/article/details/115359291}}。
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Import(AspectJAutoProxyRegistrar.class)
+public @interface EnableAspectJAutoProxy {
+    boolean proxyTargetClass() default false;
+    boolean exposeProxy() default false;
+}    
+\end{Java}
+
+\subsubsection{@Aspect}
+
+把当前类标识为一个切面供容器读取。注意在只用它之前要确保类已经被 @Component 标注为 Bean。
+
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface Aspect {
+    String value() default "";
+}
+\end{Java}
+
+\subsubsection{@Pointcut}
+
+该注解用于指定切入点。
+
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface Pointcut {
+    String value() default "";
+    String argNames() default "";
+}
+\end{Java}
+
+切入点定义依托于一个不具有实际意义的方法进行，及无参数，无返回值，方法体无实际逻辑。可以理解为，运行到该方法时，需要加功能(Advice)。
+
+\textbf{切入点表达式}\footnote{这里只讲最常用的语法。}: 要进行增强的方法的描述方式。 一个切入点表达式的标准格式如下:
+
+\begin{center}
+动作关键字(访问修饰符  返回值 包名.类/接口名.方法名(参数) 异常名)
+\end{center}
+
+例如: \texttt{execution(public User com.pionpill.UserService.findById(int))}
+
+一般的，动作关键字都是 \texttt{execution}，访问修饰符都是 \texttt{public} 可以省略，大多数情况下没有异常，可以省略。
+
+切入点表达式中可以使用通配符简化书写，但是这样会降低性能和可读性，应该减少或者不使用，这里仅作说明:
+
+\begin{itemize}
+    \item \textbf{*}: 表示任意类型返回值/包名/类名/方法名，但至少一个。
+    \item \textbf{..}: 表示任意多个参数，任意包地址，可以没有。
+    \item \textbf{+}: 代表子类类型。
+\end{itemize}
+
+同时的，在切入点表达式中可以使用``与 或 非''三种运算符来组合切入点表达式。
+
+\begin{Java}
+@Pointcut("@execution(org.com.common.aspect.annotation.PermissionData)")
+public void pointCut() { }
+\end{Java}
+
+\subsubsection{Advice}
+
+Advice 也即要进行增强处理的方法，它包括五个注解。这五个注解的使用方式类似。都需要加入切入点方法作为参数。假设切入点方法如下:
+
+\begin{Java}
+@Pointcut("execution (void ...)")
+public void pt() { }
+\end{Java}
+
+\paragraph*{@Before, @After} 在切入点之前/后执行
+
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface Before {
+    String value();
+    String argNames() default "";
+}
+\end{Java}
+
+这两个注解使用起来非常简单:
+
+\begin{Java}
+@Before("pt()")
+public void before () {
+    System.out.println("Before execution ...");
+}
+\end{Java}
+
+\paragraph*{@Around} 这是最重要也最常用的 Advice 注解。它对应的方法需要一个 ProceedingJoinPoint 类型的参数用于标记切入点方法执行的位置。
+
+\begin{Java}
+@Around("pt()")
+public void around(ProceedingJoinPoint pjp) throws Throwable{
+    System.out.println("Before execution ...");
+    pjp.proceed();  // 对原始方法的调用
+    System.out.println("After execution ...");
+}
+\end{Java}
+
+这里需要抛出异常，因为不确定原始方法究竟有没有异常，所以强制抛出异常。
+
+这里有个注意点，如果在 around 中返回了其他值，将覆盖原始方法的返回值。
+
+\paragraph*{@AfterReturning, @AfterThrowing} 分别用于在返回值之后和抛出异常后执行，不是很常用。
+
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface AfterReturning {
+    String value() default "";
+    String pointcut() default "";
+    String returning() default "";
+    String argNames() default "";
+}
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface AfterThrowing {
+    String value() default "";
+    String pointcut() default "";
+    String throwing() default "";
+    String argNames() default "";
+}
+\end{Java}
+
+\subsection{Spring 事务注解}
+
+这小节的注解需要下面依赖:
+
+\begin{xml}
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-tx</artifactId>
+</dependency>
+\end{xml}
+
+\subsubsection{@EnableTransactionManagement}
+
+用于开启注解式事务驱动。在配置类上开启了这个，才能使用其他事务注解。
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Import(TransactionManagementConfigurationSelector.class)
+public @interface EnableTransactionManagement {
+    boolean proxyTargetClass() default false;
+    AdviceMode mode() default AdviceMode.PROXY;
+    int order() default Ordered.LOWEST_PRECEDENCE;
+}
+\end{Java}
+
+\subsubsection{@Transactional}
+
+该注解用于添加 Spring 事务管理。一般不用于开在实现类中，而是接口中。
+
+\begin{Java}
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+@Documented
+public @interface Transactional {
+    @AliasFor("transactionManager")
+    String value() default "";
+    @AliasFor("value")
+    String transactionManager() default "";
+    String[] label() default {};
+    Propagation propagation() default Propagation.REQUIRED;
+    Isolation isolation() default Isolation.DEFAULT;
+    int timeout() default TransactionDefinition.TIMEOUT_DEFAULT;
+    String timeoutString() default "";
+    boolean readOnly() default false;
+    Class<? extends Throwable>[] rollbackFor() default {};
+    String[] rollbackForClassName() default {};
+    Class<? extends Throwable>[] noRollbackFor() default {};
+    String[] noRollbackForClassName() default {};
+}
+\end{Java}
+
+事务相关的配置如下:
+
+\begin{table}[H]
+    \centering
+    \caption{事务相关配置}
+    \label{table:事务相关配置}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{l|lll}
+        \toprule
+        \textbf{属性} & \textbf{作用} & \textbf{示例} \\
+        \midrule
+        readOnly & 设置是否为只读事务 & true: 只读 \\
+        timeout & 设置事务超时事件 & timeout = -1: 永不超时 \\
+        rollbackFor & 设置事务回滚异常 & rollbackFor = (NullPointException.class) \\
+        noRollbackFor & 设置事务不回滚异常 & noRollbackFor = (NullPointException.class) \\
+        propagation & 设置事务传播行为 & ... \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+默认情况下，Spring 事务只对 Unchecked Exception (Error, Runtime Exception)异常进行回滚。如果需要添加其他异常或者将某些异常剔除，需要用到 rollBackFor 和 noRollBackFor 属性。propagation 用于传播事务行为，我们将主事务(需要执行的那个事务)称为事务管理员，被加入的其他事务成为事务协调员。
+
+\begin{table}[H]
+    \centering
+    \small
+    \caption{事务传播行为}
+    \label{table:事务传播行为}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{l|c|c}
+        \toprule
+        \textbf{传播属性} & \textbf{事务管理员} & \textbf{事务协调员} \\
+        \midrule
+        \multirow{2}{*}{REQUIRED(默认)} & 开启 & 加入 \\
+         & 无 & 新建 \\
+        \midrule
+        \multirow{2}{*}{REQUIRED\_NEW} & 开启 & 新建 \\
+        & 无 & 新建 \\
+        \midrule
+        \multirow{2}{*}{SUPPORTS} & 开启 & 加入 \\
+        & 无 & 无 \\
+        \midrule
+        \multirow{2}{*}{NOT\_SUPPOETED} & 开启 & 无 \\
+        & 无 & 无 \\
+        \midrule
+        \multirow{2}{*}{MANDATORY} & 开启 & 加入 \\
+        & 无 & ERROR \\
+        \midrule
+        \multirow{2}{*}{NEVER} & 开启 & ERROR \\
+        & 无 & 无 \\
+        \midrule
+        NESTED & \multicolumn{2}{l}{设置 savePoint, 事务将回滚到此处。} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\newpage

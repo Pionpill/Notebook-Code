@@ -1,0 +1,115 @@
+\section{集合}
+\subsection{Java 集合框架}
+\subsubsection{集合接口与实现分离}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{warning}
+            这一节讲了很多数据结构与算法，这不是 Java 原有的特性，只是用 Java 语言进行了实现，故省去了很多。
+        \end{warning}
+    }
+}
+
+与现代的数据结构类库的常见做法一样，Java 集合类库也将接口与是西安分离。例如队列接口:
+
+\begin{Java}
+public interface Queue<E> {
+    void add(E element);
+    E remove();
+    int Size();
+}
+\end{Java}
+
+我们可以使用循环数组或者链表实现队列。但使用者并不关心队列的具体实现方法。
+
+\subsubsection{\texttt{Collection} 接口}
+
+在 Java 类库中，集合类的基本接口是 \texttt{Collection} 接口。
+
+\begin{Java}
+public interface Collection<E> {
+    boolean add(E element);
+    Iterator<E> iterator();
+    ...
+}
+\end{Java}
+
+其中，\texttt{add} 方法用于向集合中添加元素。如果添加元素确实改变了集合就返回 \texttt{true}; 如果集合没有发生变化就返回 \texttt{false}。
+
+\texttt{iterator} 方法用于返回一个实现了 \texttt{Iterator} 接口的对象。可以使用这个迭代器对象依次访问集合中的元素。
+
+\subsubsection{迭代器}
+
+\texttt{Iterator} 接口包含 4 个方法:
+
+\begin{Java}
+public interface Iterator<E> {
+    E next();
+    boolean hasNext();
+    void remove();
+    default void forEachRemaining(C)
+}
+\end{Java}
+
+通过反复调用 \texttt{next} 方法，可以逐个访问集合中的每个元素。但是，如果到达了集合的末尾， \texttt{next} 方法将抛出一个 \texttt{NoSuchElementException}。因此在调用之前要用 \texttt{hasNext} 进行判断。如果迭代器对象还有多个可以访问的元素，这个方法就返回 \texttt{true}。如果想要查看集合中的所有元素，就请求一个迭代器，当 \texttt{hasNext} 返回 true 时就反复地调用 \texttt{next} 方法。
+
+编译器简单地将 ``for each'' 循环转换为带有迭代器的循环，可以处理任何实现了 \texttt{Iterable} 接口的对象，这个接口只包含一个抽象方法:
+
+\begin{Java}
+public interface Iterable<E> {
+    Iterator<E> iterator();
+    ...
+}
+\end{Java}
+
+\subsubsection{集合框架中的接口}
+
+集合有两个基本接口: \texttt{Collection} 和 \texttt{Map}。我们可以直接插入元素:
+
+\begin{Java}
+boolean add(E element)
+\end{Java}
+
+由于映射包含键值对，更常见的，使用如下方法:
+\begin{Java}
+V put(K key, V value)
+V get(K key)
+\end{Java}
+
+\subsection{具体集合}
+
+\subsubsection{链表与数组列表}
+
+链表结构比较复杂，Java 中的链表都是双向链表。我们不能对链表(\texttt{LinkedList})进行一边读取一边写入的操作，这往往会导致严重的错误。我们需要遵守一个规则: 可以根据需要为一个集合关联多个迭代器，前提是这些迭代器只能读取集合。或者，可以关联一个能同时读写的迭代器。
+
+数组列表相对简单，但是如果对数组列表进行增减操作，会消耗大量的时间。
+
+还有一种快速查询元素的集合叫散列表，我已经在别的笔记写过很多次，这里不写了。此外还有树结构，队列。都是数据结构的内容，这里省略。
+
+\subsection{映射}
+
+映射用来存放键/值对。如果提供了键就能查找到值。例如，可以存储一个员工记录表，其中键为员工 ID，值为 \texttt{Employee} 对象。
+
+\subsubsection{基本映射操作}
+
+Java 类库为映射提供了两个通用的实现: \texttt{HashMap} 和 \texttt{TreeMap}。这两个类都实现了 \texttt{Map} 接口。 散列映射与树映射的差别类似于散列表与树的差别。
+
+映射的基础内容没什么好讲的，操作类似于 Python 中的字典。
+
+\subsubsection{弱散列映射}
+
+设计 \texttt{WeakHashMap} 类是为了解决这样一个有趣的问题。如果有一个值，它对应的键已经不再在程序中的任何地方使用。将会出现什么情况?假定对某个键的最后一个引用已经消失，那么不再有任何途径可以引用这个值的对象。但是，由于程序中的任何部分不会再有这个键，所以无法从映射中删除这个键值对。
+
+为什么垃圾回收不能删除它呢? 垃圾回收器会跟踪活动的对象。只要映射对象是活动的，其中的所有桶也是活动的，它们就不能被回收。因此，需要由程序负责从长期存活的映射表中删除那些无用的值。或者使用 \texttt{WeakHashMap}，当对键的唯一引用来自散列表映射条目时，这个数据结构将被回收。
+
+\subsubsection{链接散列集与映射}
+
+\texttt{LinkedHashSet} 和 \texttt{LinkedHashMap} 类会记住插入元素项的顺序。这样就可以避免散列表中的项看起来是随机的。在表中插入元素时，就会并入到双向链表中。
+
+\subsubsection{标识散列映射}
+
+类 \texttt{IdentityHashMap} 有特殊的用途。在这个类中，键的散列值不是用 \texttt{hashCode} 函数计算的，而是用 \texttt{System.identityHashCode} 方法计算的。这是 \texttt{Object.hashCode} 根据对象的内存地址计算散列码时所用的方法。而且，在对两个对象进行比较时，\texttt{IdentityHashMap} 类使用 \texttt{==}，而不使用 \texttt{equals}。
+
+也就是说，不同的键对象即使内容相同，也被视为不同的对象。 
+
+\newpage

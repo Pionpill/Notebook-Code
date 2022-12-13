@@ -1,0 +1,497 @@
+\section{Lombok 注解}
+
+Lombok 依赖坐标如下:
+
+\begin{xml}
+<dependency>
+    <groupId>org.projectlombok</groupId>
+    <artifactId>lombok</artifactId>
+</dependency>
+\end{xml}
+
+和 Validation，Lombok 没有被集成到 spring 中，为什么呢？因为没必要，Lombok 是在编译阶段改动语法树达到效果(所以几乎所有注解 Retention 都是 SOURCE，CLASS)，相当于改变了 Java 源码，和 spring 没什么关系。
+
+\subsection{验证性注解}
+
+\subsubsection{@NonNull}
+
+用于限定被注解的属性不能为 Null。
+
+\begin{Java}
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})
+@Retention(RetentionPolicy.CLASS)
+@Documented
+public @interface NonNull { }
+\end{Java}
+
+等效代码:
+
+\begin{Java}
+// Lombok
+public NonNullExample(@NonNull Person person) {
+    this.name = person.getName();
+}
+// Java
+public NonNullExample(@NonNull Person person) {
+    if (person == null) {
+      throw new NullPointerException("person is marked non-null but is null");
+    }
+    this.name = person.getName();
+}
+\end{Java}
+
+\subsection{辅助性注解}
+\subsubsection{@Cleanup}
+
+该注解用于自动调用 close() 方法释放资源，和 try-with-resource 语句有异曲同工之处。
+
+\begin{Java}
+@Target(ElementType.LOCAL_VARIABLE)
+@Retention(RetentionPolicy.SOURCE)
+public @interface Cleanup {
+	String value() default "close";
+}
+\end{Java}
+
+等效代码:
+
+\begin{Java}
+// Lombok
+@Cleanup InputStream in = new FileInputStream(args[0]);
+@Cleanup OutputStream out = new FileOutputStream(args[1]);
+byte[] b = new byte[10000];
+while (true) {
+    int r = in.read(b);
+    if (r == -1) break;
+    out.write(b, 0, r);
+}
+// Java
+InputStream in = new FileInputStream(args[0]);
+    try {
+        OutputStream out = new FileOutputStream(args[1]);
+        try {
+            byte[] b = new byte[10000];
+            while (true) {
+                int r = in.read(b);
+                if (r == -1) break;
+                out.write(b, 0, r);
+            }
+        } finally {
+            if (out != null) {
+                out.close();
+            }
+        }
+    } finally {
+        if (in != null) {
+            in.close();
+        }
+    }
+\end{Java}
+
+\subsubsection{@SneakyThrows}
+
+这个注解是用来解决这样的代码的:
+
+\begin{Java}
+try{
+    ...
+}catch(Exception e){
+    throw new RuntimeException(e);
+}
+\end{Java}
+
+使用了该注解后可以自动向上抛错误:
+
+\begin{Java}
+@Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+@Retention(RetentionPolicy.SOURCE)
+public @interface SneakyThrows {
+    Class<? extends Throwable>[] value() default java.lang.Throwable.class;
+}
+\end{Java}
+
+等价效果如下:
+
+\begin{Java}
+// Lombok
+@SneakyThrows
+public void run() {
+    throw new Throwable();
+}
+// Java
+public void run() {
+    try {
+        throw new Throwable();
+    } catch (Throwable t) {
+        throw Lombok.sneakyThrow(t);
+    }
+}
+\end{Java}
+
+\subsection{增强性注解}
+
+\subsubsection{@Getter @Setter}
+
+这些注解用于自动生成对应的 getXXX setXXX 方法。
+
+\begin{Java}
+@Target({ElementType.FIELD, ElementType.TYPE})
+@Retention(RetentionPolicy.SOURCE)
+public @interface Getter {
+    boolean lazy() default false;
+    ...
+}
+\end{Java}
+
+等效代码:
+
+\begin{Java}
+// Lombok
+@Getter @Setter private int age = 10;
+// Java
+private int age = 10;
+public int getAge() {
+    return age;
+}
+public void setAge(int age) {
+    this.age = age;
+}
+\end{Java}
+
+默认的 setXXX 方法返回 void，链式编程参考接下来的注解。
+
+getXXX 有一个重要的参数 lazy，默认关闭，如果启用，会缓存 getXXX 返回的对象，创建一个private final变量，以方便接下来使用。
+
+\begin{Java}
+// Lombok
+@Getter(lazy=true) private final double[] cached = expensive();
+// Java
+private final java.util.concurrent.AtomicReference<java.lang.Object> cached = new java.util.concurrent.AtomicReference<java.lang.Object>();
+public double[] getCached() {
+    java.lang.Object value = this.cached.get();
+    if (value == null) {
+        synchronized(this.cached) {
+            value = this.cached.get();
+            if (value == null) {
+                final double[] actualValue = expensive();
+                value = actualValue == null ? this.cached : actualValue;
+                this.cached.set(value);
+            }
+        }
+    }
+    return (double[])(value == this.cached ? null : value);
+}
+\end{Java}
+
+\subsubsection{@Accessors}
+@Accessors 不是 stable 的注解，是一个 experimental 注解，比较常用所以也写一下。
+
+该注解主要作用是：当属性字段在生成 getter 和 setter 方法时，做一些相关的设置。
+
+\begin{Java}
+@Target({ElementType.TYPE, ElementType.FIELD})
+@Retention(RetentionPolicy.SOURCE)
+public @interface Accessors {
+	boolean fluent() default false;
+	boolean chain() default false;
+	boolean makeFinal() default false;
+	String[] prefix() default {};
+}
+\end{Java}
+
+它的几个属性作用如下：
+\begin{itemize}
+    \item fluent: 如果改为 true: getter 方法不会有 get 前缀，setter 方法不会有 set 前缀。
+    \item chain: 链式编程，如果改为 true，setter 方法将会返回当前对象。
+    \item prefix: 当该数组有值时，表示忽略字段中对应的前缀，生成对应的 getter 和 setter 方法。
+    \item makeFinal: 如果改为 true，生成的方法会被标记为 final。
+\end{itemize}
+
+\subsubsection{@ToString}
+
+这个注解用于自动生成 toString 方法。
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.SOURCE)
+public @interface ToString {
+    ...
+}
+\end{Java}
+
+默认情形下，它生成的 toString 格式如下:
+
+\begin{Java}
+private String name;
+private int age;
+@Override
+public String toString() {
+    return "Student{" +
+            "name='" + name + '\'' +
+            ", age=" + age +
+            '}';
+}
+\end{Java}
+
+他还有很多参数，提供自定义输出格式，另外有两个相关注解 @ToString.Exclude @ToString.Include。 其他几个增强注解基本上都有类似的相关注解。
+
+\subsubsection{@EqualsAndHashCode}
+
+该注解用于生成 equals 和 hashCode 方法。该注解参数很多，实现也比较复杂。
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.SOURCE)
+public @interface EqualsAndHashCode {
+    boolean callSuper() default false;
+    ...
+}
+\end{Java}
+
+有个 callSuper 和生成 hashCode 有关:
+\begin{itemize}
+    \item callSuper = true: 根据子类和从父类继承的字段生成 hashCode。
+    \item callSuper = false: 根据子类本身字段生成 hashCode。
+\end{itemize}
+
+该注解生成的 equals 方法逻辑和 String 类型的 equals 逻辑类似。下面仅给出官方实例生成的两个方法。
+
+\begin{Java}
+@Override public boolean equals(Object o) {
+    if (o == this) return true;
+    if (!(o instanceof EqualsAndHashCodeExample)) return false;
+    EqualsAndHashCodeExample other = (EqualsAndHashCodeExample) o;
+    if (!other.canEqual((Object)this)) return false;
+    if (this.getName() == null ? other.getName() != null : !this.getName().equals(other.getName())) return false;
+    if (Double.compare(this.score, other.score) != 0) return false;
+    if (!Arrays.deepEquals(this.tags, other.tags)) return false;
+    return true;
+}  
+@Override public int hashCode() {
+    final int PRIME = 59;
+    int result = 1;
+    final long temp1 = Double.doubleToLongBits(this.score);
+    result = (result*PRIME) + (this.name == null ? 43 : this.name.hashCode());
+    result = (result*PRIME) + (int)(temp1 ^ (temp1 >>> 32));
+    result = (result*PRIME) + Arrays.deepHashCode(this.tags);
+    return result;
+}
+\end{Java}
+
+\subsubsection{Constructor}
+
+Lombok 有三个用于生成构造函数的注解: @NoArgsConstructor, @RequiredArgsConstructor, @AllArgsConstructor。
+
+首先看一下源代码:
+
+\begin{Java}
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.SOURCE)
+public @interface NoArgsConstructor {
+    String staticName() default "";
+    AnyAnnotation[] onConstructor() default {};
+	AccessLevel access() default lombok.AccessLevel.PUBLIC;
+	boolean force() default false;
+    ...
+}
+\end{Java}
+
+它的几个常用属性如下:
+\begin{itemize}
+    \item access: 设置构造器的访问修饰符，如果是单例模式，可以设置为 AccessLevel.PRIVATE。
+    \item staticName: 用于设置一个静态构造函数。
+    \item force: 如果有未赋值的 final 字段，强制初始化默认值。
+\end{itemize}
+
+\begin{Java}
+// Lombok
+@NoArgsConstructor(staticName = "UserHa")
+public class User {
+    private String username;
+    private String password;
+}
+// Java
+public class User {
+    private String username;
+    private String password;
+    private User() { }
+    public static User UserHa() {
+        return new User();
+    }
+}
+\end{Java}
+
+@RequiredArgsConstructor也是在类上使用，但是这个注解可以生成带参或者不带参的构造方法。若带参数，只能是类中所有带有 @NonNull注解的和以final修饰的未经初始化的字段。
+
+\begin{Java}
+// Lombok
+@RequiredArgsConstructor
+public class User {
+    private final String gender;
+    @NonNull
+    private String username;
+    private String password;
+}
+// Java
+public class User {
+    private final String gender;
+    @NonNull
+    private String username;
+    private String password;
+
+    public User(String gender, @NonNull String username) {
+        if (username == null) {
+            throw new NullPointerException("username is marked @NonNull but is null");
+        } else {
+            this.gender = gender;
+            this.username = username;
+        }
+    }
+}
+\end{Java}
+
+最后一个是 @AllArgsConstructor 需要注意的是，这里的全参不包括已初始化的final字段（主要是final字段，一旦被赋值不允许再被修改），没啥好说的。
+
+\subsubsection{@Builder}
+
+@Builder 注解是一个相当复杂的注解，被他注解的类可以实现 Builder 模式\footnote{Builder 模式不解释，可以看这篇文章: \url{https://blog.csdn.net/qq_17678217/article/details/86507693}}。总而言之，它可以完成 Builder 模式所需要的所有代码。
+
+\begin{Java}
+@Target({TYPE, METHOD, CONSTRUCTOR})
+@Retention(SOURCE)
+public @interface Builder {
+    ...
+}
+\end{Java}
+
+@Builder 的属性很多，建议查源代码了解。这个注解本身没什么好说的，对应的属性也都是和 Builder 模式相关。
+
+\subsubsection{@Synchronized}
+
+用于替换 synchronize 关键字或 lock 锁。
+
+\begin{Java}
+@Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+@Retention(RetentionPolicy.SOURCE)
+public @interface SneakyThrows {
+	Class<? extends Throwable>[] value() default java.lang.Throwable.class;
+}
+\end{Java}
+
+可以传入一个属性值用于设置锁对象。
+
+\begin{Java}
+// Lombok
+public final String NAME = "唐嫣";
+
+@Synchronized(value = "NAME")
+public void name() {
+	System.out.println(NAME);
+}
+// Java
+public void name() {
+	super.getClass();
+	synchronized ("唐嫣") {
+		System.out.println("唐嫣");
+	}
+}
+\end{Java}
+
+\subsubsection{@With}
+
+该注解用于“改变”final属性，具体的方法是，通过 withXXX 函数，返回一个新的对象，这样 final 对应的属性就变相改变了。
+
+\begin{Java}
+@Target({ElementType.FIELD, ElementType.TYPE})
+@Retention(RetentionPolicy.SOURCE)
+public @interface With {
+    AccessLevel value() default AccessLevel.PUBLIC;
+    AnyAnnotation[] onMethod() default {};
+    AnyAnnotation[] onParam() default {};
+    ...
+}
+\end{Java}
+
+示例代码:
+
+\begin{Java}
+// Lombok
+public class WithExample {
+    @With(AccessLevel.PROTECTED) @NonNull private final String name;
+    @With private final int age;
+    public WithExample(@NonNull String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+}
+// Java
+public class WithExample {
+    private @NonNull final String name;
+    private final int age;
+    public WithExample(String name, int age) {
+        if (name == null) throw new NullPointerException();
+        this.name = name;
+        this.age = age;
+    }
+    protected WithExample withName(@NonNull String name) {
+        if (name == null) throw new java.lang.NullPointerException("name");
+        return this.name == name ? this : new WithExample(name, age);
+    }
+    public WithExample withAge(int age) {
+        return this.age == age ? this : new WithExample(name, age);
+    }
+}
+\end{Java}
+
+\subsubsection{@Log}
+
+该注解用于创建对应的 Log 对象：
+
+\begin{Java}
+@Retention(RetentionPolicy.SOURCE)
+@Target(ElementType.TYPE)
+public @interface Log {
+    String topic() default "";
+}
+\end{Java}
+
+示例代码如下:
+
+\begin{Java}
+// Lombok
+@Log
+public class LogExample {
+    public static void main(String... args) {
+        log.severe("Something's wrong here");
+    }
+}
+// Java
+public class LogExample {
+    private static final java.util.logging.Logger log = java.util.logging.Logger.getLogger    (LogExample.class.getName());
+    
+    public static void main(String... args) {
+        log.severe("Something's wrong here");
+    }
+}
+\end{Java}
+
+\subsection{集成注解}
+
+\subsubsection{@Data}
+
+@Data 注解是 @ToString, @EqualsAndHashCode, @Getter, @Setter, @RequiredArgsConstructor 注解的集合。
+
+\subsubsection{@Value}
+
+@Value 是针对不可变对象(例如 String)的 @Data。它会将被修饰的类转换为如下形式:
+
+\begin{itemize}
+    \item 成员变量由 private final 修饰; 
+    \item 提供带参数构造函数；
+    \item 仅为成员变量提供带参数的构造器；
+    \item 不允许子类覆盖方法；
+\end{itemize}
+
+详细文献: \url{https://blog.csdn.net/cauchy6317/article/details/102646009}
+
+\newpage

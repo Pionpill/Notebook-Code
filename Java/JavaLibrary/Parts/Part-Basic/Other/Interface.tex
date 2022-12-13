@@ -1,0 +1,149 @@
+\section{Interface 接口}
+
+\subsection{Appendable}
+
+如果某个类的实例打算接收取自 java.util.Formatter 的格式化输出，那么该类必须实现 Appendable 接口。这个接口在 IO 相关的类中被经常使用。
+
+\begin{Java}
+public interface Appendable {
+    Appendable append(CharSequence csq) throws IOException;
+    Appendable append(CharSequence csq, int start, int end) throws IOException;
+    Appendable append(char c) throws IOException;
+}
+\end{Java}
+
+\subsection{AutoCloseable}
+
+AutoCloseable 和 try-with-resource 语句相关，如果要在该语句中声明某个对象，该对象必须实现 AutoCloseable 接口，try-with-resource 语句块会在结束后自动调用 close 方法。
+
+\begin{Java}
+public interface AutoCloseable {
+    void close() throws Exception;
+}
+\end{Java}
+
+\subsection{CharSequence}
+
+CharSequence 是用于统一字符串操作的，String, StringBuilder, StringBuffer 都实现了 CharSequence。该接口提供了很多方法，部分给予了默认实现:
+
+\begin{Java}
+public interface CharSequence {
+    int length();
+    char charAt(int index);
+    default boolean isEmpty() {
+        return this.length == 0;
+    }
+    @NotNull
+    CharSequence subSequence(int start, int end);
+    @NotNull
+    public String toString();
+    @Contract(pure=true) @NotNull
+    public default IntStream chars() {...}
+    @Contract(pure=true) @NotNull
+    public default IntStream codePoints() {...}
+    public static int compare(CharSequence cs1, CharSequence cs2) {...}
+}
+\end{Java}
+
+\subsection{Cloneable}
+
+Cloneable 接口是一个标记接口，只有实现这个接口后，然后在类中重写Object中的clone方法，然后通过类调用clone方法才能克隆成功，如果不实现这个接口，则会抛出CloneNotSupportedException(克隆不被支持)异常。
+
+默认的 Object 的 clone 方法是浅拷贝，如果我们实现了 Cloneable 并重写 clone 方法，需要尽量实现深拷贝。
+
+\begin{Java}
+@IntrinsicCandidate
+protected native Object clone() throws CloneNotSupportedException;
+\end{Java}
+
+\subsection{Comparable}
+
+Comparable 是一个很常见的接口，用于实现比较：
+
+\begin{Java}
+public interface Comparable<T> {
+    @Contract(pure = true)
+    public int compareTo(T o);
+}
+\end{Java}
+
+\subsection{Iterator}
+
+Iterator 为迭代器对象，还有一个 Iterable 为可迭代对象，Iterable 有一个 iterator 方法返回了 Iterator 对象。
+
+首先看一下 Iterator 接口:
+
+\begin{Java}
+public interface Iterator<E> {
+    boolean hasNext();
+    E next();
+    default void remove() {
+        throw new UnsupportedOperationException("remove");
+    }
+    default void forEachRemaining(Consumer<? super E> action) {
+        Objects.requireNonNull(action);
+        while (hasNext())
+            action.accept(next());
+    }
+}
+\end{Java}
+
+前两个方法是 Iterator 的主要方法，用于迭代下一个对象，具体实现由子类负责，最后一个方法和 for-each 语句相关。
+
+其次是 Iterable 接口:
+
+\begin{Java}
+public interface Iterable<T> {
+    Iterable<T> iterator();
+    default void forEach(Consumer<? super T> action) {
+        Objects.requireNonNull(action);
+        for (T t : this) {
+            action.accept(t);
+        }
+    }
+    default Spliterator<T> spliterator() {
+        return Spliterators.spliteratorUnknownSize(iterator(), 0);
+    }
+}
+\end{Java}
+
+这里只有一个主要方法 iterator，用于返回一个 Iterable 对象。
+
+在看完这两个接口后，我们看一下 for-each 语法糖的实际处理过程:
+
+\begin{Java}
+// 语法糖
+for (Integer i:list) {
+    System.out.println(i);
+}
+// 反编译
+Integer i;
+for (Iterator iterator = list.iterator(); i = (Integer)iterator.next();) {
+    System.out.println(i);
+}
+\end{Java}
+
+所以，为什么 Iterable 返回 Iterator 却不直接在 Iterable 内部实现 Iterator 方法？ 原因是有些集合类可能不止一种遍历方式，实现了Iterable的类可以再实现多个Iterator内部类。
+
+\subsection{Readable}
+
+如果一个类继承了readable接口并实现了read方法，我们就可以使用scanner类来进行操作。
+
+\begin{Java}
+public interface Readable {
+    public int read(java.nio.CharBuffer cb) throws IOException;
+}
+\end{Java}
+
+\subsection{Runnable}
+
+Runnable 是实现函数式接口，他有一个 run 方法，多用在线程中:
+
+\begin{Java}
+@FunctionalInterface
+public interface Runnable {
+    public abstract void run();
+}
+\end{Java}
+
+\newpage

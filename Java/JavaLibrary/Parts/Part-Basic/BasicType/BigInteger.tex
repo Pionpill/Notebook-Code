@@ -1,0 +1,118 @@
+\section{高精度运算}
+\subsection{BigInteger}
+
+\begin{Java}
+public class BigInteger extends Number implements Comparable<BigInteger>
+\end{Java}
+
+BigInteger 有两个基础属性:
+
+\begin{Java}
+final int signum;     // 存储符号位 1：整  0：0 -1：负
+final int[] mag;      // 存储数据
+\end{Java}
+
+注意这两个属性都是 final 修饰的，这决定了 \texttt{BigInteger} 是不可变对象。
+
+总的来说，BigInteger 的构造函数有两类:
+\begin{Java}
+// 通过数组构造
+public BigInteger(byte[] val, int off, int len)
+public BigInteger(int signum, byte[] magnitude, int off, int len)   // 指定符号位
+// 通过字符串构造
+public BigInteger(String val, int radix)
+\end{Java}
+
+同时还提供了一个静态方法:
+\begin{Java}
+public static BigInteger valueOf(long val)
+\end{Java}
+
+首先看一下加法运算，首先通过 signum 进行了优化，如果符号位不同，则转换为减法运算再处理结果:
+\begin{Java}
+public BigInteger add(BigInteger val) {
+    if (val.signum == 0)
+        return this;
+    if (signum == 0)
+        return val;
+    if (val.signum == signum)
+        return new BigInteger(add(mag, val.mag), signum);
+
+    int cmp = compareMagnitude(val);    // 忽略符号位进行比较
+    if (cmp == 0)
+        return ZERO;
+    int[] resultMag = (cmp > 0 ? subtract(mag, val.mag)
+                       : subtract(val.mag, mag));
+    resultMag = trustedStripLeadingZeroInts(resultMag);
+    return new BigInteger(resultMag, cmp == signum ? 1 : -1);
+}
+\end{Java}
+
+其次是减法运算，运算逻辑类似:
+
+\begin{Java}
+public BigInteger subtract(BigInteger val) {
+    if (val.signum == 0)
+        return this;
+    if (signum == 0)
+        return val.negate();
+    if (val.signum != signum)
+        return new BigInteger(add(mag, val.mag), signum);
+
+    int cmp = compareMagnitude(val);
+    if (cmp == 0)
+        return ZERO;
+    int[] resultMag = (cmp > 0 ? subtract(mag, val.mag)
+                       : subtract(val.mag, mag));
+    resultMag = trustedStripLeadingZeroInts(resultMag);
+    return new BigInteger(resultMag, cmp == signum ? 1 : -1);
+}
+\end{Java}
+
+乘除法运算，在这部分的算法就比较复杂了，只给出扩展文献连接:
+\begin{Java}
+public BigInteger multiply(BigInteger val)
+public BigInteger divide(BigInteger val)
+\end{Java}
+
+\begin{itemize}
+    \item 乘法运算: \url{https://zhuanlan.zhihu.com/p/391716853}
+\end{itemize}
+
+类似的，还提供了一些数字处理的常用方法，没什么好讲的。
+
+\subsection{BigDecimal }
+
+\begin{Java}
+public class BigDecimal extends Number implements Comparable<BigDecimal>
+\end{Java}
+
+BigDecimal 有几个关键属性:
+
+\begin{Java}
+private final BigInteger intVal;    // 实际存储的数据
+private final int scale;            // 标度，表示小数位数
+private transient int precision;    // 精度
+\end{Java}
+
+注意这里有个 transient 关键字，表示该属性不会被序列化，大概意思就是，该属性不会进入存储和传输过程(这两个过程需要序列化)。
+
+在构造过程中，会将浮点数膨胀成为整数，并记录标度和精度。标度和精度有什么区别呢？标度是不会改变的，表示实际的小数点位数，辅助 intVal。而精度会在计算过程中改变，例如 1.01 + 1.001 实际上是 101(2) + 1001(3)，这时候就需要改为 1010(3) + 1001(3)，第一个数的精度由此改变了，精度只是一个辅助运算值，对于读取对象记录的大整数具体值没有影响，所以他被 transient 修饰，标度才是真爱。
+
+BigDecimal 精度计算原理比较简单暴力，转换为整数运算再返回。例如 2.00001 会被转换为 BigInteger 的 200001 再计算。由于 BigDecimal 将实际存储值 intVal 与 scale 小数位数分开存储，所以这个过程非常高效，实际上并没有涉及到 BigDecimal 与 BigInteger 的转换。
+
+BigDecimal 提供了两个比较相关函数: equals 和 compareTo:
+\begin{itemize}
+    \item \textbf{equals}: 比较属性，本质上比较 intVal, scale。
+    \item \textbf{compareTo}: 比较值，会比较实际的 BigDecimal 含义值。
+\end{itemize}
+
+什么叫比较实际含义值，例如 1.0 与 1.00 进行比较:
+\begin{itemize}
+    \item equals: 两个值的 intVal 和 scale 分别是 (10,1) 和 (100,2) 不同，直接返回 false;
+    \item compareTo: 比较标度 1,2 发现不同，进行标度对其操作: (10,1) $\rightarrow$ (100,2) 再进行比较，返回 true。
+\end{itemize}
+
+有一个常见的坑，不要使用 double, float 这样精度不确定的值构造 Decimal，应该优先使用 String，具体原因不解释了。
+
+\newpage

@@ -1,0 +1,409 @@
+\section{线程池化技术}
+
+\subsection{ThreadPoolExecutor}
+
+线程池主要解决两个问题：
+\begin{itemize}
+    \item \textbf{线程复用，提高异步任务执行性能：}如果不使用线程池，每次执行异步任务需要创建和销毁线程。
+    \item \textbf{资源限制与线程管理：}可以对线程进行管理，限制线程个数，动态新增线程，保留线程相关的一些数据。
+\end{itemize}
+
+\subsubsection{继承结构}
+
+ThreadPoolExecutor 有如下派生结构: Executor $\rightarrow$ ExecutorService $\rightarrow$ AbstractExecutorService $\rightarrow$ ThreadPoolExecutor。
+
+\begin{Java}
+public class ThreadPoolExecutor extends AbstractExecutorService
+\end{Java}
+
+\paragraph*{Executor} 函数式接口，有一个 execute 方法，表示会执行的任务。
+
+\begin{Java}
+public interface Executor {
+    void execute(Runnable command);
+}
+\end{Java}
+
+\paragraph*{Future} 同样是接口，用于调用其他线程完成好后的结果，再返回到当前线程。Future 接口中的方法如下:
+
+\begin{itemize}
+    \item boolean cancel(): 如果等太久，是否要直接取消任务。
+    \item boolean isCanceled(): 任务是否被取消。
+    \item boolean isDone(): 任务是否被执行。
+    \item V get(): 有两个，不带参数表示无穷等待执行任务，带参数则可以指定等待时间。
+\end{itemize}
+
+\paragraph*{ExecutorService} 对 Executor 接口进行了扩展，同样是一个接口。提供返回 Future 对象，终止，关闭线程等方法。
+
+\begin{itemize}
+    \item void shutdown(): 关闭线程池，不再接受新线程，已有的等待线程继续执行。
+    \item List<Runnable> shutdownNow(): 立即关闭线程池(包括正在执行的)，停止所有等待的线程并返回。
+    \item boolean isShutDown(): 判断线程池是否已关闭，只有调用了前两个方法才返回 True。
+    \item boolean isTerminated(): 调用 shutdown 且等待线程执行完返回 True。
+    \item boolean awaitTermination(): shutdown 之后所有线程完成或者调用了中断，返回 True，否则一直阻塞。
+    \item Future submit(): 提交一个任务，返回的对象中包含该任务的返回值。
+    \item List invokeAll(): 将每个线程的执行结果封装为 Future 对象并返回。
+    \item T invokeAny(): 当集合中任意一个线程完成任务时返回，同时取消其他线程。
+\end{itemize}
+
+AbstractExecutorService 是 ExecutorService 的默认实现，主要看一下 submit 的实现:
+
+\begin{Java}
+public <T> Future<T> submit(Callable<T> task) {
+    if (task == null) throw new NullPointerException();
+    RunnableFuture<T> ftask = newTaskFor(task);
+    execute(ftask);
+    return ftask;
+}
+public Future<?> submit(Runnable task) {
+    if (task == null) throw new NullPointerException();
+    RunnableFuture<Void> ftask = newTaskFor(task, null);
+    execute(ftask);
+    return ftask;
+}
+public <T> Future<T> submit(Runnable task, T result) {
+    if (task == null) throw new NullPointerException();
+    RunnableFuture<T> ftask = newTaskFor(task, result);
+    execute(ftask);
+    return ftask;
+}
+\end{Java}
+
+有两个注意点，一是 submit 本质是调用 execute，二是实现了 Runnable 和 Callable 的对象都可以被执行。
+
+submit 与 execute 的区别就像 Runnable 和 Callable 的区别，execute 只执行，不做任何处理。submit 会有返回值，可能会抛出错误。 
+
+\paragraph*{ThreadPoolExecutor} 最常用的线程池。
+
+在 ThreadPoolExecutor 中，有一个 ctl 用于存储信息:
+
+\begin{Java}
+private final AtomicInteger ctl = new AtomicInteger(ctlOf(RUNNING, 0));
+\end{Java}
+
+其中，ctl 的高 3 位用于表示线程状态，后 29 位用于记录线程池线程个数，默认为运行状态。线程池有如下状态:
+
+\begin{itemize}
+    \item RUNNING: 接受新任务，处理阻塞队列里的任务。
+    \item SHUTDOWN: 拒绝新任务，处理阻塞队列里的任务。
+    \item STOP: 拒绝新任务，抛弃阻塞队列里的任务，中断正在处理的任务。
+    \item TIDYING: 所有任务执行完后当前线程池活动线程数为0，将要调用 terminated 方法。
+    \item TERMINATED: 终止状态，terminated 方法调用之后的状态。
+\end{itemize}
+
+线程池状态转换如下:
+
+\begin{figure}[H]
+    \centering
+    \small
+    \begin{tikzpicture}[scale = 1]
+        \begin{scope}
+            \node[color = white, fill = brown!80] (RUNNING) at (0,0) {RUNNING};
+            \node[color = white, fill = brown!80] (SHUTDOWN) at (5,0) {SHUTDOWN};
+            \node[color = white, fill = brown!80] (STOP) at (5,-1.5) {STOP};
+            \node[color = white, fill = brown!80] (TIDYING) at (10,0) {TIDYING};
+            \node[color = white, fill = brown!80] (TERMINATED) at (10,-1.5) {TERMINATED};
+        \end{scope}
+        \begin{scope}[font = \footnotesize]
+            \draw[-{Stealth}] (RUNNING) -- (SHUTDOWN) node [above, midway] {shutdown()};
+            \draw[-{Stealth}] (RUNNING) -- (STOP) node [sloped, below, midway] {shutdownNow()};
+            \draw[-{Stealth}] (SHUTDOWN) -- (STOP) node [left, midway] {shutdownNow()};
+            \draw[-{Stealth}] (SHUTDOWN) -- (TIDYING) node [above, midway] {线程池和任务队列空};
+            \draw[-{Stealth}] (STOP) -- (TIDYING) node [sloped, above, midway] {线程池空};
+            \draw[-{Stealth}] (TIDYING) -- (TERMINATED) node [midway, right] {terminated()};
+        \end{scope}
+    \end{tikzpicture}
+    \caption{线程池状态转换关系}
+    \label{fig:线程池状态转换关系}
+\end{figure}
+
+此外，还有几个重要属性:
+\begin{Java}
+private final ReentrantLock mainLock = new ReentrantLock();     // 锁 Worker 对象
+private final Condition termination = mainLock.newCondition();
+\end{Java}
+
+Worker 对象是对线程的封装，继承了 AQS 和 Runnable 接口，是具体承载任务的对象。它的状态如下:
+\begin{itemize}
+    \item state = 0: 锁未被获取。
+    \item state = 1: 锁已被获取。
+    \item state = -1: 创建 Worker 时默认的状态。
+\end{itemize}
+
+new 一个线程池需要很多参数，含义如下:
+
+\begin{Java}
+public ThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory, RejectedExecutionHandler handler)
+\end{Java}
+
+\begin{itemize}
+    \item corePoolSize: 核心线程数。
+    \item maximumPoolSize: 最大线程数。
+    \item keepAliveTime: 存活时间; 线程数量多，处于闲置状态，闲置线程能存活的最大时间。
+    \item TimeUnit: 时间单位。
+    \item workQueue: 用于保存等待执行任务的阻塞队列，一般为 LinkedBlockingQueue。
+    \item threadFactory: 创建线程的工厂。
+    \item handler: 队列满时拒绝线程，这个过程的处理方法。
+\end{itemize}
+
+\paragraph*{Executors} 工具类，类似于 Collections。提供工厂方法来创建不同类型的线程池。
+
+\begin{itemize}
+    \item \textbf{newFixedThreadPool}
+    
+    创建一个核心线程个数和最大线程个数都为nThreads的线程池，并且阻塞队列长度为Integer.MAX\_VALUE。keeyAliveTime=0说明只要线程个数比核心线程个数多并且当前空闲则回收。
+
+\begin{Java}
+public static ExecutorService newFixedThreadPool(int nThreads) {
+    return new ThreadPoolExecutor(nThreads, nThreads, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>());
+}
+public static ExecutorService newFixedThreadPool(int nThreads, ThreadFactory threadFactory) {
+    return new ThreadPoolExecutor(nThreads, nThreads, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(), threadFactory);
+}
+\end{Java}
+
+    \item \textbf{newSingleThreadExecutor}
+    
+    创建一个核心线程个数和最大线程个数都为1的线程池，并且阻塞队列长度为Integer.MAX\_VALUE。keeyAliveTime=0说明只要线程个数比核心线程个数多并且当前空闲则回收。
+
+\begin{Java}
+public static ExecutorService newSingleThreadExecutor() {
+    return new FinalizableDelegatedExecutorService
+        (new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>()));
+}
+public static ExecutorService newSingleThreadExecutor(ThreadFactory threadFactory) {
+    return new FinalizableDelegatedExecutorService
+        (new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(), threadFactory));
+}
+\end{Java}
+
+    \item \textbf{newCachedThreadPool}
+
+    创建一个按需创建线程的线程池，初始线程个数为0，最多线程个数为Integer.MAX\_VALUE，并且阻塞队列为同步队列。keeyAliveTime=60说明只要当前线程在60s内空闲则回收。这个类型的特殊之处在于，加入同步队列的任务会被马上执行，同步队列里面最多只有一个任务。
+
+\begin{Java}
+public static ExecutorService newCachedThreadPool() {
+    return new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
+}
+public static ExecutorService newCachedThreadPool(ThreadFactory threadFactory) {
+    return new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(), threadFactory);
+}
+\end{Java}
+\end{itemize}
+
+此外，Executors 还提供了几个线程工厂，比较简单，有兴趣自己看源码。
+
+\subsubsection{源码分析}
+
+\paragraph*{execute} ThreadPoolExecutor 实现机制是一个生产者-消费者模型，execute 方法的作用是提交任务 command 到现称池进行执行。
+
+\begin{figure}[H]
+    \small
+    \centering
+    \begin{tikzpicture}[scale = 1]
+        \begin{scope}[rounded corners]
+            \node[color = white, fill = green!60!black] (thread) at (0,0) {用户线程};
+            \draw[draw=white, fill = red!20] (4,3.2) rectangle (9,-3.2);
+            \node (title1) at (6.5,2.7) {ThreadPoolExecutor}; 
+            \begin{scope}[yshift = -0.35cm]
+                \draw[color = red!40, fill=red!40] (4.3,2.5) rectangle (8.7,0);
+                \node[color = white] (title2) at (6.5,2.2) {workers}; 
+                \begin{scope}[color = white, ellipse]
+                    \node[fill = red!60,circular drop shadow] (core1) at (5.5,1.5) {core1}; 
+                    \node[fill = red!60,circular drop shadow] (core2) at (7.5,1.5) {core2}; 
+                    \node[fill = red!60,circular drop shadow] (thread3) at (5.5,0.5) {thread3}; 
+                    \node[fill = red!60,circular drop shadow] (thread4) at (7.5,0.5) {thread4}; 
+                \end{scope}
+            \end{scope}
+            \begin{scope}
+                \draw[color = red!40, fill=green!60!black] (4.3,-1.5) rectangle (8.7,-0.5);
+                \node[color = white] (queue) at (6.5,-1) {任务队列};
+            \end{scope}
+            \begin{scope}[yshift = 0.35cm]
+                \draw[color = red!40, fill=orange!60!black] (4.3,-3) rectangle (8.7,-2);
+                \node[color = white] (refuse) at (6.5,-2.5) {拒绝策略};
+            \end{scope}
+            \draw [-{Stealth}] (thread) -- (4,0) node [midway,above] {execute};
+        \end{scope}
+    \end{tikzpicture}
+    \caption{execute 方法}
+    \label{fig:execute 方法}
+\end{figure}
+
+具体的 execute 代码如下:
+
+\begin{Java}
+public void execute(Runnable command) {
+    if (command == null)
+        throw new NullPointerException();
+    int c = ctl.get();
+    // 判断当前线程个数，小于核心线程数则开启新线程运行
+    if (workerCountOf(c) < corePoolSize) {
+        if (addWorker(command, true))
+            return;
+        c = ctl.get();
+    }
+    // 线程处于 RUNNING 态，将任务添加到阻塞队列
+    if (isRunning(c) && workQueue.offer(command)) {
+        // 二次检查
+        int recheck = ctl.get();
+        // 如果线程池状态不是 RUNNING 则从队列中删除任务，执行拒绝策略
+        if (!isRunning(recheck) && remove(command))
+            reject(command);
+        // 如果线程池为空，添加线程
+        else if (workerCountOf(recheck) == 0)
+            addWorker(null, false);
+    }
+    // 增加线程失败，则拒绝
+    else if (!addWorker(command, false))
+        reject(command);
+}
+\end{Java}
+
+简言之，做了如下判断:
+
+\begin{figure}[H]
+    \centering
+    \small
+    \begin{tikzpicture}[scale = 1]
+        \begin{scope}
+            \node[color = white, fill = green!60!black] (execute) at (0,2) {execute};
+            \node[color = white, fill = red!60, ellipse] (core) at (0,0) {核心已满?};
+            \node[color = white, fill = orange!60] (new1) at (0,-2) {创建线程};
+            \node[color = white, fill = red!60, ellipse] (queue) at (4,0) {队列已满?};
+            \node[color = white, fill = orange!60] (add) at (4,-2) {加入队列};
+            \node[color = white, fill = red!60, ellipse] (pool) at (8,0) {池已满?};
+            \node[color = white, fill = orange!60] (new2) at (8,-2) {创建线程};
+            \node[color = white, fill = red!60, ellipse] (reject) at (12,0) {拒绝策略};
+        \end{scope}
+        \begin{scope}[font=\scriptsize]
+            \draw[-{Stealth}] (execute) -- (core);
+            \draw[-{Stealth}] (core) -- (new1) node [midway,left] {N};
+            \draw[-{Stealth}] (queue) -- (add) node [midway,left] {N};
+            \draw[-{Stealth}] (pool) -- (new2) node [midway,left] {N};
+            \draw[-{Stealth}] (core) -- (queue) node [midway,above] {Y};
+            \draw[-{Stealth}] (queue) -- (pool) node [midway,above] {Y};
+            \draw[-{Stealth}] (pool) -- (reject) node [midway,above] {Y};
+        \end{scope}
+    \end{tikzpicture}
+    \caption{execute 执行顺序}
+    \label{fig:execute 执行顺序}
+\end{figure}
+
+
+
+addWorker 方法比较复杂，总的来说做了这几件事:
+\begin{itemize}
+    \item 检查队列状态(RUNNING)，通过循环CAS增加线程个数。
+    \item 将任务封装为 worker，获取 mainLock 锁并执行。
+\end{itemize}
+
+来看看内部类 Worker 的构造方法:
+\begin{Java}
+Worker(Runnable firstTask) {
+    setState(-1);
+    this.firstTask = firstTask;
+    this.thread = getThreadFactory().newThread(this);
+}
+\end{Java}
+
+这里为什么要将状态设置为 -1 呢，因为如果状态 >= 0，当其他线程调用了线程池的 shutdownNow 时，Worker 会被中断。在 runWorker 中会在 unlock 后将 Worker 状态设置为 0。在初始化阶段，Worker 并没有执行所以没有中断必要。
+
+\paragraph*{showdown}
+
+调用shutdown方法后，线程池就不会再接受新的任务了，但是工作队列里面的任务还是要执行的。该方法会立刻返回，并不等待队列任务完成再返回。
+
+\begin{Java}
+public void shutdown() {
+    final ReentrantLock mainLock = this.mainLock;
+    mainLock.lock();
+    try {
+        // 权限检查
+        checkShutdownAccess();
+        // 设置当前线程池状态为 SHUTDOWN
+        advanceRunState(SHUTDOWN);
+        // 设置中断标志
+        interruptIdleWorkers();
+        onShutdown();
+    } finally {
+        mainLock.unlock();
+    }
+    // 尝试将状态变为TERMINATED
+    tryTerminate();
+}
+\end{Java}
+
+\paragraph*{shutdownNow}
+
+调用shutdownNow方法后，线程池就不会再接受新的任务了，并且会丢弃工作队列里面的任务，正在执行的任务会被中断，该方法会立刻返回，并不等待激活的任务执行完成。返回值为这时候队列里面被丢弃的任务列表。
+
+public List<Runnable> shutdownNow() {
+    List<Runnable> tasks;
+    final ReentrantLock mainLock = this.mainLock;
+    mainLock.lock();
+    try {
+        // 权限检查
+        checkShutdownAccess();
+        // 设置当前线程池状态为 SHUTDOWN
+        advanceRunState(STOP);
+        // 设置中断标志
+        interruptIdleWorkers();
+        // 将队列任务移动到 task 中
+        tasks = drainQueue();
+    } finally {
+        mainLock.unlock();
+    }
+    tryTerminate();
+    return tasks;
+}
+
+\subsection{ScheduledThreadPoolExecutor}
+
+ScheduledThreadPoolExecutor 可以在指定一定延迟时间后或者定时进行任务调度执行的线程池。
+
+ScheduledThreadPoolExecutor 继承自 ThreadPoolExecutor 并实现了 ScheduledExecutorService 接口。线程池队列是DelayedWorkQueue，其和DelayedQueue类似，是一个延迟队列。
+
+\begin{Java}
+public class ScheduledThreadPoolExecutor extends ThreadPoolExecutor implements ScheduledExecutorService
+\end{Java}
+
+ScheduledExecutorService 定义了一系列 schedule 方法，表示一段时候后执行。
+
+看一下 ScheduledThreadPoolExecutor 参数最多的构造方法:
+
+\begin{Java}
+public ScheduledThreadPoolExecutor(int corePoolSize, ThreadFactory threadFactory, RejectedExecutionHandler handler) {
+    super(corePoolSize, Integer.MAX_VALUE, DEFAULT_KEEPALIVE_MILLIS, MILLISECONDS, new DelayedWorkQueue(), threadFactory, handler);
+}
+\end{Java}
+
+可以发现，它本质上是调用了 ThreadPoolExecutor 的构造方法，默认使用 DelayedWorkQueue 队列。
+
+此外，它给出了更复杂的线程池状态:
+\begin{itemize}
+    \item NEW: 初始化。
+    \item COMPLETING: 执行中。
+    \item NORMAL: 正常运行结束。
+    \item EXCEPTIONAL: 运行中异常。
+    \item CANCELED: 任务取消。
+    \item INTERRUPTING: 任务正在被中断。
+    \item INTERRUPTED: 任务已经被中断。
+\end{itemize}
+
+ScheduledThreadPoolExecutor 的 execute 方法被重写，本质上是调用 schedule 方法:
+
+\begin{Java}
+public void execute(Runnable command) {
+    schedule(command, 0, NANOSECONDS);
+}
+public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
+    if (command == null || unit == null)
+        throw new NullPointerException();
+    RunnableScheduledFuture<Void> t = decorateTask(command,
+        new ScheduledFutureTask<Void>(command, null, triggerTime(delay, unit), sequencer.getAndIncrement()));
+    delayedExecute(t);
+    return t;
+}
+\end{Java}
+
+\newpage

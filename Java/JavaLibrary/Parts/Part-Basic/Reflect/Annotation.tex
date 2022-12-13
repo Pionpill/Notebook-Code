@@ -1,0 +1,190 @@
+\section{Annotation 注解}
+
+Java注解它提供了一种安全的类似注释的机制，用来将任何的信息或元数据（metadata）与程序元素（类、方法、成员变量等）进行关联。
+
+Java 注解分为三类:
+\begin{itemize}
+    \item 标准注解: Java 自带的一些功能性注解。
+    \item 元注解: 用于定义注解的注解。
+    \item 自定注解: 自己定义的注解(略)。
+\end{itemize}
+
+\subsection{标准注解}
+
+\subsubsection*{@Override}
+
+功能: 检查该方法是否是重写方法，如果发现其父类，或者是引用的接口中没有该方法时，会报编译错误。
+
+\begin{Java}
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.SOURCE)
+public @interface Override {}
+\end{Java}
+
+用法: 直接放在要重写的函数上，没有参数。
+
+\subsubsection*{@Deprecated}
+
+功能: 用于标明被修饰的类或类成员、类方法已经废弃、过时，不建议使用。
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(value={CONSTRUCTOR, FIELD, LOCAL_VARIABLE, METHOD, PACKAGE, MODULE, PARAMETER, TYPE})
+public @interface Deprecated {
+    String since() default "";
+    boolean forRemoval() default false;
+}
+\end{Java}
+
+参数说明(两个参数都是 Java9 新增的):
+\begin{itemize}
+    \item since: 指定已注解的 API 元素已被弃用的版本。
+    \item forRemoval: 是否在将来的既定版本中会被删除。
+\end{itemize}
+
+\begin{Java}
+@Deprecated(since = "1.2", forRemoval = true)
+\end{Java}
+
+\subsubsection*{@SuppressWarnings}
+
+功能: 用于关闭对类、方法、成员编译时产生的特定警告。
+
+\begin{Java}
+@Target({TYPE, FIELD, METHOD, PARAMETER, CONSTRUCTOR, LOCAL_VARIABLE, MODULE})
+@Retention(RetentionPolicy.SOURCE)
+public @interface SuppressWarnings {
+    String[] value();
+}
+\end{Java}
+
+value 的常见参数如下:
+\begin{itemize}
+    \item deprecation: 使用了不赞成使用的类或方法
+    \item unchecked: 执行了未检查的转换
+    \item fallthrough: 当 Switch 程序块直接通往下一种情况而没有 break
+    \item path: 在类路径，源文件路径等中有不存在的路径时的警告
+    \item serial: 当在可序列化的类上缺少 serialVersionUID 定义时的警告
+    \item finally: 任何 finally 子句不能正常完成时的警告
+    \item all: 所有的警告
+\end{itemize}
+
+\begin{Java}
+// @SuppressWarnings("unchecked")                   // 抑制单类型警告
+@SuppressWarnings(value={"unchecked", "rawtypes"})  // 抑制多类型警告
+public void addItems(String item){  
+  @SuppressWarnings("rawtypes")  
+   List items = new ArrayList();  
+   items.add(item);  
+}
+\end{Java}
+
+\subsubsection*{@FunctionalInterface}
+
+用于指示被修饰的接口是函数式接口
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+public @interface FunctionalInterface {}
+\end{Java}
+
+函数式接口(Functional Interface)就是一个有且仅有一个抽象方法，但是可以有多个非抽象方法的接口。
+
+\subsection{元注解}
+
+\subsubsection*{@Retention}
+
+定义该注解在哪一个级别可用，在源代码中(SOURCE)、类文件中(CLASS)或者运行时(RUNTIME)。
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.ANNOTATION_TYPE)
+public @interface Retention {
+    RetentionPolicy value();
+}
+
+public enum RetentionPolicy {
+    SOURCE , CLASS , RUNTIME
+}
+\end{Java}
+
+value 的常见参数如下:
+\begin{itemize}
+    \item RetentionPolicy.SOURCE: 编译时被丢弃，只在源文件中出现
+    \item RetentionPolicy.CLASS: 编译器将注解记录在类文件中，但不会加载到JVM中，是默认值
+    \item RetentionPolicy.RUNTIME: 注解信息会保留在源文件、类文件中，在执行的时也加载到Java的JVM中，因此可以反射性的读取
+\end{itemize}
+
+那怎么来选择合适的注解生命周期呢？\footnote{引用自:\url{https://blog.csdn.net/weixin_42403127/article/details/115999679}}
+首先要明确生命周期长度 SOURCE < CLASS < RUNTIME ，所以前者能作用的地方后者一定也能作用。一般如果需要 
+在运行时去动态获取注解信息，那只能用 RUNTIME 注解；如果要 在编译时进行一些预处理操作，比如生成一些辅助
+代码（如 ButterKnife） ，就用 CLASS注解; 如果 只是做一些检查性的操作，比如 @Override 和
+ @SuppressWarnings，则 可选用 SOURCE 注解。
+
+\subsubsection*{@Documented}
+
+作用: 生成文档信息的时候保留注解，对类作辅助说明。
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.ANNOTATION_TYPE)
+public @interface Documented {}
+\end{Java}
+
+如果一个注解@B，被@Documented标注，那么被@B修饰的类，生成文档时，会显示@B。如果@B没有被@Documented标准，最终生成的文档中就不会显示@B。
+
+\subsubsection*{@Target}
+
+作用: 用于描述注解的使用范围。
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.ANNOTATION_TYPE)
+public @interface Target {
+    ElementType[] value();
+}
+\end{Java}
+
+ElementType 是一个枚举类型，它定义了被 @Target 修饰的注解可以应用的范围：
+\begin{itemize}
+    \item ElementType.Type: 类，接口(包括注解)，枚举
+    \item ElementType.CONSTRUCTOR: 构造函数
+    \item ElementType.PARAMETER: 方法的参数
+    \item ElementType.FIELD: 字段或属性
+    \item ElementType.METHOD: 方法
+    \item ElementType.PACKAGE: 包
+    \item ElementType.LOCAL\_VARIABLE: 局部变量
+    \item ElementType.TYPE\_PARAMETER: 类型变量
+    \item ElementType.TYPE\_USE: 任何适用类型的语句中
+\end{itemize}
+
+\subsubsection*{@Inherited}
+
+作用: 子类可以继承父类中的该注解, 自动继承注解类型。 如果注解类型声明中存在 @Inherited 元注解，则注解所修饰类的所有子类都将会继承此注解。
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.ANNOTATION_TYPE)
+public @interface Inherited {}
+\end{Java}
+
+\subsubsection*{@Repeatable}
+
+作用：注解可以重复使用。
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.ANNOTATION_TYPE)
+public @interface Repeatable {
+    Class<? extends Annotation> value();
+}
+\end{Java}
+
+\newpage

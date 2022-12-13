@@ -1,0 +1,191 @@
+\section{常用并发工具}
+\subsection{ThreadLocalRandom}
+\subsubsection{Random 的原理与局限性}
+
+首先看一下 Random 类的声明:
+
+\begin{Java}
+public class Random implements RandomGenerator, java.io.Serializable
+\end{Java}
+
+Random 有两个构造函数:
+
+\begin{Java}
+public Random() {
+    this(seedUniquifier() ^ System.nanoTime());
+}
+public Random(long seed) {
+    ...
+}
+\end{Java}
+
+可以看出，无论使用哪个构造函数，都会初始化一个 seed 成员，这个种子决定了随机数是怎样生成的，所有的随机算法都依赖于这个种子(伪随机)。来看一下是怎样利用种子生成随机数的。
+
+\begin{Java}
+public int nextInt(int bound) {
+    if (bound <= 0)
+        throw new IllegalArgumentException(BAD_BOUND);
+    // (1) 根据老种子生成新种子
+    int r = next(31);
+    // (2) 生成随机数
+    int m = bound - 1;
+    if ((bound & m) == 0) 
+        r = (int)((bound * (long)r) >> 31);
+    else {
+        for (int u = r;
+             u - (r = u % bound) + m < 0;
+             u = next(31))
+            ;
+    }
+    return r;
+}
+\end{Java}
+
+由此可见，新的随机数生成需要两个步骤:
+\begin{itemize}
+    \item 根据老的种子生成新的种子。
+    \item 根据新的种子生成随机数。
+\end{itemize}
+
+在单线程情况下每次调用nextInt都是根据老的种子计算出新的种子，这是可以保证随机数产生的随机性的。但是在多线程下多个线程可能都拿同一个老的种子去执行计算新的种子，这会导致多个线程产生的新种子是一样的，由于生成随机数的算法是相同的，最终多个线程产生的随机值也会相同。
+
+所以步骤(1)要保证原子性，也就是说当多个线程根据同一个老种子计算新种子时，第一个线程的新种子被计算出来后，第二个线程要丢弃自己老的种子，而使用第一个线程的新种子来计算自己的新种子，依此类推，只有保证了这个，才能保证在多线程下产生的随机数是随机的。Random函数使用一个原子变量达到了这个效果，在创建Random对象时初始化的种子就被保存到了种子原子变量里面，下面看next()的代码。
+
+\begin{Java}
+protected int next(int bits) {
+    long oldseed, nextseed;
+    AtomicLong seed = this.seed;
+    do {
+        oldseed = seed.get();
+        nextseed = (oldseed * multiplier + addend) & mask;
+    // (3) CAS 操作，使用新的种子替换老的种子
+    } while (!seed.compareAndSet(oldseed, nextseed));
+    // 根据种子计算随机数
+    return (int)(nextseed >>> (48 - bits));
+}
+\end{Java}
+
+在多线程情形下，可能多个线程都执行到了 (3) 之前，拿到且计算的新种子是一样的，但是(3) 的 CAS 操作会保证只有一个线程可以更新老的种子为新的，失败的线程会循环获取新的种子，这就解决了上面提到的问题，保证了随机数的随机性。
+
+\subsubsection{ThreadLocalRandom}
+
+Random 的缺陷在于在多线程操作过程中，他会采用 while 循环不断尝试获取最新的种子值，这会影响性能。为了弥补这一缺陷，Java 提供了 ThreadLocalRandom 工具。
+
+\begin{Java}
+public class ThreadLocalRandom extends Random
+\end{Java}
+
+ThreadLocalRandom 会让我们联想到 ThreadLocal(事实上原理相同)，既然 Random 的缺陷在于需要不断尝试竞争获取最新的``公有''种子，那么让每个线程持有一个不同的种子不就行了吗。这两者的区别在于:
+
+\begin{itemize}
+    \item Random: 多个线程竞争获取 Random 中的种子。
+    \item ThreadLocalRandom: 每个线程持有一个不同的私有的种子，ThreadLocalRandom 只负责计算随机数。
+\end{itemize}
+
+在 Thread 类中，有以下相关的成员变量(关键成员只有第一个，其他两个都是辅助生成第一个变量的):
+\begin{Java}
+long threadLocalRandomSeed;     // 随机种子
+int threadLocalRandomProbe;     // 辅助生成随机种子
+int threadLocalSecondarySeed;   // 辅助生成随机种子
+\end{Java}
+
+和 ThreadLocal 类似，ThreadLocalRandom 也持有一个 Thread 对象引用。具体的操作原理不解释了，和 ThreadLocal 一致。
+
+ThreadLocalRandom 没有公有的构造方法，获取 ThreadLocalRandom 需要使用它的静态方法 current():
+
+\begin{Java}
+public static ThreadLocalRandom current() {
+    // Unsafe 检测
+    if (U.getInt(Thread.currentThread(), PROBE) == 0)
+        localInit();    // 生成当前线程的随机种子
+    return instance;    // ThreadLocalRandom 实例
+}
+\end{Java}
+
+ThreadLocalRandom 的很多方法都使用到了 Unsafe 的方法，用于和线程之间交互。
+
+\subsection{Atomic 原子操作}
+
+Java 的原子类都直接或间接用到了 Unsafe 方法，这些方法是 native 的，我们无法知道具体的实现方案。因此，这节多是概念，具体实现逻辑也没什么好讲的，问就是 CAS。
+
+\subsubsection{AtomicLong 操作}
+
+原子变量包括 AtomicBoolean，AtomicInteger，AtomicLong 等原子操作，原理类似，以 AtomicLong 为例。
+
+\begin{Java}
+public class AtomicLong extends Number implements java.io.Serializable
+\end{Java}
+
+它的几个重要成员如下:
+
+\begin{Java}
+// 判断 JVM 是否支持 Long 类型无锁 CAS
+static final boolean VM_SUPPORTS_LONG_CAS = VMSupportsCS8();
+// 获取 Unsafe 实例
+private static final Unsafe unsafe = Unsafe.getUnsafe();
+// 存放变量 value 的偏移量
+private static final long valueOffset;
+// 实际变量值
+private volatile long value;
+\end{Java}
+
+value 被声明为 volatile，是因为其操作已经是原子操作，那么就可以使用 volatile 保证其内存可见性，这样是线程安全的。
+
+AtomicLong 的大部分功能性方法最终都是调用了 CAS 操作，我们只需要知道，CAS 可以保证原子性，是非阻塞的，相比 synchronized 关键字，CAS 操作性能更高。具体 CAS 是如何操作的涉及到硬件层面。
+
+\subsubsection{LongAdder 操作}
+
+AtomicLong 通过 CAS 提供了非阻塞的原子性操作，虽然相比阻塞算法性能已经很好了，但是 Java 通过了性能更佳的方案。
+
+在高并发下大量线程会同时去竞争更新同一个原子变量，但是由于同时只有一个线程的 CAS 操作会成功，大量线程竞争失败后会进入无限循环不断通过自旋尝试 CAS 操作，这会白白浪费CPU资源(类似 Random 的局限)。
+
+LongAdder 的思想是这样的: 既然AtomicLong的性能瓶颈是由于过多线程同时去竞争一个变量的更新而产生的，那么把一个变量分解为多个变量，让同样多的线程去竞争多个资源，就解决了性能问题。
+
+使用LongAdder时，是在内部维护多个Cell变量，每个Cell里面有一个初始值为0的long型变量，这样，在同等并发量的情况下，争夺单个变量更新操作的线程量会减少，这变相地减少了争夺共享资源的并发量。另外，多个线程在争夺同一个Cell原子变量时如果失败了，它并不是在当前Cell变量上一直自旋CAS重试，而是尝试在其他Cell的变量上进行CAS尝试，这个改变增加了当前线程重试CAS成功的可能性。最后，在获取LongAdder当前值时，是把所有Cell变量的value值累加后再加上base返回的。
+
+LongAdder维护了一个延迟初始化的原子性更新数组（默认情况下Cell数组是null）和一个基值变量base。由于Cells占用的内存是相对比较大的，所以一开始并不创建它，而是在需要时创建，也就是惰性加载。
+
+当一开始判断Cell数组是null并且并发线程较少时，所有的累加操作都是对base变量进行的。保持Cell数组的大小为2的N次方，在初始化时Cell数组中的Cell元素个数为2，数组里面的变量实体是Cell类型。Cell类型是AtomicLong的一个改进，用来减少缓存的争用,也就是解决伪共享问题。
+
+对于大多数孤立的多个原子操作进行字节填充是浪费的，因为原子性操作都是无规律地分散在内存中的（也就是说多个原子性变量的内存地址是不连续的），多个原子变量被放入同一个缓存行的可能性很小。但是原子性数组元素的内存地址是连续的，所以数组内的多个元素能经常共享缓存行，因此使用@sun.misc.Contended注解对Cell类进行字节填充，这防止了数组中多个元素共享一个缓存行，在性能上是一个提升。
+
+\begin{Java}
+public class LongAdder extends Striped64 implements Serializable
+\end{Java}
+
+Striped64 维护着 3 个主要成员变量:
+
+\begin{Java}
+transient volatile Cell[] cells;
+transient volatile long base;
+transient volatile int cellsBusy;
+\end{Java}
+
+cellsBusy 状态只有 0 或 1，用来实现自旋锁，当创建Cell元素，扩容Cell数组或者初始化Cell数组时，使用CAS操作该变量来保证同时只有一个线程可以进行其中之一的操作。
+
+Cell的构造很简单，其内部维护一个被声明为volatile的value变量，这里声明为volatile是因为线程操作value变量时没有使用锁，为了保证变量的内存可见性这里将其声明为volatile的。另外有个cas函数通过CAS操作，保证了当前线程更新时被分配的Cell元素中value值的原子性。另外，Cell类使用@sun.misc.Contended修饰是为了避免伪共享。
+
+\subsubsection{LongAccumlator}
+
+LongAdder类是LongAccumulator的一个特例， LongAccumulator比LongAdder的功能更强大。
+
+\begin{Java}
+public class LongAccumulator extends Striped64 implements Serializable {
+    private final LongBinaryOperator function;
+    private final long identity;
+    public LongAccumulator(LongBinaryOperator accumulatorFunction, long identity) {
+        this.function = accumulatorFunction;
+        base = this.identity = identity;
+    }
+}
+\end{Java}
+
+调用 LongAdder 就相当于通过如下方式构建 LongAccumulator:
+
+\begin{Java}
+LongAccumulator longAccumulator = new LongAccumulator((long left, long right) -> {return (left + right);},0);
+\end{Java}
+
+LongAccumulator相比于LongAdder，可以为累加器提供非0的初始值，后者只能提供默认的0值。另外，前者还可以指定累加规则，比如不进行累加而进行相乘，只需要在构造LongAccumulator时传入自定义的双目运算器即可，后者则内置累加的规则。
+
+\newpage

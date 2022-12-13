@@ -1,0 +1,131 @@
+\section{MyBatis Plus 注解}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            MyBatis 和 MyBatis Plus 不是 Spring 框架内的东西，只是开发中比较常用 SSM 框架。MP 的源码有中文注释，所以这里写的很简略。
+        \end{notice}
+    }
+}
+
+MP 坐标如下:
+
+\begin{xml}
+<dependency>
+    <groupId>com.baomidou</groupId>
+    <artifactId>mybatis-plus-boot-starter</artifactId>
+    <version>最新版本</version>
+</dependency>
+\end{xml}
+
+\subsection{表相关注解}
+
+\subsubsection{@TableName}
+
+表名注解，用于关联一个数据表:
+
+\begin{Java}
+    @Documented
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.TYPE, ElementType.ANNOTATION_TYPE})
+    public @interface TableName {
+        String value() default "";
+        String schema() default "";
+        boolean keepGlobalPrefix() default false;
+        String resultMap() default "";
+        boolean autoResultMap() default false;
+        String[] excludeProperty() default {};
+    }
+\end{Java}
+
+主要属性如下:
+\begin{itemize}
+    \item value: 表名;
+    \item resultMap: XML 中 resultMap 的 id;
+    \item autoResultMap: 是否自动构建 resultMap 并使用。
+\end{itemize}
+
+\subsubsection{@TableId}
+
+标识主键
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.ANNOTATION_TYPE})
+public @interface TableId {
+    String value() default "";
+    IdType type() default IdType.NONE;
+}
+\end{Java}
+
+主要属性如下:
+\begin{itemize}
+    \item value: 数据库主键字段名;
+    \item type: 主键类型，默认为 idType.NONE。
+\end{itemize}
+
+枚举 idType 如下:
+\begin{itemize}
+    \item AUTO: 数据库 ID 自增;
+    \item NONE: 无状态,该类型为未设置主键类型(注解里等于跟随全局,全局里约等于 INPUT);
+    \item INPUT: insert前自行set主键值;
+    \item ASSIGN\_ID: 分配ID(主键类型为Number(Long和Integer)或String)，使用雪花算法。
+    \item ASSIGN\_UUID: 分配UUID,主键类型为String(since 3.3.0)。
+\end{itemize}
+
+\subsubsection{@TableField}
+
+非主键的字段注解:
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.ANNOTATION_TYPE})
+public @interface TableField { ... }
+\end{Java}
+
+属性太多不写了。
+
+\subsubsection{@TableLogic}
+
+逻辑处理注解:
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.ANNOTATION_TYPE})
+public @interface TableLogic {
+    String value() default "";
+    String delval() default "";
+}
+\end{Java}
+
+两个属性意义如下:
+\begin{itemize}
+    \item value: 逻辑未删除值;
+    \item delval: 逻辑删除值。
+\end{itemize}
+
+
+\subsubsection{@EnumValue}
+
+标识是个枚举类型:
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.ANNOTATION_TYPE})
+public @interface EnumValue { }
+\end{Java}
+
+\subsubsection{@Version}
+
+乐观锁标记。
+
+\begin{Java}
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.ANNOTATION_TYPE})
+public @interface Version { }
+\end{Java}

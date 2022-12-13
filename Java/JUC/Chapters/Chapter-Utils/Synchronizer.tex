@@ -1,0 +1,226 @@
+\section{线程同步器}
+\subsection{CountDownLatch}
+
+在日常开发中经常会遇到需要在主线程中开启多个线程去并行执行任务，并且主线程需要等待所有子线程执行完毕后再进行汇总的场景。在CountDownLatch出现之前一般都使用线程的join()方法来实现这一点，但是join方法不够灵活，不能够满足不同场景的需要，所以JDK开发组提供了CountDownLatch这个类。
+
+CountDownLatch 的实现很简单，啥都没继承，有一个内部类 Syn 继承自 AQS:
+
+\begin{Java}
+private static final class Sync extends AbstractQueuedSynchronizer {
+    private static final long serialVersionUID = 4982264981922014374L;
+    Sync(int count) {
+        setState(count);
+    }
+    int getCount() {
+        return getState();
+    }
+    protected int tryAcquireShared(int acquires) {
+        return (getState() == 0) ? 1 : -1;
+    }
+    protected boolean tryReleaseShared(int releases) {
+        for (;;) {
+            int c = getState();
+            if (c == 0)
+                return false;
+            int nextc = c - 1;
+            if (compareAndSetState(c, nextc))
+                return nextc == 0;
+        }
+    }
+}
+\end{Java}
+
+可以发现非常简单，state 为 0 可以获取，再看一下 CountDownLatch 的构造方法:
+
+\begin{Java}
+public CountDownLatch(int count) {
+    if (count < 0) throw new IllegalArgumentException("count < 0");
+    this.sync = new Sync(count);
+}
+\end{Java}
+
+所以本质上就是传一个数字给 CountDownLatch，计数到 0 允许允许，其他的方法如下:
+
+\begin{Java}
+public void await() throws InterruptedException {
+    sync.acquireSharedInterruptibly(1);
+}
+public boolean await(long timeout, TimeUnit unit)
+    throws InterruptedException {
+    return sync.tryAcquireSharedNanos(1, unit.toNanos(timeout));
+}
+public void countDown() {
+    sync.releaseShared(1);
+}
+public long getCount() {
+    return sync.getCount();
+}
+\end{Java}
+
+CountDownLatch 一般的使用方式: 初始化，设置 state 值 $\rightarrow$ 调用 await() 阻塞线程 $\rightarrow$ 线程执行完，调用 countDown()  $\rightarrow$ state 值降到0，await() 线程被唤醒。
+
+\subsection{CyclicBarrier}
+
+CountDownLatch 简化了 join 方法，但 CountDownLatch的计数器是一次性的，也就是等到计数器值变为0后，再调用CountDownLatch的await和countdown方法都会立刻返回，这就起不到线程同步的效果了。为了重用计数器，JDK 提供了 CyclicBarrier。
+
+从字面意思理解，CyclicBarrier是回环屏障的意思，它可以让一组线程全部达到一个状态后再全部同时执行。
+\begin{itemize}
+    \item 回环: 当所有等待线程执行完毕，并重置CyclicBarrier的状态后它可以被重用。
+    \item 屏障: 线程调用await方法后就会被阻塞，这个阻塞点就称为屏障点，等所有线程都调用了await方法后，线程们就会冲破屏障，继续向下运行。
+\end{itemize}
+
+CyclicBarrier 的几个重要个属性如下:
+
+\begin{Java}
+public class CyclicBarrier {
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Condition trip = lock.newCondition();
+    private final int parties;
+    private final Runnable barrierCommand;
+    private Generation generation = new Generation();
+    private int count;
+
+    public CyclicBarrier(int parties, Runnable barrierAction) {
+        if (parties <= 0) throw new IllegalArgumentException();
+        this.parties = parties;
+        this.count = parties;
+        this.barrierCommand = barrierAction;
+    }
+    public CyclicBarrier(int parties) {
+        this(parties, null);
+    }
+}
+\end{Java}
+
+可以看到，CyclicBarrier 基于独占锁实现，本质上还是基于 AQS 的。在构造函数中，parties 用于记录线程个数，标识表示多少线程调用 await 后，所有线程才会冲破屏障继续往下运行。
+
+count 一开始等于 parties，每当有线程调用 await 方法就递减1，当 count 为 0 时就表示所有线程都到了屏障点。维护两个变量的原因是为了复用，parties 用于记录线程总数，count 用于计数。
+
+此外还有一个 barrierAction 表示屏障被打破时需要运行的方法。
+
+\begin{Java}
+public int await() throws InterruptedException, BrokenBarrierException {
+    try {
+        return dowait(false, 0L);
+    } catch (TimeoutException toe) {
+        throw new Error(toe); // cannot happen
+    }
+}
+public int await(long timeout, TimeUnit unit) throws InterruptedException, BrokenBarrierException, TimeoutException {
+    return dowait(true, unit.toNanos(timeout));
+}
+\end{Java}
+
+当线程调用 CyclicBarrier 的 await 系方法时会被阻塞，直到满足下面条件之一才会返回:
+\begin{itemize}
+    \item parties 个线程都调用了 await() 方法，即线程都到了屏障点。
+    \item 其他线程调用了当前线程的 interrupt() 方法中断了当前线程，抛出 InterruptedException 异常。
+    \item 屏障点关联的 Generation 对象的 broken 标志被设置为 true 时，抛出 BrokenBarrierException 异常。
+\end{itemize}
+
+\begin{Java}
+private int dowait(boolean timed, long nanos) throws InterruptedException, BrokenBarrierException, TimeoutException {
+    final ReentrantLock lock = this.lock;
+    lock.lock();
+    try {
+        ...... // 省略一些检查
+        int index = --count;
+        // 到达屏障点
+        if (index == 0) {  // tripped
+            // 执行方法
+            Runnable command = barrierCommand;
+            if (command != null) {
+                try {
+                    command.run();
+                } catch (Throwable ex) {
+                    breakBarrier();
+                    throw ex;
+                }
+            }
+            // 开始下一次回环
+            nextGeneration();
+            return 0;
+        }
+        // 没到屏障点
+        for (;;) {
+            try {
+                // 没有设置超时时间
+                if (!timed)
+                    trip.await();
+                // 设置了超时时间
+                else if (nanos > 0L)
+                    nanos = trip.awaitNanos(nanos);
+            } catch (InterruptedException ie) {
+                if (g == generation && ! g.broken) {
+                    breakBarrier(); // 破坏屏障，开启下一次循环
+                    throw ie;
+                } else {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            .....   // 省略一些检查
+        }
+    } finally {
+        lock.unlock();
+    }
+}
+private void nextGeneration() {
+    trip.signalAll();
+    count = parties;
+    generation = new Generation();
+}
+private void breakBarrier() {
+    generation.broken = true;
+    count = parties;
+    trip.signalAll();
+}
+\end{Java}
+
+
+CyclicBarrier 一般的使用方式: 初始化，设置 parties 和 barrierAction $\rightarrow$ 调用 await() 阻塞线程 $\rightarrow$ 阻塞线程数量到达 parties，自动突破屏障执行 barrierAction。
+
+\subsection{Semaphore}
+
+Semaphore 信号量内部的计数器是递增的，并且在一开始初始化Semaphore时可以指定一个初始值，但是并不需要知道需要同步的线程个数，而是在需要同步的地方调用acquire方法时指定需要同步的线程个数。
+
+\begin{Java}
+public class Semaphore implements java.io.Serializable {
+    private final Sync sync;
+    public Semaphore(int permits) {
+        sync = new NonfairSync(permits);
+    }
+    public Semaphore(int permits, boolean fair) {
+        sync = fair ? new FairSync(permits) : new NonfairSync(permits);
+    }
+}
+\end{Java}
+
+Semaphore还是使用AQS实现的。Sync只是对AQS的一个修饰。permits 用于设置初始 state 值。
+
+\begin{Java}
+public void acquire() throws InterruptedException {
+    sync.acquireSharedInterruptibly(1);
+}
+public void acquire(int permits) throws InterruptedException {
+    if (permits < 0) throw new IllegalArgumentException();
+    sync.acquireSharedInterruptibly(permits);
+}
+\end{Java}
+
+acquire 系方法用于获取信号量资源，当信号量资源达到需求时能正确返回，否则会阻塞。Semaphore 默认采用非公平策略，即多个线程获取信号量非公平，也可以指定为公平策略。
+
+\begin{Java}
+public void release() {
+    sync.releaseShared(1);
+}
+public void release(int permits) {
+    if (permits < 0) throw new IllegalArgumentException();
+    sync.releaseShared(permits);
+}
+\end{Java}
+
+release 系方法的作用是把当前Semaphore对象的信号量值增加，如果当前有线程因为调用 aquire 方法被阻塞而被放入了AQS的阻塞队列，则会根据策略选择一个信号量个数能被满足的线程进行激活，激活的线程会尝试获取刚增加的信号量。
+
+Semaphore 的一般使用方法: 初始化 Semaphore 对象 $\rightarrow$ 线程调用 release 系方法增加信号量 $\rightarrow$ 线程调用 acquire 系方法阻塞等待信号量满足需求 $\rightarrow$ 信号量满足需求，acquire 线程继续执行。
+
+\newpage

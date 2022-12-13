@@ -1,0 +1,197 @@
+\section{IoC Service Provider}
+
+\subsection{IoC Service Provider 简介与职责}
+
+虽然业务对象可以通过IoC方式声明相应的依赖，但是最终仍然需要通过某种角色或者服务将这些相互依赖的对象绑定到一起，而IoC Service Provider就对应IoC场景中的这一角色。简单地说，IoC Service Provider 负责实现 IoC。
+
+IoC Service Provider在这里是一个抽象出来的概念，它可以指代任何将IoC场景中的业务对象绑定到一起的实现方式。它可以是一段代码，也可以是一组相关的类，甚至可以是比较通用的IoC框架或者IoC容器实现。比如，可以通过以下代码绑定与新闻相关的对象。
+
+\begin{Java}
+IFXNewsListener newsListener = new DowJonesNewsListener(); 
+IFXNewsPersister newsPersister = new DowJonesNewsPersister(); 
+FXNewsProvider newsProvider = new FXNewsProvider(newsListener,newsPersister); 
+newsProvider.getAndPersistNews(); 
+\end{Java}
+
+这段代码就可以认为是这个场景中的IoC  Service  Provider，只不过比较简单，而且弊端很多。现在许多开源产品通过各种方式为我们做了这部分工作。所以，目前来看，我们只需要使用这些产品提供的服务就可以了。Spring的IoC容器就是一个提供依赖注入服务的IoC Service Provider。
+
+IoC Service Provider的职责主要有两个：业务对象的构建管理和业务对象间的依赖绑定。
+
+\begin{itemize}
+    \item \textbf{构建管理}: 在IoC场景中，业务对象无需关心所依赖的对象如何构建如何取得，但这部分工作始终需要有人来做。所以，IoC Service Provider需要将对象的构建逻辑从客户端对象那里剥离出来，以免这部分逻辑污染业务对象的实现。
+    \item \textbf{依赖绑定}: 这个职责是最艰巨也是最重要的，这是它的最终使命之所在。IoC Service Provider通过结合之前构建和管理的所有业务对象，以及各个业务对象间可以识别的依赖关系，将这些对象所依赖的对象注入绑定，从而保证每个业务对象在使用的时候，可以处于就绪状态。
+\end{itemize}
+
+\subsection{IoC Service Provider管理对象间的依赖关系}
+
+IoC Service Provider 需要通过各种方式来记录诸多对象之间的对应关系，比如:
+\begin{itemize}
+    \item 通过最基本的文本文件来记录被注入对象和其依赖对象之间的对应关系;
+    \item 通过描述性较强的XML文件格式来记录对应信息;
+    \item 通过编写代码的方式来注册这些对应信息;
+    \item 通过语音方式来记录对象间的依赖注入关系。
+\end{itemize}
+
+\subsubsection*{直接编码方式}
+
+在容器启动之前，我们就可以通过程序编码的方式将被注入对象和依赖对象注册到容器中，并明确它们相互之间的依赖注入关系。
+
+\begin{Java}
+IoContainer container = ...; 
+container.register(FXNewsProvider.class,new FXNewsProvider()); 
+container.register(IFXNewsListener.class,new DowJonesNewsListener()); 
+... 
+FXNewsProvider newsProvider = (FXNewsProvider)container.get(FXNewsProvider.class); 
+newProvider.getAndPersistNews(); 
+\end{Java}
+
+通过为相应的类指定对应的具体实例，可以告知IoC容器，当我们要这种类型的对象实例时，请将容器中注册的、对应的那个具体实例返回给我们。
+
+\subsubsection*{配置文件方式}
+
+这是一种较为普遍的依赖注入关系管理方式。像普通文本文件、properties文件、XML文件等，都可以成为管理依赖注入关系的载体。不过，最为常见的，还是通过XML文件来管理对象注册和对象间依赖关系。
+
+\begin{xml}
+<bean id="newsProvider" class="..FXNewsProvider">
+    <property  name="newsListener">
+        <ref  bean="djNewsListener"/>
+    </property>
+    <property  name="newPersistener">
+        <ref  bean="djNewsPersister"/>
+    </property>
+</bean>
+<bean id="djNewsListener"    class="..impl.DowJonesNewsListener">
+</bean>
+<bean id="djNewsPersister"    class="..impl.DowJonesNewsPersister">
+</bean> 
+\end{xml}
+
+最后，我们就可以通过“newsProvider”这个名字，从容器中取得已经组装好的FXNewsProvider并直接使用。
+
+\begin{Java}
+... 
+container.readConfigurationFiles(...); 
+FXNewsProvider newsProvider = (FXNewsProvider)container.getBean("newsProvider"); 
+newsProvider.getAndPersistNews(); 
+\end{Java}
+
+\subsubsection*{元数据方式}
+
+我们可以直接在类中使用元数据信息来标注各个对象之间的依赖关系，然后由框架根据这些注解所提供的信息将这些对象组装后，交给客户端对象使用。这是现在主流的方式，也是 SpringBoot 提倡的方式:
+
+\begin{Java}
+public class FXNewsProvider { 
+    private IFXNewsListener  newsListener;
+    private IFXNewsPersister newPersistener;
+    @Inject
+    public FXNewsProvider(IFXNewsListener listener,IFXNewsPersister persister) {
+        this.newsListener   = listener;
+        this.newPersistener = persister;
+    }    
+    ...  
+} 
+\end{Java}
+
+通过@Inject，我们指明需要IoC Service Provider通过构造方法注入方式，为FXNewsProvider注入其所依赖的对象。至于余下的依赖相关信息，由框架进行处理。
+
+\subsection*{一个例子}
+
+\subsubsection*{装入 IoC 容器}
+
+假如没有 Spring，我们编写如下的代码:
+
+\begin{Java}
+// 一个 Service 类
+public class ServiceImpl implement Service {
+    private bookDao = new BookDaoImpl();
+    public void save() { ... }
+}
+
+// 一个 Dao 类
+public class DaoImpl implement Dao {
+    public void save() { ... }
+}
+\end{Java}
+
+
+此时我们要调用 Service 层必须这样做:
+
+\begin{Java}
+// App 主程序
+public class App {
+    public static void main(String[] args) {
+        Service bookService = new ServiceImpl();
+        bookService.save();
+    }
+}
+\end{Java}
+
+有了 Spring，我们可以将类放入到容器中成为 bean，再利用容器获取这些依赖。首先，为了导入 spring 我们需要在 pom 文件中加入如下依赖(XML 形式):
+
+\begin{xml}
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-context</artifactId>
+    <version>自己选</version>
+</dependency>
+\end{xml}
+
+然后，我们需要在 resources 文件下新建 spring 的 xml 文件，这里命名为 applicationContext.xml:
+
+\begin{xml}
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+<bean id="dao" class="xxx.impl.DaoImpl"/>
+<bean id="service" class="xxx.impl.ServiceImpl"/>
+</beans>
+\end{xml}
+
+这样，我们就将容器的信息配置在了一个 XML 文件中，下面我们通过 IoC 容器实现 App:
+
+\begin{Java}
+public class App2 {
+    public static void main(String[] args) {
+        // 获取 IoC 容器
+        ApplicationContext ctx = new ClassPathXmlApplication("applicationContext");
+        // 通过容器获取 bean
+        BookDao bookDao = (BookDao) ctx.getBean("bookDao");
+        bookDao.save();
+    }
+}
+\end{Java}
+
+这样，我们就实现了容器的基本作用: 将对象注入容器，并通过容器获得。
+
+\subsubsection*{实现控制反转}
+
+上一小节实现了 IoC 容器的装载与获取 bean 功能，这节实现DI功能。
+
+\begin{Java}
+// 取消 new 的依赖方式，改用 setter
+public class ServiceImpl implement Service {
+    private bookDao;
+    public void save() { ... }
+
+    public void setBookDao(BookDao bookDao) {
+        this.bookDao = bookDao;
+    }
+}
+\end{Java}
+
+依赖关系写入 XML 文件中，这样也能运行:
+\begin{xml}
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+<bean id="dao" class="xxx.impl.DaoImpl"/>
+<bean id="service" class="xxx.impl.ServiceImpl">
+    <!--配置当前的属性，name 表示属性，ref 表示属于的值-->
+    <property name = "bookDao", ref = "dao">
+</bean>
+</beans>
+\end{xml}
+
+\newpage

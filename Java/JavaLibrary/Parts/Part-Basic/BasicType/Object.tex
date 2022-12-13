@@ -1,0 +1,121 @@
+\section{Object 基类}
+
+Object 是所有类的基类，这节将详细说明它的所有成员。
+
+\subsection{类与对象}
+
+\noindent\textbf{构造函数}
+\begin{Java}
+@IntrinsicCandidate
+public Object() {}
+\end{Java}
+
+其中 @IntrinsicCandidate 表示在虚拟机中会有一套高效的实现方式。其他没什么。
+
+\noindent\textbf{反射相关}
+\begin{Java}
+@IntrinsicCandidate
+public final native Class<?> getClass();
+\end{Java}
+
+该方法用于获取对象的类型信息。即在 JVM 中获取方法区中对应的类型信息。此外这里有一个 native 关键字，表示对应的方法无法通过 Java 语言实现，而应该让 JVM 调用 JNI(Java Native Interface)通过更底层的 C/C++ 语言实现。
+
+\subsection{常见方法}
+
+\noindent\textbf{哈希码}\footnote{参考: \url{https://blog.csdn.net/SEU_Calvin/article/details/52094115}}
+
+\begin{Java}
+@IntrinsicCandidate
+public native int hashCode();
+\end{Java}
+
+哈希码与 equals 方法有如下联系:
+\begin{itemize}
+    \item 如果两个对象相同， equals 方法一定返回 true，这两个对象的HashCode一定相同;
+    \item 两个对象的HashCode相同，并不一定表示两个对象就相同，即equals()不一定为true，只能说明这两个对象在一个散列存储结构中。
+    \item 如果对象的equals方法被重写，那么对象的HashCode也尽量重写。
+\end{itemize}
+
+哈希码的作用主要是快速查找，常常被用在容器(Collection)中。哈希算法也称为散列算法，是将数据依特定算法直接指定到一个地址上。这样一来，当集合要添加新的元素时，先调用这个元素的HashCode方法，就一下子能定位到它应该放置的物理位置上。
+
+\begin{itemize}
+    \item 如果这个位置上没有元素，它就可以直接存储在这个位置上；
+    \item 如果这个位置上已经有元素了，就调用它的equals方法与新元素进行比较，相同的话就不存了;
+    \item 不相同的话，也就是发生了Hash key相同导致冲突的情况，那么就在这个Hash key的地方产生一个链表，将所有产生相同HashCode的对象放到这个单链表上去，串在一起。这样一来实际调用equals方法的次数就大大降低了，几乎只需要一两次。 
+\end{itemize}
+
+\noindent\textbf{equals}
+
+\begin{Java}
+public boolean equals(Object obj) {
+    return (this == obj);
+}
+\end{Java}
+
+Object 本身的 equals 方法没什么好说的，就是通过 == 比较地址是否相同。但像 String 这样的绝大部分子类都会重写该方法，让其效果为: 比较对象内容是否相等。
+
+比较地址实际上是比较的存在 JVM 栈中的 reference 是否相同。
+
+\noindent\textbf{clone}
+
+\begin{Java}
+@IntrinsicCandidate
+protected native Object clone() throws CloneNotSupportedException;
+\end{Java}
+
+JDK 文档中堆 clone() 方法有如下约定(前两条必须遵守):
+\begin{itemize}
+    \item \texttt{x.clone != x;} 克隆对象与原对象不是一个对象。
+    \item \texttt{x.clone().getClass() == x.getClass();} 克隆的是同一类型的对象。
+    \item \texttt{x.clone().equals(x) == true} 如果x.equals()方法定义恰当的话
+\end{itemize}
+
+一般情况下，子类并不需要实现 \texttt{clone()} 方法，Object 的 \texttt{clone()} 方法将返回一个浅拷贝(由于是 native 的，非常快)，对于简单对象这就足够了。但如果需要实现深拷贝，需要子类实现 \texttt{Cloneable()} 接口，并重写 \texttt{clone()} 方法。
+
+\noindent\textbf{toString}
+
+\begin{Java}
+public String toString() {
+    return getClass().getName() + "@" + Integer.toHexString(hashCode());
+}
+\end{Java}
+
+返回对象的字符串表达形式，没啥好说的，\texttt{print()} 方法会自动调用。
+
+\subsection{多线程}
+
+\noindent\textbf{唤醒线程}
+
+\begin{Java}
+@IntrinsicCandidate
+public final native void notify();
+
+@IntrinsicCandidate
+public final native void notifyAll();
+\end{Java}
+
+这两个就一个不同，\texttt{notify()} 随机唤醒一个线程，\texttt{notifyAll()} 广播机制，让其他线程抢占资源。
+
+\noindent\textbf{线程等待}
+
+\begin{Java}
+public final void wait() throws InterruptedException { wait(0L); }
+
+public final native void wait(long timeoutMillis) throws InterruptedException;
+
+public final void wait(long timeoutMillis, int nanos) throws InterruptedException {
+    if (timeoutMillis < 0)
+        throw new IllegalArgumentException("timeoutMillis value is negative");
+    if (nanos < 0 || nanos > 999999)
+        throw new IllegalArgumentException( "nanosecond timeout value out of range");
+    if (nanos > 0 && timeoutMillis < Long.MAX_VALUE)
+        timeoutMillis++;
+    wait(timeoutMillis);
+}
+\end{Java}
+
+第一个 \texttt{wait()} 让线程等待，直到被唤醒，不被唤醒不启动。其余两个， timeoutMillis 表示给定的时间，如果到了给定的时间还没被唤醒，会自动醒来尝试抢占资源(timeoutMillis 为 0 表示不会自动醒)。其实本质上都是去调用第二个 native 方法。
+
+其中第三个有个 \texttt{nanos} 参数，表示格外的时间，单位为纳秒。
+
+\newpage

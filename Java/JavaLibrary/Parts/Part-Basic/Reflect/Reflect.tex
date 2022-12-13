@@ -1,0 +1,187 @@
+\section{Reflect 反射}
+
+JAVA反射机制是在运行状态中，对于任意一个类，都能够知道这个类的所有属性和方法; 对于任意一个对象，都能够调用它的任意一个方法和属性; 这种动态获取的信息以及动态调用对象的方法的功能称为java语言的反射机制\footnote{本节参考: \url{https://blog.csdn.net/lililuni/article/details/83449088}}。
+
+实际上，我们创建的每一个类也都是对象，即类本身是java.lang.Class类的实例对象。这个实例对象称之为类对象，也就是Class对象。
+
+放射机制在框架中使用的非常普遍，理解反射机制有助于理解例如 Spring 等框架。
+
+\subsection{Class 对象}
+
+在 \texttt{Object} 源码中有这样一段描述: Class {@code Object} is the root of the class hierarchy. 既然类本身是java.lang.Class类的实例对象，那么类自身也就可以调用 Class 的一些方法。
+
+\texttt{Class} 类的声明如下:
+
+\begin{Java}
+public final class Class<T> implements java.io.Serializable, GenericDeclaration, Type, AnnotatedElement, TypeDescriptor.OfField<Class<?>>, Constable
+\end{Java}
+
+\begin{itemize}
+    \item \texttt{Class} 类的实例对象表示正在运行的 Java 应用程序中的类和接口。也就是jvm中有很多的实例，每个类都有唯一的\texttt{Class}对象。
+    \item \texttt{Class} 类没有公共构造方法。\texttt{Class} 对象是在加载类时由 Java 虚拟机自动构造的。也就是说我们不需要创建，JVM已经帮我们创建了。
+    \item \texttt{Class} 对象用于提供类本身的信息，比如有几种构造方法， 有多少属性，有哪些普通方法。
+\end{itemize}
+
+\texttt{CLass} 本身是有``构造函数''的，只不过我们无法调用，而由 JVM 调用:
+
+\begin{Java}
+// Private constructor. Only the Java Virtual Machine creates Class objects.
+// This constructor is not used and prevents the default constructor being generated.
+private Class(ClassLoader loader, Class<?> arrayComponentType) {
+    classLoader = loader;
+    componentType = arrayComponentType;
+}
+\end{Java}
+
+获取类对象的方式有三种(假设有一个 Hero 类):
+\begin{itemize}
+    \item 静态方法(常用): \texttt{Class.forName("com.xxx.Hero")}
+    \item 公有属性: \texttt{Hero.class}
+    \item 对象方法: \texttt{new Hero().getClass()}
+\end{itemize}
+
+其中 \texttt{forName} 的源码如下:
+
+\begin{Java}
+@CallerSensitive
+public static Class<?> forName(String className) throws ClassNotFoundException { 
+    // native 操作 
+}
+\end{Java}
+
+这里有个注解 @CallerSensitive 代表这些方法非常危险，不希望开发者调用，并会在 jvm 级别进行检查。\texttt{forName} 的具体操作是使用 \texttt{native} 修饰的，我们无从得知。
+
+为了第一种方法危险但还是常用呢? 当然是全靠同行承托，第二种方法需要导入类的包，依赖性太强。第三种方法都已经有了对象还要反射干嘛。不过一般开发者不需要调用这些方法，做框架的人才回去考虑。
+
+反射机制不是很常用，因此这节不一一讲源码，只对常用的操作做一些解释。
+
+\subsection{Constructor 与创建新对象}
+
+利用反射机制，一般会需要获取对象实例，获取对象实例的方式则是通过构造函数创建对象实例。
+
+\begin{Java}
+Class class = Class.forName("com.xxx.Hero");    // 获取 Class 对象
+Constructor con = class.getConstructor();       // 通过 Class 对象获取构造函数
+\end{Java}
+
+\texttt{Class} 类中有两种获取构造函数对象的方法，分别为批量获取构造函数对象，获取有参的构造函数对象:
+
+\begin{Java}
+// 无参构造函数对象数组
+@CallerSensitive
+public Constructor<?>[] getConstructors() throws SecurityException
+// 有参构造函数对象，注意参数是类型
+@CallerSensitive
+public Constructor<T> getConstructor(Class<?>... parameterTypes)
+    throws NoSuchMethodException, SecurityException
+\end{Java}
+
+同以上两种方法都只能获得公有的构造方法，想获得私有构造方法只需要将 \texttt{getConstructor} 替换为 \texttt{getDeclaredConstructor}。下文也类似，加上 \texttt{Declared} 基本都代表跳过安全检查，获取私有成员。
+
+这样我们就获取了 \texttt{Constructor} 对象。
+\begin{Java}
+public final class Constructor<T> extends Executable
+\end{Java}
+
+在 \texttt{Constructor} 类中有功能性方法如下:
+
+\begin{Java}
+// 暴力访问，如果参数为 true，忽视访问修饰符
+@Override
+@CallerSensitive
+public void setAccessible(boolean flag)
+// 创建实例对象
+@CallerSensitive
+@ForceInline
+public T newInstance(Object ... initargs)
+\end{Java}
+
+这两个方法非常重要，第一个方法让反射机制能够访问到私有成员，这使得我们操作对象更加灵活，同时安全性更低。第二个方法可以让我们通过构造器创建对象，相当于直接 \texttt{new} 一个对象。正因为这两个方法，放射机制才如此强大，同时安全性如此低。
+
+同时也有一些常规方法:
+
+\begin{Java}
+// 获取对应的 Class 对象
+@Override
+public Class<T> getDeclaringClass() {
+    return clazz;
+}
+// 获取对应的 Class 对象名
+@Override
+public String getName() {
+    return getDeclaringClass().getName();
+}
+// 获取参数类型，还有几个类似的，返回值不同
+@Override
+public Class<?>[] getParameterTypes() {
+    return parameterTypes.clone();
+}
+\end{Java}
+
+\subsection{Field 与成员变量}
+
+利用反射，我们可以对成员的属性进行操作
+
+\begin{Java}
+Class clazz = Class.forName("com.xxx.Hero");
+Field f = clazz.getDeclaredField("fieldName");
+f.set(...);
+\end{Java}
+
+和构造器类似，这里通过 getDeclaredField 获得了一个 Field 对象。\texttt{getField} 方法和前面讲的 \texttt{getConstructor} 方法类似，这里不再赘述。
+
+首先来看一下 \texttt{Field} 的声明:
+
+\begin{Java}
+public final class Field extends AccessibleObject implements Member
+\end{Java}
+
+\texttt{Field} 中的功能性方法如下
+
+\begin{Java}
+// 暴力访问，设置为 true，可忽略访问修饰符
+public void setAccessible(boolean flag)
+// get/set 方法
+public Object get(Object obj) throws IllegalArgumentException, IllegalAccessException
+public void set(Object obj, Object value) throws IllegalArgumentException, IllegalAccessException
+\end{Java}
+
+对于 get/set 方法，有两点要说明的:
+\begin{itemize}
+    \item \texttt{obj}: 为什么要加一个 Object 参数，因为我们通过 \texttt{getField} 方法获得的 Field 对象仅存储了作为参数名的 name 和类型 type 两个关键属性。我们并没有将这个 Field 绑定到某个对象上，即这个 Field 是一个有名字的对象，仅此而已。
+    \item 基本类型：可以看到这里只能设置 Object 类型，基本类型有专门的方法，例如 \texttt{getInt}, \texttt{setFloat}。
+\end{itemize}
+
+\texttt{getDeclaredField} 可以获取本类所有的字段，包括 private 的，但是 不能获取继承来的字段。 (注： 这里只能获取到 private 的字段，但并不能访问该 private 字段的值,除非加上 \texttt{setAccessible(true)} )
+
+\subsection{Method 与成员方法}
+
+利用反射，我们可以对成员的方法进行操作
+
+\begin{Java}
+Class clazz = Class.forName("com.xxx.Hero");
+Method m = clazz.getDeclaredMethod("setName", String.class);  // Hero 有一个 setName 方法
+m.invoke();
+\end{Java}
+
+首先看一下 \texttt{Method} 的声明:
+
+\begin{Java}
+public final class Method extends Executable
+\end{Java}
+
+\texttt{Method} 的功能性方法如下:
+
+\begin{Java}
+// 暴力访问，设置为 true，可忽略访问修饰符
+public void setAccessible(boolean flag)
+// 调用函数
+@CallerSensitive
+@ForceInline
+@IntrinsicCandidate
+public Object invoke(Object obj, Object... args) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException
+\end{Java}
+
+理解起来和前面一样，没啥好嗦的。
+
+\newpage

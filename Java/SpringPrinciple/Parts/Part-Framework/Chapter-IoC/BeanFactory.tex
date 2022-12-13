@@ -1,0 +1,379 @@
+\section{BeanFactory}
+
+Spring的IoC容器是一个提供IoC支持的轻量级容器，除了基本的IoC支持，它作为轻量级容器还提供了IoC之外的支持。如在Spring的IoC容器之上，Spring还提供了相应的AOP框架支持、企业级服务集成等服务。
+
+Spring 提供了两种容器类型: BeanFactory 和 ApplicationContext。
+\begin{itemize}
+    \item \textbf{BeanFactory}: 基础类型IoC容器，提供完整的IoC服务支持。如果没有特殊指定，默认采用延迟初始化策略（lazy-load）。只有当客户端对象需要访问容器中的某个受管对象的时候，才对该受管对象进行初始化以及依赖注入操作。所以，相对来说，容器启动初期速度较快，所需要的资源有限。对于资源有限，并且功能要求不是很严格的场景，BeanFactory是比较合适的IoC容器选择。
+    \item \textbf{ApplicationContext}: ApplicationContext在BeanFactory的基础上构建，是相对比较高级的容器实现。ApplicationContext所管理的对象，在该类型容器启动之后，默认全部初始化并绑定完成。所以，相对于BeanFactory来说，ApplicationContext要求更多的系统资源，同时，因为在启动时就完成所有初始化，容器启动时间较之BeanFactory也会长一些。在那些系统资源充足，并且要求更多功能的场景中，ApplicationContext类型的容器是比较合适的选择。
+\end{itemize}
+
+作为Spring提供的基本的IoC容器，BeanFactory可以完成作为IoC Service Provider的所有职责，包括业务对象的注册和对象间依赖关系的绑定。将应用所需的所有业务对象交给BeanFactory之后，剩下要做的，就是直接从BeanFactory取得最终组装完成并且可用的对象。至于这个最终业务对象如何组装，你不需要关心，BeanFactory会帮你搞定。
+
+\subsection{BeanFactory 作用}
+
+对于应用程序的开发来说，不管是否引入BeanFactory之类的轻量级容器，应用的设计和开发流程实际上没有太大改变。换句话说，针对系统和业务逻辑，该如何设计和实现当前系统不受是否引入轻量级容器的影响。
+
+之前我们的系统业务对象需要自己去“拉”（Pull）所依赖的业务对象，有了BeanFactory之类的IoC容器之后，需要依赖什么让BeanFactory为我们推过来（Push）就行了。所以，简单点儿说，拥有BeanFactory之后，要使用IoC模式进行系统业务对象的开发。
+
+FX新闻系统初期的设计和实现框架代码如下:
+
+\begin{Java}
+// 设计FXNewsProvider类用于普遍的新闻处理
+public class FXNewsProvider { ... }
+// 设计IFXNewsListener接口抽象各个新闻社不同的新闻获取方式，并给出相应实现类
+public interface IFXNewsListener { ... } 
+public class DowJonesNewsListener implements IFXNewsListener { ... }
+// 设计IFXNewsPersister接口抽象不同数据访问方式，并实现相应的实现类
+public interface IFXNewsPersister { ... } 
+public class DowJonesNewsPersister implements IFXNewsPersister { ... }
+\end{Java}
+
+\textbf{BeanFactory 会说，这些让我来干吧。}既然使用IoC模式开发的业务对象现在不用自己操心如何解决相互之间的依赖关系，那么肯定得找人来做这个工作。通常情况下，BeanFactory 会通过常用的XML文件来注册并管理各个业务对象之间的依赖关系。
+
+\begin{xml}
+<beans>
+    <bean id="djNewsProvider" class="..FXNewsProvider">     
+        <constructor-arg  index="0">        
+            <ref  bean="djNewsListener"/>  
+        </constructor-arg> 
+        <constructor-arg  index="1">        
+            <ref  bean="djNewsPersister"/>      
+        </constructor-arg>
+    </bean>    
+    ...  
+</beans> 
+\end{xml}
+
+在BeanFactory出现之前，我们通常会直接在应用程序的入口类的main方法中，自己实例化相应的对象并调用之，如以下代码所示：
+
+\begin{Java}
+FXNewsProvider newsProvider = new FXNewsProvider();
+newsProvider.getAndPersistNews(); 
+\end{Java}
+
+现在既然有了BeanFactory，我们通常只需将“生产线图纸”交给BeanFactory，让BeanFactory为我们生产一个FXNewsProvider，如以下代码所示：
+
+\begin{Java}
+BeanFactory container = new XmlBeanFactory(new ClassPathResource("配置文件路径")); 
+FXNewsProvider newsProvider = (FXNewsProvider)container.getBean("djNewsProvider"); 
+newsProvider.getAndPersistNews(); 
+\end{Java}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{version}
+            在早期的 Spring 中，用文件进行 IoC 管理比较多，但现在(2022年)更多的使用 SpringBoot 注解。由于前几章的主要参考书籍《Spring 揭秘》比较远古(2009)，本人会省略掉很多具体的实现代码，更注重于原理。下文类似。
+        \end{version}
+    }
+}
+
+\subsection{BeanFactory 内幕}
+
+BeanFactory只是一个接口，我们最终需要一个该接口的实现来进行实际的Bean的管理，DefaultListableBeanFactory就是这么一个比较通用的BeanFactory实现类。DefaultListableBeanFactory除了间接地实现了BeanFactory接口，还实现了BeanDefinitionRegistry接口，该接口才是在BeanFactory的实现中担当Bean注册管理的角色。
+
+基本上，BeanFactory接口只定义如何\textbf{访问}容器内管理的Bean的方法，各个BeanFactory的具体实现类负责具体Bean的注册以及管理工作。BeanDefinitionRegistry接口定义抽象了Bean的\textbf{注册逻辑}。通常情况下，具体的BeanFactory实现类会实现这个接口来管理Bean的注册。
+
+\begin{figure}[H]
+    \scriptsize
+    \centering
+    \begin{tikzpicture}[scale = 1]
+        \begin{interface}[text width=3cm]{BeanDefinition}{10,0}
+        \end{interface}
+        \begin{class}[text width=3cm]{AbstractBeanDefinition}{10,-2}
+            \implement{BeanDefinition}
+        \end{class}
+        \begin{class}[text width=3cm]{RootBeanDefinition}{8,-4}
+            \implement{AbstractBeanDefinition}
+        \end{class}
+        \begin{class}[text width=3cm]{RootBeanDefinition}{12,-4}
+            \implement{AbstractBeanDefinition}
+        \end{class}
+
+        \begin{interface}[text width=3cm]{BeanFactory}{0,0}
+        \end{interface}
+        \begin{interface}[text width=3cm]{BeanDefinitionRegistry}{4,0}
+            \implement{BeanDefinition}
+        \end{interface}
+        \begin{class}[text width=4cm]{DefaultListableBeanFactory}{2,-3}
+            \implement{BeanFactory}
+        \end{class}
+        \begin{class}[text width=4cm]{DefaultListableBeanFactory}{2,-3}
+            \implement{BeanDefinitionRegistry}
+        \end{class}
+    \end{tikzpicture}
+    \caption{BeanFactory 依赖关系}
+    \label{fig:BeanFactory 依赖关系}
+\end{figure}
+
+每一个受管的对象，在容器中都会有一个BeanDefinition的实例（instance）与之相对应，该BeanDefinition的实例负责保存对象的所有必要信息，包括其对应的对象的class类型、是否是抽象类、构造方法参数以及其他属性等。
+
+当客户端向BeanFactory请求相应对象的时候，BeanFactory会通过这些信息为客户端返回一个完备可用的对象实例。RootBeanDefinition和ChildBeanDefinition是BeanDefinition的两个主要实现类。
+
+这其中各个接口的作用如下:
+\begin{itemize}
+    \item \textbf{BeanFactory}: 定义如何访问容器内管理的 Bean 的方法，如果我们查看原码，会发现大部分方法都是 get,is 方法。
+    \item \textbf{BeanDefinitionRegistry}: 定义抽象了 Bean 的注册逻辑，即如何注册进容器。
+    \item \textbf{BeanDefinition}: 存储具体 Bean 的信息。
+\end{itemize}
+
+\subsubsection*{BeanFactory}
+
+BeanFactory 是定义了如何管理 Bean，它的部分源码如下:
+
+\begin{Java}
+public interface BeanFactory {
+    Object getBean(String name) throws BeansException;
+    <T> ObjectProvider<T> getBeanProvider(Class<T> requiredType);
+    boolean containsBean(String name);
+    boolean isSingleton(String name) throws NoSuchBeanDefinitionException;
+    boolean isPrototype(String name) throws NoSuchBeanDefinitionException;
+    boolean isTypeMatch(String name, ResolvableType typeToMatch) throws NoSuchBeanDefinitionException;
+    Class<?> getType(String name) throws NoSuchBeanDefinitionException;
+    String[] getAliases(String name);
+\end{Java}
+
+可以看到，BeanFactory 最主要的只有一个 getBean 方法，其他方法都是对 getBean 返回值的进一步操作。也就是说 BeanFactory 实现了 IoC 的核心功能，获取 Bean。
+
+虽然仅有 getBean 一个主要方法，但该方法非常关键，首次调用 getBean 方法会出发 Bean 实例化阶段的活动，这将开启 Bean 的生命周期。
+
+\subsubsection*{BeanDefinition}
+
+BeanDefinition 存储了 Bean 的具体信息，他的绝大多数方法都是 getXXX 与 setXXX 方法，部分源代码如下:
+\begin{Java}
+public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement {
+    void setBeanClassName(@Nullable String beanClassName);
+    String getBeanClassName();
+    void setLazyInit(boolean lazyInit);
+    boolean isLazyInit();
+    ......
+}
+\end{Java}
+
+\subsubsection*{BeanDefinitionRegistry}
+
+BeanDefinitionRegistry 定义了 Bean 的注册逻辑，它的部分源代码如下:
+
+\begin{Java}
+public interface BeanDefinitionRegistry extends AliasRegistry {
+    void registerBeanDefinition(String beanName, BeanDefinition beanDefinition)
+			throws BeanDefinitionStoreException;
+    void removeBeanDefinition(String beanName) throws NoSuchBeanDefinitionException;
+    BeanDefinition getBeanDefinition(String beanName) throws NoSuchBeanDefinitionException;
+}
+\end{Java}
+
+\subsection{Bean 详解}
+
+Spring的IoC容器所起的作用，就像下图所展示的那样，它会以某种方式加载Configuration Metadata（通常也就是注解），然后根据这些信息绑定整个系统的对象，最终组装成一个可用的基于轻量级容器的应用系统。
+
+\begin{figure}[H]
+    \small
+    \centering
+    \begin{tikzpicture}[scale = 1]
+        \node (container) [draw, text width=4cm, thick] at (0,0) {The Spring Container};
+        \node at (4,0) {Magic Happens Here};
+        \node (system) [draw, text width=4cm, thick] at (0,-2) {Fully configured system Ready for use};
+        \draw [-Stealth] (0,2) -- (container) node [right, midway] {Your Business Objects (POJO)};
+        \draw [-Stealth] (-6,0) -- (container) node [above, midway] {Configuration Metadata};
+        \draw [-Stealth] (container) -- (system) node [right, midway] {products};
+    \end{tikzpicture}
+    \caption{Spring 容器处理过程}
+    \label{fig:Spring 容器处理过程}
+\end{figure}
+
+本节用来讨论 The Spring Container 里的 Magic Happens。
+
+\subsubsection{装配 Bean}
+
+Spring的IoC容器所起的作用，以某种方式加载Configuration Metadata（通常是注解），然后根据这些信息绑定整个系统的对象，最终组装成一个可用的基于轻量级容器的应用系统。
+
+Spring的IoC容器实现以上功能的过程，基本上可以按照类似的流程划分为两个阶段，即容器启动阶段和Bean实例化阶段。
+
+\paragraph*{容器启动阶段}
+\begin{enumerate}
+    \item 首先会通过某种途径加载Configuration MetaData。除了代码方式比较直接，在大部分情况下，容器需要依赖某些工具类（BeanDefinitionReader）对加载的Configuration  MetaData 进行解析和分析。
+    \item 将分析后的信息编组为相应的BeanDefinition。
+    \item 最后把这些保存了bean定义必要信息的BeanDefinition，注册到相应的BeanDefinitionRegistry。
+\end{enumerate}
+
+总地来说，该阶段所做的工作可以认为是准备性的，重点更加侧重于对象管理信息的收集。当然，一些验证性或者辅助性的工作也可以在这个阶段完成。
+
+\begin{figure}[H]
+    \centering
+    \footnotesize
+    \begin{tikzpicture}[scale = 1, thick]
+        \node [draw, text width=1.4cm] (xml) at (0,1) {xml};
+        \node [draw, text width=1.4cm] (annotation) at (0,0) {annotation};
+        \node [draw, text width=1.4cm] (other) at (0,-1) {other};
+        \node [draw, text width=1.4cm, inner ysep=1.8cm] (reader) at (3,0) {Bean Definition Reader}; 
+        \draw [-Stealth] (xml) -- ++(1.5,0) |- (reader);
+        \draw [-Stealth] (annotation) -- ++(1.5,0) |- (reader);
+        \draw [-Stealth] (other) -- ++(1.5,0) |- (reader);
+        \draw (4.5,2.5) rectangle (13,-2.5);
+        \node (IOC) at (8.75,2) {IOC 容器};
+        \draw (8.3,1.5) rectangle (11.7,-2);
+        \node (map) at (10,1) {beanDefinitionMap};
+        \node [draw, text width=2cm] (registry) at (6.5,0) {BeanDefinition Registry};
+        \draw [-Stealth] (reader) -- (registry);
+        \node [draw] (definition1) at (10,0) {beanDefinition};
+        \node [draw] (definition2) at (10,-0.7) {beanDefinition};
+        \node [draw] (definition3) at (10,-1.4) {beanDefinition};
+        \draw [-Stealth] (registry) -- (definition1);
+    \end{tikzpicture}
+    \caption{容器启动阶段}
+    \label{fig:容器启动阶段}
+\end{figure}
+
+\paragraph*{Bean 实例化阶段}
+
+\begin{enumerate}
+    \item 首先检查所请求的对象之前是否已经初始化。如果没有，则会根据注册的BeanDefinition所提供的信息实例化被请求对象，并为其注入依赖。如果该对象实现了某些回调接口，也会根据回调接口的要求来装配它。
+    \item 当该对象装配完毕之后，容器会立即将其返回请求方使用。
+\end{enumerate}
+
+当某个请求方通过容器的getBean方法明确地请求某个对象，或者因依赖关系容器需要隐式地调用getBean方法时，就会触发第二阶段的活动。
+
+如果说第一阶段只是根据图纸装配生产线的话，那么第二阶段就是使用装配好的生产线来生产具体的产品了。
+
+我们知道，只有当请求方通过BeanFactory的getBean()方法来请求某个对象实例的时候，才有可能触发Bean实例化阶段的活动。BeanFactory的getBean方法可以被客户端对象显式调用，也可以在容器内部隐式地被调用。隐式调用有如下两种情况:
+
+\begin{itemize}
+    \item \textbf{BeanFactory 延迟实例化}: 通常情况下，当对象A被请求而需要第一次实例化的时候，如果它所依赖的对象B之前同样没有被实例化，那么容器会先实例化对象A所依赖的对象。这种情况是容器内部调用getBean()，对于本次请求的请求方是隐式的。
+    \item \textbf{ApplicationContext 实例化所有 bean 定义}: ApplicationContext 在实现的过程中遵循 Spring容器实现流程的两个阶段，只不过它会在启动阶段的活动完成之后，紧接着调用注册到该容器的所有bean定义的实例化方法getBean()。这就是为什么当你得到ApplicationContext类型的容器引用时，容器内所有对象已经被全部实例化完成。
+\end{itemize}
+
+之所以说getBean()方法是有可能触发Bean实例化阶段的活动，是因为只有当对应某个bean定义的getBean()方法第一次被调用时，不管是显式的还是隐式的，Bean实例化阶段的活动才会被触发，第二次被调用则会直接返回容器缓存的第一次实例化完的对象实例（prototype类型bean除外）。当getBean()方法内部发现该bean定义之前还没有被实例化之后，会通过其他方法来进行具体的对象实例化，也就开启了 Bean 的生命周期。
+
+了解 Bean 生命周期之前，需要知道 Bean 的作用域，作用域用于确定 Spring 创建 Bean 的实例个数:
+\begin{itemize}
+    \item Singleton: 单例，在 IoC 容器中仅存在一个 Bean 实例，默认值。
+    \item Prototype: 每次调取 Bean 时们都返回一个新实例，相当于每次 new 一个新的对象。
+    \item Request: 每次 Http 请求都会创建一个新的 Bean，该作用域仅适用于 WebApplicationContext 环境。
+    \item Session: 同一个 Http Session 共享一个 Bean，不同 Session 使用不同 Bean，仅适用于 WebApplicationContext 环境。
+    \item GlobalSession: 一般用于 Portlet 应用环境，该作用域仅适用于 WebApplicationContext 环境。
+\end{itemize}
+
+\subsubsection{Bean 生命周期}
+
+这小节参考文献:
+\begin{itemize}
+    \item 三分恶: \url{https://blog.csdn.net/sinat_40770656/article/details/123498761}
+    \item 老周聊架构: \url{https://blog.csdn.net/riemann_/article/details/118500805}
+\end{itemize}
+
+总的来说，Bean 的生命周期分为四个阶段: 实例化 -> 属性赋值 -> 初始化 -> 销毁。
+
+\begin{table}[H]
+    \small
+    \centering
+    \caption{Bean 生命周期}
+    \label{table:Bean 生命周期}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{l|l}
+        \toprule
+        \textbf{阶段} & \textbf{过程} \\
+        \midrule
+        实例化 & 实例化 Bean \\
+        \midrule
+        设置属性 & 设置对象属性 \\
+        \midrule
+        \multirow{5}{*}{初始化} & 检查 Aware 的相关接口并设置相关依赖 \\
+         & BeanPostProcessor 前置处理 \\
+         & 是否实现 InitializationBean 接口 \\
+         & 是否配置自定义的 init-method \\
+         & BeanPostProcessor 后置处理 \\
+        \midrule
+        \multirow{2}{*}{-} & 注册 Destruction 相关回调接口 \\
+         & 使用 \\
+        \midrule
+        \multirow{2}{*}{销毁} & 是否实现 DisposableBean 接口 \\
+         & 是否配置自定义的 destroy-method \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+
+\noindent\textbf{1. Bean 实例化与 BeanWrapper}
+
+容器在内部实现的时候，采用“策略模式（Strategy Pattern）”来决定采用何种方式初始化bean实例。通常，可以通过反射或者CGLIB动态字节码生成来初始化相应的bean实例或者动态生成其子类。
+
+默认情况下，容器内部采用的是 CglibSubclassingInstantiationStrategy: 通过CGLIB的动态字节码生成功能，该策略实现类可以动态生成某个类的子类，进而满足了方法注入所需的对象实例化需求。容器只要根据相应bean定义的BeanDefintion取得实例化信息，结合CglibSubclassingIns-tantiationStrategy以及不同的bean定义类型，就可以返回实例化完成的对象实例。
+
+返回方式上有些“点缀”。不是直接返回构造完成的对象实例，而是以BeanWrapper对构造完成的对象实例进行包裹，返回相应的BeanWrapper实例。
+
+\noindent\textbf{2. 设置对象属性}
+
+BeanWrapper接口通常在Spring框架内部使用，它有一个实现类 org.springframework.bean s.BeanWrapperImpl。其作用是对某个bean进行“包裹”，然后对这个“包裹”的bean进行操作, 比如设置或者获取bean的相应属性值。而在第一步结束后返回BeanWrapper实例而不是原先的对象实例，就是为了“设置对象属性”。
+
+\noindent\textbf{3. Aware 接口}
+
+当对象实例化完成并且相关属性以及依赖设置完成之后，Spring容器会检查当前对象实例是否实现了一系列的以Aware命名结尾的接口定义。如果是，则将这些Aware接口定义中规定的依赖注入给当前对象实例。
+
+\begin{itemize}
+    \item \textbf{BeanNameAware}: 将该对象实例的bean定义对应的beanName设置到当前对象实例。可以理解为 Map 中的 key 为 beanName, value 为 bean 实例。\footnote{扩展文献: \url{https://blog.csdn.net/zyn170605/article/details/80339499}}
+    \item \textbf{BeanClassLoaderAware}: 将对应加载当前bean的Classloader注入当前对象实例。
+    \item \textbf{BeanFactoryAware}: BeanFactory容器会将自身设置到当前对象实例。这样，当前对象实例就拥有了一个BeanFactory容器的引用，并且可以对这个容器内允许访问的对象按照需要进行访问。
+\end{itemize}
+
+以上几个Aware接口只是针对BeanFactory类型的容器而言，对于ApplicationContext类型的容器，也存在几个Aware相关接口。不过在检测这些接口并设置相关依赖的实现机理上，与以上几个接口处理方式有所不同，使用的是下面将要说到的BeanPostProcessor方式。
+
+对于ApplicationContext类型容器，容器在这一步还会检查以下几个Aware接口并根据接口定义设置相关依赖。
+
+\begin{itemize}
+    \item \textbf{ResourceLoaderAware}: 将当前ApplicationContext自身设置到对象实例，这样当前对象实例就拥有了其所在ApplicationContext容器的一个引用。
+    \item \textbf{ApplicationEventPublisherAware}: ApplicationContext作为一个容器，同时还实现了ApplicationEventPublisher接口, 将自身注入当前对象。
+    \item \textbf{MessageSourceAware}: ApplicationContext通过Message- Source接口提供国际化的信息支持，将自身注入当前对象实例。
+    \item \textbf{ApplicationContextAware}: 将自身注入当前对象实例。
+\end{itemize}
+
+\noindent\textbf{4. BeanPostProcessor}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            BeanPostProcessor的概念容易与BeanFactoryPostProcessor的概念混淆。但只要记住Bean- PostProcessor是存在于对象实例化阶段，而BeanFactoryPostProcessor则是存在于容器启动阶段，这两个概念就比较容易区分了。
+        \end{notice}
+    }
+}
+
+BeanPostProcessor会处理容器内所有符合条件的实例化后的对象实例。该接口声明了两个方法，分别在两个不同的时机执行:
+
+\begin{Java}
+public interface BeanPostProcessor {
+    Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException;  
+    Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException;  
+}
+\end{Java}
+
+顾名思义，一个是前置处理，一个是后置处理。通常比较常见的使用BeanPostProcessor的场景，是处理标记接口实现类，或者为当前对象提供代理实现。ApplicationContext对应的那些Aware接口实际上就是通过BeanPostProcessor的方式进行处理的。
+
+当ApplicationContext中每个对象的实例化过程走到BeanPostProcessor前置处理这一步时，ApplicationContext容器会检测到之前注册到容器的ApplicationContextAwareProcessor这个BeanPostProcessor的实现类，然后就会调用其postProcessBeforeInitialization()方法，检查并设置Aware相关依赖。
+
+\noindent\textbf{5. InitializingBean 和 init-method}
+
+InitializingBean是容器内部广泛使用的一个对象生命周期标识接口，其定义如下：
+
+\begin{Java}
+public interface InitializingBean {     
+    void afterPropertiesSet() throws Exception; 
+} 
+\end{Java}
+
+其作用在于，在对象实例化过程调用过“BeanPostProcessor的前置处理”之后，会接着检测当前对象是否实现了InitializingBean接口，如果是，则会调用其afterPropertiesSet()方法进一步调整对象实例的状态。比如，在有些情况下，某个业务对象实例化完成后，还不能处于可以使用状态。这个时候就可以让该业务对象实现该接口，并在方法afterPropertiesSet()中完成对该业务对象的后续处理。
+
+虽然该接口在Spring容器内部广泛使用，但如果真的让我们的业务对象实现这个接口，则显得Spring容器比较具有侵入性。所以，Spring还提供了另一种方式来指定自定义的对象初始化操作，那就是通过 init-method\footnote{参考: \url{https://blog.csdn.net/tuzongxun/article/details/53580695}}。
+
+\noindent\textbf{6. DisposableBean与destroy-method}
+
+当所有的一切，该设置的设置，该注入的注入，该调用的调用完成之后，容器将检查singleton类型的bean实例，看其是否实现了DisposableBean接口。或者其对应的bean是否有destroy-method属性指定了自定义的对象销毁方法。如果是，就会为该实例注册一个用于对象销毁的回调（Callback），以便在这些singleton类型的对象实例销毁之前，执行销毁逻辑。
+
+与InitializingBean和init-method用于对象的自定义初始化相对应，DisposableBean和destroy-method为对象提供了执行自定义销毁逻辑的机会。
+
+不过，这些自定义的对象销毁逻辑，在对象实例初始化完成并注册了相关的回调方法之后，并不会马上执行。回调方法注册后，返回的对象实例即处于使用状态，只有该对象实例不再被使用的时候，才会执行相关的自定义销毁逻辑，此时通常也就是Spring容器关闭的时候。
+
+但Spring容器在关闭之前，不会聪明到自动调用这些回调方法。所以，需要我们告知容器，在哪个时间点来执行对象的自定义销毁方法。
+
+\textbf{对于 BeanFactory 容器来说}: 我们需要在独立应用程序的主程序退出之前，或者其他被认为是合适的情况下（依照应用场景而定），调用ConfigurableBeanFactory提供的destroySingletons()方法销毁容器中管理的所有singleton类型的对象实例。
+
+\newpage  

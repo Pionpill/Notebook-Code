@@ -1,0 +1,277 @@
+\section{锁，可见性与原子操作}
+
+\subsection{并发概念}
+
+\subsubsection*{并发,并行与多线程安全}
+
+首先区分一下并发与并行的关系:
+\begin{itemize}
+    \item \textbf{并发}: 同一时间段内多个任务同时执行，并不是同一时间点同时进行。
+    \item \textbf{并行}: 单位时间内多个任务同时执行。
+\end{itemize}
+
+并行与并发的概念源于单 CPU 时代，再单个 CPU(不考虑超线程技术) 上处理多个线程，多个线程之间轮流获取 CPU 资源，此时可以说并发执行。而在多 CPU 时代，多个 CPU 同一时间点处理多个线程，这可以说是并行处理。再实际编程中，线程数是多余 CPU 个数，所以一般称为多线程并发编程。
+
+并发编程会带来线程安全问题，其本质是对共享线程的非原子性操作。例如我们有这样一个操作(例子，实际情况并不一定如此): 让某个对象自增，这个操作在 CPU 中会被分成三个步骤: 
+\begin{itemize}
+    \item 1.从内存获取对象，
+    \item 2.在 CPU 中让对象自增，
+    \item 3.将对象写回内存。
+\end{itemize}
+
+多线程下会发生什么事情呢，假设有两个线程A,B 都需要执行以上三个步骤，执行顺序如下: A1 $\rightarrow$ A2 $\rightarrow$ B1 $\rightarrow$ A3 $\rightarrow$ B2 $\rightarrow$ B3。 由于B线程取对象时，A线程尚未将对象写回内存，因此最后该对象在内存中只被自增了一次(虽然 CPU 执行了两次自增)。
+
+大部分未经处理的的 Java 操作都是非源自性的，count++ 就不是源自操作。为了解决这个问题，Java 提供了各种数据同步方案，会在下文一一介绍。
+
+\subsubsection*{Java 内存模型}
+
+接下来了解一下 Java 内存模型，Java内存模型规定，将所有的变量都存放在主内存中，当线程使用变量时，会把主内存里面的变量复制到自己的工作空间或者叫作工作内存，线程读写变量时操作的是自己工作内存中的变量。
+
+更具体的，可以认为主内存在物理机的内存条，而线程的工作内存是 L1 缓存，L2 缓存是所有 CPU 共享的。L1缓存，L2缓存，寄存器都可以是工作内存。当一个线程操作共享变量时，它首先从主内存复制共享变量到自己的工作内存，然后对工作内存里的变量进行处理，处理完后将变量值更新到主内存。线程安全问题就发生在工作内存与主内存交互数据的过程中。
+
+另外，CPU 进行上下文切换时也会消耗资源，因为需要将工作内存与主内存中数据交换。如果是单 CPU，那么多线程并不能带来效率提升，反而会降低效率。
+
+内存可见性是指当一个线程修改了某个变量的值，其它线程总是能知道这个变量变化。
+
+\subsection{synchronized 与 volatile 关键字}
+
+\subsubsection*{synchronized 关键字}
+
+synchronized 块是 Java 提供的一种原子性内置锁, Java中的每个对象都可以把它当作一个同步锁来使用。这些Java内置的使用者看不到的锁被称为内部锁，也叫作监视器锁。
+
+线程的执行代码在进入synchronized代码块前会自动获取内部锁，这时候其他线程访问该同步代码块时会被阻塞。拿到内部锁的线程会在正常退出同步代码块或者抛出异常后或者在同步块内调用了该内置锁资源的 wait 系列方法时释放该内置锁。
+
+内置锁是排它锁，也就是当一个线程获取这个锁后，其他线程必须等待该线程释放锁后才能获取该锁。
+
+Java中的线程是与操作系统的原生线程一一对应的，所以当阻塞一个线程时，需要从用户态切换到内核态\footnote{操作系统针对硬件与用户程序的两种操作状态.}执行阻塞操作，这是很耗时的操作，而synchronized的使用就会导致上下文切换。
+
+synchronized 的内存语义可以将 synchronized 块内使用到的变量从线程的工作内存中清除. 这样在synchronized块内使用到该变量时就不会从线程的工作内存中获取，而是直接从主内存中获取。退出synchronized块的内存语义是把在synchronized块内对共享变量的修改刷新到主内存。
+
+说人话一点, 使用到了 synchronized 的资源, 线程操作该资源有如下变动:
+\begin{itemize}
+    \item 线程获取锁: 从主存中获取资源.
+    \item 线程释放锁: 将资源刷新到主存, \textbf{清空工作内存中对应资源数据}.
+\end{itemize}
+
+这也是加锁和释放锁的语义，当获取锁后会清空锁块内本地内存中将会被用到的共享变量，在使用这些共享变量时从主内存进行加载，在释放锁时将本地内存中修改的共享变量刷新到主内存。
+
+除可以解决共享变量内存可见性问题外，synchronized经常被用来实现原子性操作。另外请注意，synchronized关键字会引起线程上下文切换并带来线程调度开销。
+
+synchronized 可以修饰四种不同类型的代码块:
+\begin{itemize}
+    \item 实例方法: 锁对象是 this，即对象本身。
+    \item 静态方法：锁对象是类，JVM 中只有一个类，一个类只能有一个线程在运行。
+    \item 代码块: 锁对象是 () 中的对象。
+    \item 静态代码块: 锁对象是类。
+\end{itemize}
+
+\subsubsection*{volatile 关键字}
+
+使用 synchronized 锁方式可以解决共享内存可见性问题,但是锁太笨重,切换上下文会带来很大开销. 对于解决内存可见性问题，Java还提供了一种弱形式的同步，也就是使用volatile关键字。该关键字可以确保对一个变量的更新对其他线程马上可见,同时不会加锁。
+
+当一个变量被声明为volatile时，线程在写入变量时不会把值缓存在寄存器或者其他地方，而是会把值刷新回主内存。当其他线程读取该共享变量时，会从主内存重新获取最新值，而不是使用当前线程的工作内存中的值。可以理解为在写入变量时\textbf{不再使用CPU缓存},注意计算时还是要用。
+
+\begin{Java}
+public class ThreadSafeInteger {
+    private volatile int value;
+    public int get() {
+        return value;
+    }        
+    public void set(int value) {
+        this.value = value;
+    }
+}
+\end{Java}
+
+相比 synchronized 关键字, volatile 有如下优缺点:
+\begin{itemize}
+    \item 不需要加锁,不会阻塞其他线程。
+    \item 不能保证操作的原子性。
+\end{itemize}
+
+那么什么情况下可以不用 synchronized 而用 volatile 关键字呢: 写入变量不依赖变量当前值,即不存在计算过程。
+
+此外 volatile 只能修饰成员变量。
+
+\subsubsection*{指令重排序}
+
+Java 内存模型允许编译器和处理器对指令重排序以提高运行性能，并且只会对\textbf{不存在数据依赖性}的指令重排序。例如如下代码:
+
+\begin{Java}
+int a = 1;      // (1)
+int b = 2;      // (2)
+int c = b - a;  // (3)
+\end{Java}
+
+上诉代码 (1) 和 (2) 之间不存在依赖关系，执行顺序可以互换，不一定是显示的执行顺序。(3) 依赖 (1) 和 (2)，必须在这两句之后执行。
+
+重排序在多线程下会导致非预期的结果出现，使用 volatile 关键字修饰对应的的成员变量可以避免重排序。
+
+写 volatile 变量时，可以确保 volatile 写之前的操作不会被编译器重排序到 volatile 写之后。读 volatile 变量时，可以确保 volatile 读之后的操作不会被编译器重排序到 volatile 读之前。
+
+\subsection{原子性，CAS操作与Unsafe类}
+
+原子性操作是指,一系列操作,要么全部执行,要么全部不执行。比如前面说过的 count++ 实质上有三个步骤，如果我们使用 java -c 查看汇编代码，会发现有四个步骤，所以 count++ 不是一个原子操作。
+
+保证原子性最简单(目前只知道)的方法是使用 synchronized 关键字，但是 synchronized 加锁会有较高的性能开销，而且会造成线程阻塞。如果使用 volatile 关键字可以保证部分内存可见性，但是不能解决``读-改-写''原子性问题。
+
+\subsubsection*{CAS 操作}
+
+CAS(Compare and Swap) 是 JDK 提供的非阻塞原子性操作，通过\textbf{硬件}保证了比较-更新操作的原子性。JDK里面的Unsafe类提供了一系列的compareAndSwap*方法，下面看下 compareAndSwapLong 方法(了解，许多原子操作通过 CAS 实现，一般不会手动调用 CAS 操作):
+
+\begin{itemize}
+\item boolean compareAndSwapLong(Object obj,long valueOffset,long expect, long update)
+    \begin{itemize}
+        \item obj: 对象内存位置。
+        \item valueOffset: 对象中的变量的偏移量。
+        \item expect: 变量预期值。
+        \item update: 新的值。
+    \end{itemize}
+\end{itemize}
+
+其操作含义是，如果对象obj中内存偏移量为valueOffset的变量值为expect，则使用新的值update替换旧的值expect。这是处理器提供的一个原子性指令。
+
+CAS 存在 ABA 问题，简单阐述如下: 线程 I 将数据 A 变成了 B，然后又重新变成了 A，此时另一个线程读取该数据时，发现 A 没有变化，就误认为是原来的 A，到那时 A 的一些属性或者状态已经发生了变化。
+
+ABA问题的产生是因为变量的状态值产生了环形转换，就是变量的值可以从A到B，然后再从B到A。如果变量的值只能朝着一个方向转换，比如A到B，B到C，不构成环形，就不会存在问题。JDK中的AtomicStampedReference类给每个变量的状态值都配备了一个时间戳，从而避免了ABA问题的产生。
+
+\subsubsection*{Unsafe 类}
+
+Unsafe 提供了很多硬件级别的原子性操作，类中的方法本质上都是 native 方法，通过 JNI 访问本地 C++ 实现库，几个需要了解的方法有:
+\begin{itemize}
+    \item long objectFieldOffset(Field f)
+    
+访问指定的变量在所属类中的内存偏移地址，该地址仅仅在该 Unsafe 函数中使用。
+    \item int arrayBaseOffset(Class<?> arrayClass)
+    
+获取第一个数组元素的地址。
+    \item int arrayIndexScale(Class<?> arrayClass)
+    
+获取数组中一个元素占用的字节。
+    \item long getLongVolatile(Object o, long offset)
+    
+获取对象obj中偏移量为offset的变量对应volatile语义的值。
+    \item void putLongVolatile(Object o, long offset, long x)
+    
+设置obj对象中offset偏移的类型为long的field的值为value，支持volatile语义。
+    \item void putOrderedLong(Object o, long offset, long x)
+    
+有延迟的putLongvolatile方法，并且不保证值修改对其他线程立刻可见。只有在变量使用volatile修饰并且预计会被意外修改时才使用该方法。
+    \item void park(boolean isAbsolute, long time)
+    
+阻塞当前线程，time 表示经过多长时间被唤醒。isAbsolute 用于和 time 配合产生不同效果。
+    \item void unpark(Object thread)
+    
+唤醒被 park 阻塞的线程。
+    \item long getAndSetLong(Object o, long offset, long newValue)
+    
+获取对象obj中偏移量为offset的变量volatile语义的当前值，并设置变量volatile语义的值为update。
+    \item long getAndAddLong(Object o, long offset, long delta)
+    
+获取对象obj中偏移量为offset的变量volatile语义的当前值，并设置变量值为原始值+addValue。
+\end{itemize}
+
+\subsection{伪共享}
+
+为了解决计算机主存与CPU运行速度差问题，会在 CPU 与内存之间添加一级或多级高速缓冲处理器(cache)。cache 内部是按行存储的，其中每一行称为一个 cache 行，是 cache 与主存进行数据交换的单位。
+
+当 CPU 访问某个变量时，会有如下操作顺序:
+\begin{itemize}
+    \item 查 CPU cache，如果有直接从中获取; 如果没有，进行下一步。
+    \item 查主存获取变量，然后把该变量所在的内存区域的一个 cache 行大小复制到 CPU cache 中。
+\end{itemize}
+
+在第二步中，由于存放 cache 行的是内存块而不是单个变量，所以可能会把多个变量存放到一个 cache 行中。当多个线程同时修改一个缓存里面的多个变量时，由于同时只有一个线程操作缓存行，所以相比每个变量放到一个缓存行，性能会有所下降，这被称为伪共享。
+
+伪共享的产生是因为多个变量被放入了一个缓存行中，并且多个线程同时去写入缓存行中不同的变量。例如:
+
+\begin{Java}
+long a = 1;
+long b = 2;
+long c = 3;
+long d = 4;
+\end{Java}
+
+当需要读取变量 a 时，往往会把邻近的 b,c,d 变量一起放入缓存行中。多个线程的私有缓存都可能会读写同一缓存行，既有可能造成冲突，也会降低性能。
+
+在单个线程下顺序修改一个缓存行中的多个变量，会充分利用程序运行的局部性原则，从而加速了程序的运行。而在多线程下并发修改一个缓存行中的多个变量时就会竞争缓存行，从而降低程序运行性能。
+
+在JDK 8之前一般都是通过字节填充的方式来避免该问题，也就是创建一个变量时使用填充字段填充该变量所在的缓存行，这样就避免了将多个变量存放在同一个缓存行中。
+
+\begin{Java}
+public final static class FilledLong {
+    public volatile long value = 0L;
+    public long p1,p2,p3,p4,p5,p6;  // 填充数据
+}
+\end{Java}
+
+假如缓存行为 64 字节，那么 FilledLong 里有效变量 value 占 8 字节，6个天从字段栈 48 字节，再加上对象头占 8 字节，这样正好 64 字节放入一个缓存行中。显然这样处理有一个明显缺陷: 写无用的代码。
+
+JDK8 提供了一个sun.misc.Contended注解，用来解决伪共享问题。在默认情况下，@Contended注解只用于Java核心类，比如rt包下的类。如果用户类路径下的类需要使用这个注解，则需要添加JVM参数：-XX:-RestrictContended。填充的宽度默认为128，要自定义宽度则可以设置-XX:ContendedPaddingWidth参数。
+
+\subsection{锁概念}
+
+\subsubsection*{乐观锁与悲观锁}
+
+乐观锁与悲观锁的概念源于数据库。
+
+悲观锁指对数据被外界修改持保守态度，认为数据很容易就会被其他线程修改，所以在数据被处理前先对数据进行加锁，并在整个数据处理过程中，使数据处于锁定状态。悲观锁的实现往往依靠数据库提供的锁机制，即在数据库中，在对数据记录操作前给记录加排它锁。如果获取锁失败，则说明数据正在被其他线程修改，当前线程则等待或者抛出异常。如果获取锁成功，则对记录进行操作，然后提交事务后释放排它锁。
+
+乐观锁是相对悲观锁来说的，它认为数据在一般情况下不会造成冲突，所以在访问记录前不会加排它锁，而是在进行数据提交更新时，才会正式对数据冲突与否进行检测。乐观锁并不会使用数据库提供的锁机制，一般在表中添加  version  字段或者使用业务状态来实现。乐观锁直到提交时才锁定，所以不会产生任何死锁。
+
+\subsubsection*{公平锁与非公平锁}
+
+根据线程获取锁的抢占机制，锁可以分为公平锁和非公平锁。
+
+公平锁表示线程获取锁的顺序是按照线程请求锁的时间早晚来决定的，也就是最早请求锁的线程将最早获取到锁。而非公平锁则在运行时闯入，也就是先来不一定先得。
+
+ReentrantLock 提供了公平和非公平锁的实现。
+\begin{itemize}
+    \item 公平锁: ReentrantLock pairLock = new ReentrantLock(true)。
+    \item 非公平锁: ReentrantLock  pairLock  =  new  ReentrantLock(false), 不传参默认为 false。
+\end{itemize}
+
+在没有公平性需求的前提下尽量使用非公平锁，因为公平锁会带来性能开销。
+
+\subsubsection*{独享锁与共享锁}
+
+根据锁只能被单个线程持有还是能被多个线程共同持有，锁可以分为独占锁和共享锁。
+
+独占锁保证任何时候都只有一个线程能得到锁，ReentrantLock 就是以独占方式实现的。共享锁则可以同时由多个线程持有，例如  ReadWriteLock  读写锁，它允许一个资源可以被多线程同时进行读操作。
+
+独占锁是一种悲观锁，由于每次访问资源都先加上互斥锁，这限制了并发性，因为读操作并不会影响数据的一致性，而独占锁只允许在同一时间由一个线程读取数据，其他线程必须等待当前线程释放锁才能进行读取。
+
+共享锁则是一种乐观锁，它放宽了加锁的条件，允许多个线程同时进行读操作。
+
+\subsubsection*{可重入锁}
+
+当一个线程要获取一个被其他线程持有的独占锁时，该线程会被阻塞，那么当一个线程再次获取它自己已经获取的锁时是否会被阻塞呢?如果不被阻塞，那么我们说该锁是可重入的，也就是只要该线程获取了该锁，那么可以无限次数（严格来说是有限次数）地进入被该锁锁住的代码。
+
+\begin{Java}
+public class Hello {
+    public synchronized void helloA() {
+        System.out.println("Hello A!");
+    }
+
+    public synchronized void helloB() {
+        System.out.println("Hello B!");
+        helloA;
+    }
+}
+\end{Java}
+
+上述代码调用 helloB 之前会先获取内置锁，打印语句，然后尝试调用 helloA 方法，在调用 helloA 之前会先再次尝试获取内置锁，如果锁时不可重入的(不可再次获取已获取的锁)，那么调用线程会一直被阻塞。
+
+synchronized 内部锁是可重入锁。可重入锁的原理是在锁内部维护一个线程标示，用来标示该锁目前被哪个线程占用，然后关联一个计数器。一开始计数器值为0，说明该锁没有被任何线程占用。
+\begin{itemize}
+    \item 当一个线程获取了该锁时，计数器的值会变成1，这时其他线程再来获取该锁时会发现锁的所有者不是自己而被阻塞。
+    \item 但是当获取了该锁的线程再次获取锁时发现锁拥有者是自己，就会把计数器值加+1，当释放锁后计数器值-1。当计数器值为0时，锁里面的线程标示被重置为 null，这时候被阻塞的线程会被唤醒来竞争获取该锁。
+\end{itemize}
+
+\subsubsection*{自旋锁}
+
+由于Java中的线程是与操作系统中的线程一一对应的，所以当一个线程在获取锁（比如独占锁）失败后，会被切换到内核状态而被挂起。当该线程获取到锁时又需要将其切换到内核状态而唤醒该线程。而从用户状态切换到内核状态的开销是比较大的，在一定程度上会影响并发性能。
+
+自旋锁则是，当前线程在获取锁时，如果发现锁已经被其他线程占有，它不马上阻塞自己，在不放弃CPU使用权的情况下，多次尝试获取（默认次数是10，可以使用-XX:PreBlockSpinsh参数设置该值），很有可能在后面几次尝试中其他线程已经释放了锁。如果尝试指定的次数后仍没有获取到锁则当前线程才会被阻塞挂起。由此看来自旋锁是使用CPU时间换取线程阻塞与调度的开销，但是很有可能这些CPU时间白白浪费了。
+
+\newpage

@@ -1,0 +1,297 @@
+\section{String 字符串}
+
+\subsection{String 类型}
+
+String 对象是 Java 中最常用最基础的字符串对象，它的继承关系如下:
+
+\begin{Java}
+public final class String
+    implements java.io.Serializable, Comparable<String>, CharSequence, Constable, ConstantDesc 
+\end{Java}
+
+\subsubsection{String 不可变的原因}
+
+在 String 中使用 byte 数组存储信息\footnote{在 Java9 之前是使用 char[] 存储，主要原因是 byte 比 char 可以节省一半空间}:
+
+\begin{Java}
+@Stable
+private final byte[] value;
+\end{Java}
+
+在这段代码中，有三个需要注意的地方:
+\begin{itemize}
+    \item \textbf{@Stable}: 仅允许被修饰的字段被修改至多一次，这个注解的声明如下:
+\begin{Java}
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Stable { }
+\end{Java}
+    \item \textbf{private}: 私有成员，仅能通过公有方法进行修改，但是 String 没有提供修改数据的公有方法，那么还可以通过反射机制跳过安全检查进行修改。
+    \item \textbf{final}: 常量，被 final 修饰意味着对象在 JVM 中初始化时，在一般成员赋值之前，该成员的数值就已经被确定，并且随后无法修改，那么反射机制也不能堆它进行改动了。
+\end{itemize}
+
+以上，private 和 final 组合的效果其实和 @Stable 效果类似，这两者的结合让 value 值无法被二次修改，这也就决定了 String 类型的对象是不可变的。如果要钻牛角尖的话，String 是被 final 修饰的，这也决定了 String 无法被继承，无法通过子类实现可变。
+
+除了比较重要的 \texttt{value} 成员，还有一个 \texttt{coder} 下面会用到，它是用来确定编码方式的: UTF-16 或 LATIN1。
+
+String 的构造方法有很多，总的来说可以根据这些数据构造 String 对象:
+\begin{itemize}
+    \item \textbf{String 对象}: 包括字面量，常规String对象。
+    \item \textbf{数组}: char, int, byte 数组都可。
+    \item \textbf{StringBuilder, StringBuffer}: 本质上是调用对应的 toString 方法。
+\end{itemize}
+
+\subsubsection{常用方法}
+
+基础的常用方法有:
+\begin{Java}
+// 获得长度
+public int length() {
+    return value.length >> coder();
+}
+// 判空
+public boolean isEmpty() {
+    return value.length == 0;
+}
+// 获取字符
+public char charAt(int index) {
+    if (isLatin1())
+        return StringLatin1.charAt(value, index);
+    else
+        return StringUTF16.charAt(value, index);
+}
+\end{Java}
+
+比较相关的常用类型
+\begin{Java}
+// equal(Java8)
+public boolean equals(Object anObject) {
+    if (this == anObject)
+        return true;
+    
+    if (anObject instanceof String) {
+        String anotherString = (String)anObject;
+        int n = value.length;
+        if (n == anotherString.value.length) {
+            char v1[] = value;
+            char v2[] = anotherString.value;
+
+            int i = 0;
+            while (n-- != 0) {
+                if (v1[i] != v2[i])
+                    return false;
+                i++;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+// contentEquals (用于和 StringBuilder，StringBuffer 比较)
+public boolean contentEquals(CharSequence cs) { ... }
+// 忽略大小写比较 (还有这种好东西)
+public boolean equalsIgnoreCase(String anotherString) { ... }
+\end{Java}
+
+处理字符串特有的方法
+
+\begin{Java}
+// 判断首部
+public boolean startsWith(String prefix, int toffset) { ... }
+// 判断尾部
+public boolean endsWith(String suffix) { ... }
+// 查找第一个字符/子串
+public int indexOf(int ch, int fromIndex) { ... }
+public int indexOf(String str, int fromIndex) { ... }
+// 查找最后一个字符/子串
+public int lastIndexOf(int ch, int fromIndex) { ... }
+public int lastIndexOf(String str, int fromIndex) { ... }
+// 获取字串/子序列
+public String substring(int beginIndex, int endIndex) { ... }
+public String subSequence(int beginIndex, int endIndex) { ... }
+// 合并字符串
+public String concat(String str) { ... }
+public static String join(CharSequence delimiter, CharSequence... elements) { ... }
+// 拆分字符串
+public String[] split(String regex, int limit) { ... }
+// 替换字符串
+public String replace(char oldChar, char newChar) { ... }
+public String replaceFirst(String regex, String replacement) { ... }
+public String replaceAll(String regex, String replacement) { ... }
+// 匹配
+public boolean matches(String regex) { ... }
+public boolean contains(CharSequence s) { ... }
+// 大小写转换
+public String toLowerCase(Locale locale) { ... }
+public String toUpperCase(Locale locale) { ... }
+// 去除空格
+public String trim() { ... }    // 删除空格，tab，换行
+public String strip() { ... }   // 删除更多的空白，包括全角半角，更全面
+public String stripLeading() { ... }    // 删除首部空格
+public String stripTrailing() { ... }   // 删除尾部空格
+public boolean isBlank() { ... }        // 判断是否是空白字符串
+// 转换
+public char[] toCharArray() {...}
+// 格式化，本质上是调用 Formatter
+public String formatted(Object... args) {
+    return new Formatter().format(this, args).toString();
+}
+\end{Java}
+
+常用函数
+
+\begin{Java}
+public static String join(CharSequence delimiter, Iterable<? extends CharSequence> elements) { ... }
+// 所有的 valueOf 本质上就是调用构造函数或对应的 toString 方法
+public static String valueOf(char data[]) { ... }
+\end{Java}
+
+\subsection{StringBuilder 与 StringBuffer}
+
+StringBuilder 和 StringBuffer 都是可变的字符串序列。唯一的大区别是 StringBuffer 是线程安全的，大部分方法使用了 synchronized 修饰，也因此效率略低一点。下文以 StringBuilder 为例。
+
+\begin{Java}
+public final class StringBuilder extends AbstractStringBuilder
+    implements java.io.Serializable, Comparable<StringBuilder>, CharSequence
+\end{Java}
+
+\subsubsection{常用方法}
+
+构造函数，非常有意思的是，StringBuilder 的构造函数大部分使用了 @IntrinsicCandidate 注解，代表会在 JVM 中高效处理，而 String 却只有少部分构造函数拥有这个注解。
+
+\begin{Java}
+@IntrinsicCandidate
+public StringBuilder() { super(16); }
+@IntrinsicCandidate
+public StringBuilder(int capacity) { super(capacity); }
+@IntrinsicCandidate
+public StringBuilder(String str) { super(str); }
+// 这个没有被修饰
+public StringBuilder(CharSequence seq) { super(seq); }
+\end{Java}
+
+常用方法主要是增删改方法:
+\begin{Java}
+// 各种各样的 增加
+public StringBuilder append(String str) { ... }
+// 各种各样的 删除
+public StringBuilder delete(int start, int end) { ... }
+// 各种各样的 插入
+public StringBuilder insert(int offset, char c) { ... }
+\end{Java}
+
+\subsubsection{可变的原因}
+
+StringBuilder 的几乎所有方法都调用了 super 方法，所以想知道具体实现细节，得看 AbstractStringBuilder 的实现。
+
+和 String 一样， AbstractStringBuilder 也是用 byte 数组保存数据，但是它没有被 private final 修饰。下面看一下 AbstractStringBuilder 的 append 实现机制的相关源码:
+
+\begin{Java}
+byte[] value;
+
+public AbstractStringBuilder append(String str) {
+    if (str == null)
+        return appendNull();
+    int len = str.length();
+    ensureCapacityInternal(count + len);
+    str.getChars(0, len, value, count);
+    count += len;
+    return this;
+}
+
+private void ensureCapacityInternal(int minimumCapacity) {
+    if (minimumCapacity - value.length > 0) {
+        value = Arrays.copyOf(value, newCapacity(minimumCapacity));
+    }
+}
+\end{Java}
+
+所以，本质上来说，StringBuilder 数据每次被修改后，都会通过 \texttt{Arrays.copyOf} 申请新的空间，这就是它可变的本质。
+
+\subsection{编译器对 String 的优化}
+
+\subsubsection{String 的加法运算}
+
+String 的加法运算是 Java 唯一的运算符重载。它本质上就是 StringBuilder！
+
+\begin{Java}
+// 字面量运算
+String sql = "";
+sql = sql + "aa";
+// 实际上
+sql = new StringBuilder("").append("aa").toString();
+\end{Java}
+
+这样似乎没什么问题，但如果在循环中使用 + 运算:
+\begin{Java}
+String ans = "";
+for (int i = 0; i<100; i++)
+    ans += "Hello World! ";
+\end{Java}
+
+那么就会不断地 newStringBuilder(target).append().toString()。但是！我们不需要中间的 new 与 toString 过程，我们可以只 new 一个 StringBuilder 对象，并且删除中间的所有 toString 过程。
+
+\begin{Java}
+String ans = "";
+StringBuilder sb = new StringBuilder(ans);
+for (int i = 0; i<100; i++)
+    sb.append("Hello World! ");
+ans = sb.toString();
+\end{Java}
+
+这样会快很多，所以，绝对不要在循环中使用 + 运算，并且尽可能地使用 StringBuilder。
+
+\subsubsection{常量折叠}
+
+在进入下一节之前，有必要讲一下基础的常量折叠，这是编译器阶段的一种优化，对所有常量都适用。
+
+
+
+常量折叠是Java在编译期做的一个优化，简单的来说，在编译期就把一些表达式计算好，不需要在运行时进行计算。例如:
+
+\begin{Java}
+// 编译前
+String a = "hello " + "world!";
+int b = 1+1;
+int c = 100*100;
+// 编程 class 文件后反编译
+String a = "hello world!";
+int b = 2;
+int c = 10000;
+\end{Java}
+
+但请注意，String 的常量折叠仅在字面量加法运算时存在，如下语句无法进行常量折叠；
+
+\begin{Java}
+String a = "hello ";
+String b = a + "world!!!";
+\end{Java}
+
+仅有如下类型的常量可以进行常量折叠:
+\begin{itemize}
+    \item 8种基本数据类型+字符串常量。
+    \item final 修饰的基本数据类型和字符串变量。
+    \item 字符串通过 “+”拼接得到的字符串、基本数据类型之间算数运算（加减乘除）、基本数据类型的位运算。
+\end{itemize}
+
+\subsubsection{JVM 对 String 的优化}
+
+正如 Integer 存在缓存池一样，String 在 JVM 中有一个字符串常量池(Java8 及之后在堆中)。对于编译期可以确定值的字符串，也就是常量字符串 ，jvm 会将其存入字符串常量池。并且，字符串常量拼接得到的字符串常量在编译阶段就已经被存放字符串常量池，这个得益于编译器的优化。
+
+如果在字符串常量池中已经存在了一个字符串常量，其他所有相同的字符串常量引用都会指向这个常量数据。这时候并不用担心数据被篡改的影响，前面已经说过 String 的数据是无论如何都不能修改的，只具备可读性，这是这样优化的前提。
+
+\begin{Java}
+String a = "hello2";
+final String b = "hello";
+String d = "hello";
+String c = b + 2;
+String e = d + 2;
+String f ="hello"+"2";
+System.out.println(a == c); // true
+System.out.println(a == e); // false
+System.out.println(a == f); // true
+\end{Java}
+
+为什么 e 不一样呢，e 是通过 StringBuilder new 出来的新对象，凡是 new 出来的新对象，都不指向字符串常量池中已有的对象。相反的，a c，f 在编译阶段，通过常量折叠都是 "hello2"，并且指向字符串常量池同一数据。
+
+\newpage

@@ -1,0 +1,157 @@
+\section{Collection 与 Map 接口}
+
+\subsection{Collection 接口与默认实现}
+
+\subsubsection{Collection 接口}
+
+Java 容器接口有两大接口: Collection 和 Map。Map 用于存放键值对，Collection 用于存放单一元素。Collection 派生的容器有 List, Set, Queue。
+
+Collection 接口定义了最基础的容器方法，这里简单说明:
+
+\begin{Java}
+public interface Collection<E> extends Iterable<E>
+\end{Java}
+
+\begin{itemize}
+    \item int size(): 获取容器元素数量。
+    \item boolean isEmpty(): 判断容器是否为空。
+    \item boolean contains(Object o): 判断元素是否存在。
+    \item Iterator<E> iterator(): 获取容器迭代对象。
+    \item Object[] toArray(): 转换为数组。
+    \item boolean add(E e): 添加元素。
+    \item boolean remove(Object o): 删除元素。
+    \item boolean containsAll(Collection<?> c): 判断是否包含容器。
+    \item boolean addAll(Collection<? extends E> c): 添加容器元素。
+    \item boolean removeAll(Collection<?> c): 删除容器元素。
+    \item boolean retainAll(Collection<?> c): 保留容器元素。
+    \item void clear(): 删除本身的元素。
+\end{itemize}
+
+此外还有几个方法给出了默认实现:
+
+removeIf: 删除指定元素
+
+\begin{Java}
+default boolean removeIf(Predicate<? super E> filter) {
+    Objects.requireNonNull(filter);
+    boolean removed = false;
+    final Iterator<E> each = iterator();
+    while (each.hasNext()) {
+        if (filter.test(each.next())) {
+            each.remove();
+            removed = true;
+        }
+    }
+    return removed;
+}
+\end{Java}
+
+spliterator: 并行迭代
+
+\begin{Java}
+@Override
+default Spliterator<E> spliterator() {
+    return Spliterators.spliterator(this, 0);
+}
+\end{Java}
+
+Steam: 流化处理
+
+\begin{Java}
+default Stream<E> stream() {
+    return StreamSupport.stream(spliterator(), false);
+}
+
+default Stream<E> parallelStream() {
+    return StreamSupport.stream(spliterator(), true);
+}
+\end{Java}
+
+\subsubsection{AbstractCollection 默认实现}
+
+AbstractCollection 是 Collection 的默认实现，完成了大部分方法的实现，仍有两个方法需要子类实现:
+
+\begin{Java}
+public abstract Iterator<E> iterator();
+public abstract int size();
+\end{Java}
+
+AbstractCollection 中大部分方法的实现都用到了迭代器。
+
+\subsection{Map 接口与默认实现}
+
+\subsubsection{Map 接口}
+
+Map 用于存放键值对，表示一对一的映射关系:
+
+\begin{Java}
+public interface Map<K, V>
+\end{Java}
+
+它包含的特有的方法如下:
+\begin{itemize}
+    \item boolean containsKey(Object key): 判断键是否存在。
+    \item boolean containsValue(Object value): 判断值是否存在。
+    \item V get(Object key): 通过键获取值。
+    \item V getOrDefault(Object key, V defaultValue): get 的升级版。
+    \item V put(K key, V value): 加入键值对。
+    \item V putIfAbsent(K key, V value): 不存在才加入键值对。
+    \item V remove(Object key): 根据键盘删除键值对。
+    \item V remove(Object key, Object value): 根据键值删除键值对。
+    \item boolean replace(K key, V value): 替换值
+    \item void putAll(Map<? extends K, ? extends V> m): 加入很多键值对。
+    \item Set<K> keySet(): 获取键集合。
+    \item Collection<V> values(): 获取值容器。
+    \item Set<Map.Entry<K, V> entrySet(): 获取键值对集合。
+    \item static <K, V> Map<K, V> of(K k1, V v1): 返回不可修改的 Map 对象。
+    \item static <K, V> Map<K, V> copyOf(Map<? extends K, ? extends V> map): 赋值对象。
+    \item default void forEach(BiConsumer<? super K, ? super V> action): 遍历执行
+\end{itemize}
+
+此外，Map 有一个内部类接口 Entry<K,V> 用于存储单个键值对。
+
+\subsubsection{AbstractMap 默认实现}
+
+AbstractSet 的 entrySet 方法未实现，其他大部分需要便利的方法都依赖于该方法。
+
+\begin{Java}
+public abstract Set<Entry<K,V>> entrySet();
+\end{Java}
+
+entrySet 的返回值必须是一个可迭代的 Set 对象。
+
+\subsection*{章节概述}
+
+这章会讲的几个容器如下(不涉及多线程容器):
+
+\begin{table}[H]
+    \centering
+    \small
+    \caption{容器概述}
+    \label{table:容器概述}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{c|c|c|c|cccc}
+        \toprule
+        \textbf{类型} & \textbf{类名} & \textbf{使用频率} & \textbf{多线程} & \textbf{备注} \\
+        \midrule
+        \multirow{4}{*}{\textbf{List}} & ArrayList & $\bigstar\bigstar\bigstar$ & 不安全 & List 基本只用 ArrayList \\
+        & LinkedList & $\bigstar$ & 不安全 & 性能不及 ArrayList \\
+        & Vector & $\bigstar$ & 安全 & ArrayList 的古早实现 \\
+        & Stack & $\bigstar$ & 安全 & 栈 \\
+        \midrule
+        \multirow{4}{*}{\textbf{Map}} & Hashtable & $\bigstar$ & 安全 & HashMap 的古早实现 \\
+        & HashMap & $\bigstar\bigstar\bigstar$ & 不安全 & Map 默认使用 HashMap \\
+        & TreeMap & $\bigstar\bigstar$ & 不安全 & 有序的 Map \\
+        & LinkedHashMap & $\bigstar$ & 不安全 & 有序的 Map, 按插入顺序排序 \\
+        \midrule
+        \multirow{3}{*}{\textbf{Set}} & HashSet & $\bigstar\bigstar\bigstar$ & 不安全 & 对应 HashMap \\
+        & TreeSet & $\bigstar\bigstar$ & 不安全 & 对应 TreeMap \\
+        & LinkedHashSet & $\bigstar$ & 不安全 & 对应 LinkedHashMap \\
+        \midrule
+        \multirow{2}{*}{\textbf{Queue}} & PriorityQueue & $\bigstar\bigstar$ & 不安全 & 优先队列，需要顺序取值就用 \\
+        & ArrayDeque & $\bigstar\bigstar\bigstar$ & 不安全 & Queue 和栈的默认选择 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\newpage
