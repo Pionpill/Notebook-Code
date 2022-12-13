@@ -1,0 +1,68 @@
+\documentclass{PionpillNote-book}
+
+\import{chapters/style}{tikz-style.tex}
+
+\title{Fluent Python 笔记}
+\author{
+    Pionpill \footnote{笔名：北岸，电子邮件：673486387@qq.com，Github：\url{https://github.com/Pionpill}} \\
+    本文档为作者学习《Fluent Python》\footnote{《Fluent Python》:Luciano Ramalho 2017年中文第一版}一书时的笔记。\\
+}
+
+\date{\today}
+
+\begin{document}
+
+\pagestyle{plain}
+\maketitle
+
+\noindent\textbf{前言：}
+
+笔者为软件工程系在校本科生，主要利用 Python 进行数据科学与机器学习使用，也有一定的开发经验。
+
+<<Fluent Python>> 是  Python 学习的进阶书籍，在学习本书之前，本人已拜读过 <<Python 从入门到实践>>\footnote{俗称：蟒蛇书}，<<Automate with Python>> 等书。
+
+书上有大量的示例，在本文中也有给出，脚本位于 Scripts 文件下，但本人只书写了部分脚本，还有小部分本人觉得没有必要，或者是以命令行形式书写，这些并没有给出。已有的脚本推荐读者使用 VSCode 和 Python Preview 插件，便于查看脚本运行时的内部逻辑。此外，原文有大段对 Python3\footnote{原书支持到 Python3.4} 和 Python2 的对比，除非特别必要，本人不会再详述 Python2 \footnote{特指 Python2.7 ，再远古的版本不再提及}的相关内容，除非特殊说明，默认适用于 Python3 和 CPython 解释器。
+
+本笔记不能代替原书，仅是对原书的一个总结归纳；原书大段精妙的解释均没有被记录在笔记中。本人极其推荐有一定 Python 基础的人购买原书阅读，直到截稿日期，我都认为本书是我在学习 Python 路线上阅读过最好的书籍之一。
+
+本笔记只是对原书的马虎概括与整理，如有疑问或需求，还请购买原书; 本文引用了一些 CSDN 或其他论讨的文章，如果原作者觉得不合适，请联系本人。
+
+语言环境:
+\begin{itemize}
+    \item OS: Window11
+    \item Python: Python 3.8
+\end{itemize}
+
+\date{\today}
+\tableofcontents
+\newpage
+
+\setcounter{page}{1} 
+\pagestyle{fancy}
+
+\chapter{序幕}
+\import{Chapters/Chapter-Introduction}{Introduction.tex}
+
+\chapter{数据结构}
+\import{Chapters/Chapter-DataStruct}{List.tex}
+\import{Chapters/Chapter-DataStruct}{Dictionary.tex}
+\import{Chapters/Chapter-DataStruct}{Byte.tex}
+
+\chapter{把函数视作对象}
+\import{Chapters/Chapter-Function}{Function.tex}
+\import{Chapters/Chapter-Function}{DesignPatterns.tex}
+\import{Chapters/Chapter-Function}{Closure.tex}
+
+\chapter{面向对象惯用法}
+\import{Chapters/Chapter-Class}{Reference.tex}
+\import{Chapters/Chapter-Class}{Style.tex}
+\import{Chapters/Chapter-Class}{Vector.tex}
+\import{Chapters/Chapter-Class}{Interface.tex}
+\import{Chapters/Chapter-Class}{Inherit.tex}
+\import{Chapters/Chapter-Class}{OperatorOverloading.tex}
+
+\chapter{控制流程}
+\import{Chapters/Chapter-ControlFlow}{Iterator.tex}
+\import{Chapters/Chapter-ControlFlow}{ContextManager.tex}
+
+\end{document}
