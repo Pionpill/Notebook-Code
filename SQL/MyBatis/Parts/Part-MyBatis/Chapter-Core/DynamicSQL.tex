@@ -1,0 +1,393 @@
+\section{MyBatis 动态 SQL}
+
+MyBatis3采用了功能强大的OGNL（Object-Graph Navigation Language）表达式语言消除了许多其他标签。以下是 MyBatis3 的动态 SQL 在 XML 中支持的几种标签: if, choose(when, otherwise), trim(where, set), foreach, bind。
+
+\subsection{if 用法}
+
+if 标签通常用于 WHERE，UPDATE，INSERT 语句中用于判断字段。
+
+\subsubsection*{WHERE 中的 if}
+
+如果我们有这样的需求: 实现一个用户管理高级查询功能，根据输入的条件去检索用户信息。
+\begin{itemize}
+    \item 当只输入用户名时，需要根据用户名进行模糊查询；
+    \item 当只输入邮箱时，根据邮箱进行完全匹配；
+    \item 当同时输入用户名和邮箱时，用这两个条件去查询匹配的用户。
+\end{itemize}
+
+如果仅使用 MySQL 的语法，无法在一句语句中完成三种条件下的需求，需要通过 Java 程序进行判断后选择合适的 SQL 语句执行。但 MyBatis 使用 if 标签可以在一句语句中完成该任务。
+
+\begin{xml}
+<select id="selectByUser" resultType="learn.mybatis.simple.model.SysUser">
+    SELECT id, user_name, user_password, user_email, user_info, head_img, create_time
+    FROM sys_user
+    WHERE 1 = 1
+    <if test="userName != null and userName !=''">
+        AND user_name like concat('%',#{userName},'%')
+    </if>
+    <if test="userEmail != null and userEmail != ''">
+        AND user_email = #{userEmail}
+    </if>
+</select>
+\end{xml}
+
+test的属性值是一个符合OGNL要求的判断表达式，表达式的结果可以是true或false，除此之外所有的非0值都为true，只有0为false。建议只用true或false作为结果。
+
+OGNL 的详细用法会在下文介绍，判断条件 property == null 对任何类型字段都适用， property == '' 仅适用于 String 类型的字段。当有多个判断条件时可以用 and 或 or 进行连接。
+
+注意 1=1 的条件 可以避免 SQL 语法错误导致的异常，这种写法将在下文被取代。
+
+\subsubsection*{UPDATE 中的 if}
+
+现在要实现这样一个需求：只更新有变化的字段。需要注意，更新的时候不能将原来有值但没有发生变化的字段更新为空或null。通过if标签可以实现这种动态列更新。
+
+一般情况下，MyBatis中选择性更新的方法名会以Selective作为后缀。在UserMapper.xml中添加对应的SQL语句，代码如下:
+
+\begin{xml}
+<update id="updateByIdSelective">
+    UPDATE sys_user
+    SET
+    <if test="userName != null and userName != ''">
+        user_name = #{userName},
+    </if>
+    <if test="userPassword != null and userPassword != ''">
+        user_password = #{userPassword},
+    </if>
+    <if test="userEmail != null and userEmail != ''">
+        user_email = #{userEmail},
+    </if>
+    <if test="userInfo != null and userInfo != ''">
+        user_info = #{userInfo},
+    </if>
+    <if test="headImg != null">
+        head_img = #{headImg, jdbcType = BLOB},
+    </if>
+    <if test = "createTime != null">
+        create_time = #{createTime jdbcType = TIMESTAMP},
+    </if>
+    id = #{id}
+    WHERE id = #{id}
+</update>
+\end{xml}
+
+只要注意一下书写顺序，符不符合 sql 语句规范即可。
+
+\subsubsection*{insert 中的 if}
+
+在数据库表中插入数据的时候，如果某一列的参数值不为空，就使用传入的值，如果传入参数为空，就使用数据库中的默认值（通常是空），而不使用传入的空值。使用if就可以实现这种动态插入列的功能。
+
+\begin{xml}
+<insert id="insert2" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO sys_user (user_name, user_password,
+        <if test="userEmail != null and userEmail != ''">
+            user_email,
+        </if>
+        user_info, head_img, create_time)
+    VALUES (
+        #{userName}, #{userPassword},
+        <if test="userEmail != null and userEmail != ''">
+            #{user_email},
+        </if>
+        #{userEmail}, #{headImg jdbcType=BLOB}, #{createTime jdbcType = TIMESTAMP}
+    )
+</insert>
+\end{xml}
+
+\subsection{choose 用法}
+
+<if> 标签只能实现基本的条件判断，无法实现 if else 逻辑。<choose> 标签包含两个标签: 
+\begin{itemize}
+    \item <when>: 至少一个
+    \item <otherwise>: 0 个或 1 个
+\end{itemize}
+
+现在进行如下查询：当参数 id 有值的时候优先使用id查询，当id没有值时就去判断用户名(假定唯一)是否有值，如果有值就用用户名查询，如果用户名也没有值，就使SQL查询无结果。
+
+\begin{xml}
+<select id="selectByIdOrUserName" resultType="learn.mybatis.simple.model.SysUser">
+    SELECT id, user_name, user_password, user_email, user_info, head_img, create_time
+    FROM sys_user
+    WHERE 1 = 1
+    <choose>
+        <when test="id != null">
+            AND id = #{id}
+        </when>
+        <when test="userName != null and userName != ''">
+            AND user_name = #{userName}
+        </when>
+        <otherwise>
+            AND 1=2
+        </otherwise>
+    </choose>
+</select>
+\end{xml}
+
+\subsection{where, set, trim 用法}
+
+这三个标签都是用来解决一些语法问题的，可以让我们避免写比不要的 SQL 子句。
+
+\subsubsection*{where 用法}
+
+where 标签的作用：如果该标签包含的元素中有返回值，就插入一个where; 如果where后面的字符串是以AND和OR开头的，就将它们(AND/OR)剔除，非常智能。
+
+我们修改之前的 selecyByUser 映射代码:
+
+\begin{xml}
+<select id="selectByUser2" resultType="learn.mybatis.simple.model.SysUser">
+    SELECT id, user_name, user_password, user_email, user_info, head_img, create_time
+        FROM sys_user
+        <where>
+            <if test="userName != null and userName != ''">
+                AND user_name LIKE CONCAT('%',#{userName},'%')
+            </if>
+            <if test="userEmail != null and userEmail != ''">
+                AND user_email = #{userEmail}
+            </if>
+        </where>
+</select>
+\end{xml}
+
+有了 <WHERE> 标签，我们就不需要 WHERE 1=1 这样的子句。
+
+\subsubsection*{set 用法}
+
+set标签的作用：如果该标签包含的元素中有返回值，就插入一个set; 如果set后面的字符串是以逗号结尾的，就将这个逗号剔除。
+
+\begin{xml}
+<update id="updateByIdSelective2">
+    UPDATE sys_user
+    <set>
+        <if test="userName != null and userName != ''">
+            user_name = #{userName},
+        </if>
+        <if test="userPassword != null and userPassword != ''">
+            user_password = #{userPassword},
+        </if>
+        <if test="userEmail != null and userEmail != ''">
+            user_email = #{userEmail},
+        </if>
+        <if test="userInfo != null and userInfo != ''">
+            user_info = #{userInfo},
+        </if>
+        <if test="headImg != null">
+            head_img = #{headImg, jdbcType = BLOB},
+        </if>
+        <if test="createTime != null">
+            create_time = #{createTime jdbcType = TIMESTAMP},
+        </if>
+        id = #{id},
+    </set>
+    WHERE id = #{id}
+</update>
+\end{xml}
+
+\subsubsection*{trim 用法}
+
+where 和 set 标签的功能都可以用 trim 标签来实现，并且在底层就是通过TrimSqlNode实现的。
+
+<WHERE> 标签对应的 <trim> 实现如下:
+\begin{xml}
+<trim prefix="WHERE" prefixOverrides="AND ||OR ">
+...
+</trim>
+\end{xml}
+
+这里的AND和OR后面的空格不能省略，为了避免匹配到andes、orders等单词。实际的prefixeOverrides包含“AND”、“OR”、“AND$\backslash$n”、“OR$\backslash$n”、“AND$\backslash$r”、“OR$\backslash$r”、“AND$\backslash$t”、“OR$\backslash$t”，不仅仅是上面提到的两个带空格的前缀。
+
+<SET> 标签对应的 <trim> 实现如下:
+
+\begin{xml}
+<trim prefix ="SET" suffixOverrides=",">
+...
+</trims>
+\end{xml}
+
+<trim> 标签有如下属性:
+\begin{itemize}
+    \item prefix: 当 teim 元素被包含内容时，会给内容增加 prefix 指定的前缀。
+    \item prefixOverrides: 当 trim 元素内包含内容时，会把内容中匹配的前缀字符串去掉。
+    \item suffix: 当 trim 元素内包含内容时，会给内容增加 suffix 指定的后缀。
+    \item suffixOverrides： 当 trim 元素内包含内容时，会把内容中匹配的后缀字符串去掉。
+\end{itemize}
+
+\subsection{foreach 用法}
+
+foreach可以对数组、Map或实现了 Iterable接口（如 List、Set）的对象进行遍历。数组在处理时会转换为List对象，因此foreach遍历的对象可以分为两大类：Iterable类型和 Map 类型。
+
+\subsubsection*{foreach 实现 in 集合}
+
+foreach实现in集合（或数组）是最简单和常用的一种情况，下面介绍如何根据传入的用户id集合查询出所有符合条件的用户。
+
+\begin{Java}
+List<SysUser> selectByIdList(List<Long> idList);
+\end{Java}
+
+\begin{xml}
+<select id="selectByIdList" resultType="learn.mybatis.simple.model.SysUser">
+    SELECT id, user_name, user_password, user_email, user_info, head_img, create_time
+    FROM sys_user
+    WHERE id in
+    <foreach collection="list" open="(" close = ")" separator="," item="id" index="i">
+        #{id}
+    </foreach>
+</select>
+\end{xml}
+
+foreach 包含以下属性:
+\begin{itemize}
+    \item collection: 必填，值为要迭代循环的属性名。
+    \item item: 变量名，值为从迭代对象中取出的每一个值。
+    \item index: 索引的属性名，在集合数组情况下值为当前索引值，当迭代对象是 map 时，值为 key。
+    \item open, close: 整个循环内容开头和结尾的字符串。
+    \item separator: 每次循环的分隔符。
+\end{itemize}
+
+下面看一下 MyBatis 是如何处理 collection 的:
+
+以下是 DefaultSqlSession 中的方法，也是默认情况下的处理逻辑:
+
+\begin{Java}
+public static Object wrapToMapIfCollection(Object object, String actualParamName) {
+    if (object instanceof Collection) {
+        ParamMap<Object> map = new ParamMap<>();
+        map.put("collection", object);
+        if (object instanceof List) {
+            map.put("list", object);
+        }
+        Optional.ofNullable(actualParamName).ifPresent(name -> map.put(name, object));
+        return map;
+    } else if (object != null && object.getClass().isArray()) {
+        ParamMap<Object> map = new ParamMap<>();
+        map.put("array", object);
+        Optional.ofNullable(actualParamName).ifPresent(name -> map.put(name, object));
+        return map;
+    }
+    return object;
+}
+\end{Java}
+
+当参数类型为集合的时候，默认会转换为Map类型，并添加一个key为collection的值，如果参数类型是List集合，那么就继续添加一个key为list的值，这样，当collection="list"时，就能得到这个集合，并对它进行循环操作。
+
+当参数类型为数组的时候，也会转换成Map类型，默认的key为array。当采用如下方法使用数组参数时，就需要把foreach标签中的collection属性值设置为array。
+
+\subsubsection*{foreach 实现批量插入}
+
+批量插入，说人话，就是 VALUES 中包含多个元组。VALUES 后的元组是同一类元组的循环，所以可以使用 foreach 实现循环插入。
+
+\begin{Java}
+int insertList(List<SysUser> userList);
+\end{Java}
+
+\begin{xml}
+<insert id="insertList">
+    INSERT INTO sys_user (user_name, user_password, user_email, user_info, head_img, create_time)
+    VALUES
+    <foreach collection="list" item="user" separator=",">
+        (#{user.userName}, #{user.userPassword}, #{user.userEmail}, #{user.userInfo},
+        #{user.headImg, jdbcType=BLOB}, #{user.createTime, jdbcType=TIMESTAMP})
+    </foreach>
+</insert>
+\end{xml}
+
+通过 item 指定了循环变量名后，在引用值的时候使用的是“属性.属性”的方式，如user.userName。
+
+\subsubsection*{foreach 动态实现 UPDATE}
+
+当参数是Map类型的时候，foreach标签的index属性值对应的不是索引值，而是Map中的key，利用这个key可以实现动态UPDATE。
+
+现在需要通过指定的列名和对应的值去更新数据，实现代码如下。
+
+\begin{xml}
+<update id="updateByMap">
+    UPDATE sys_user SET
+    <foreach collection="_parameter" item="val" index="key" separator=",">
+        ${key} = #{val}     <!-- ${} 传字符串 -->
+    </foreach>
+    WHERE id = #{id}
+</update>
+\end{xml}
+
+这里的 key 作为列名，对应的值作为该列的值，通过 foreach 将需要更新的字段拼接在SQL语句中。
+
+\begin{Java}
+int updateByMap(Map<String, Obejct> map);
+\end{Java}
+
+这里没有通过 @Param 注解指定参数名，因而 MyBatis 在内部的上下文中使用了默认值\_parameter作为该参数的key，所以在XML中也使用了\_parameter 。
+
+\subsection{bind 用法}
+
+bind标签可以使用OGNL表达式创建一个变量并将其绑定到上下文中。在前面的例子中，UserMapper.xml有一个selectByUser方法，这个方法用到了like查询条件，部分代码如下。
+
+\begin{xml}
+<if test="userName != null and userName != ''">
+    AND user_name LIKE CONCAT('%',#{userName},'%')
+</if>
+\end{xml}
+
+使用concat函数连接字符串，在MySQL中，这个函数支持多个参数，但在Oracle中只支持两个参数。由于不同数据库之间的语法差异，如果更换数据库，有些SQL语句可能就需要重写。针对这种情况，可以使用 bind 标签来避免由于更换数据库带来的一些麻烦。
+
+\begin{xml}
+<if test="userName != null and userName != ''">
+    <bind name="userNameLike" value="'%' + userName + '%'"/>
+    AND user_name LIKE #{userNameLike}
+</if>
+\end{xml}
+
+bind标签的两个属性都是必选项，name为绑定到上下文的变量名，value为OGNL表达式。
+
+\subsection{多数据库支持}
+
+bind 标签并不能解决更换数据库带来的所有问题，那么还可以通过什么方式支持不同的数据库呢？这需要用到if标签以及由MyBatis提供的databaseIdProvider数据库厂商标识配置。
+
+MyBatis可以根据不同的数据库厂商执行不同的语句，这种多厂商的支持是基于映射语句中的 databaseId 属性的。为支持多厂商特性，只要像下面这样在mybatis-config.xml文件中加入databaseIdProvider配置即可。
+
+\begin{xml}
+<databaseIdProvider type="DB_VENDOR">
+    <property name="SQL Server" value="sqlserver"/>
+    <property name="DB2" value="db2"/>
+    <property name="Oracle" value="oracle" />
+</databaseIdProvider>
+\end{xml}
+
+这里的DB\_VENDOR会通过DatabaseMetaData＃getDatabaseProductName() 返回的字符串进行设置。由于通常情况下这个字符串都非常长而且相同产品的不同版本会返回不同的值，所以通常会通过设置属性别名来使其变短。
+
+除了增加上面的配置外，映射文件也是要变化的。举一个简单例子来介绍databaseId属性如何使用。针对MySQL和Oracle数据库提供下面两个不同版本的like查询方法。
+
+\begin{xml}
+<select id="selectByUser" databaseId="mysql"
+        resultType="learn.mybatis.simple.model.SysUser">
+    select * from sys_user where user_name like concat ('%',#{userName},'%')
+</select>
+<select id="selectByUser" databaseId="oracle"
+        resultType="learn.mybatis.simple.model.SysUser">
+    select * from sys_user
+    where user_name like '%'||#{userName}||'%'
+</select>
+\end{xml}
+
+当基于不同数据库运行时，MyBatis会根据配置找到合适的SQL去执行。
+
+也可以这样用:
+
+\begin{xml}
+<if test="_databaseId == 'mysql'">
+...
+</if>
+\end{xml}
+
+\subsection{OGNL 简单用法}
+
+OGNL（Object-Graph Navigation Language）对象图导航语言。在MyBatis的动态SQL和 \${}形式的参数中都用到了OGNL表达式
+
+常用的 OGNL 表达式如下:
+\begin{itemize}
+    \item 逻辑: and, or, !, not
+    \item 比较: ==, !=, eq, neq, lt, lte, gt, gte
+    \item 四则运算: +, -, *, /, %
+    \item 对象调用: e.method(args), e.property
+    \item 类(静态)调用: @class@method, @class@field
+    \item 索引取值: e1[e2]
+\end{itemize}
+
+\newpage

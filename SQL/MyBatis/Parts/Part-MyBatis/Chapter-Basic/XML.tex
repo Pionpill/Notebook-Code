@@ -1,0 +1,462 @@
+\section{MyBatis 的 XML 使用方式}
+
+\subsection{使用纯 XML 方式}
+
+使用纯 XML 方式开发需要经历以下几个步骤:
+\begin{itemize}
+    \item 配置: 编写 mybatis-config.xml 配置文件。
+    \item 映射: 编写 mapper 文件，统一管理 sql 语句。
+    \item 编码: 在程序中获取并执行 SqlSession 语句。
+\end{itemize}
+K)
+\subsubsection*{mybatis-config 配置文件}
+
+使用 XML 形式进行配置，需要在 src/main/resources 下创建 mybatis-config.xml 文件\footnote{该配置来自MyBatis官网，包含了必要的配置信息，详细标签: \url{https://mybatis.net.cn/configuration.html}}:
+
+\begin{xml}
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <environments default="development">
+        <environment id="development">
+            <transactionManager type="JDBC"/>
+            <dataSource type="POOLED">
+                <property name="driver" value="${driver}"/>
+                <property name="url" value="${url}"/>
+                <property name="username" value="${username}"/>
+                <property name="password" value="${password}"/>
+            </dataSource>
+        </environment>
+    </environments>
+    <mappers>
+        <mapper resource="org/mybatis/example/BlogMapper.xml"/>
+    </mappers>
+</configuration>
+\end{xml}
+
+其中，<environments> 配置了数据库连接，<mappers> 中包含了一个 MyBatis 的 SQL 语句和映射配置文件，我们需要在对应的路径下创建映射文件，默认的，使用 Mapper 作为结尾(下文 mapper 文件就指的是 mybatis 的映射 xml 文件)。开发者可以根据需求修改或增添配置文件内容。
+
+除此之外，我们还可以在 <configuration> 内添加下面这些元素:
+
+\begin{xml}
+<!-- 包别名，可以避免繁琐的完全限定名 -->
+<typeAliases>
+    <package name="learn.mybatis.simple.model"/>
+</typeAliases>
+
+<!-- 单独配置 sql 并引入 -->
+<properties resource="sql.properties"/>
+
+<!-- 使用日志 -->
+<settings>
+    <setting name="logImpl" value="LOG4J"/>
+</settings>
+\end{xml}
+
+\subsubsection*{mapper 映射文件}
+
+在对应的映射文件中，我们可以添加自定义 sql 语句, 下面是一个例子:
+
+\begin{xml}
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.mybatis.example.BlogMapper">
+    <select id="selectAll" resultType="Country">
+        select id, country_name, country_code from country
+    </select>
+</mapper>
+\end{xml}
+
+其中，<mapper> 是根元素，后面紧跟当前 xml 的命名空间。<select> 代表这是一个查询操作，id 是唯一标识，resultType 对应我们自己写的实体类。相应的，我们还可以使用 update, delete 等其他元素，这里不一一介绍。
+
+有了这些配置，我们就可以在代码中进行操作了:
+
+\begin{Java}
+// 通过 xml 获取 SessionFactory
+Reader reader = Resources.getResourcesAsReader("mybatis-config.xml")
+SqlSessionFactory sqlSessionFactory = new SqlSessionFactoryBuilder().build(reader);
+reader.close();
+// 通过 SessionFactory 使用已书写的 sql 语句
+SqlSession sqlSession = sqlSessionFactory.openSession();
+List<Country> countryList = sqlSession.selectList("selectAll");
+sqlSession.close();
+\end{Java}
+
+上述方式是完全使用 xml 来配置 Mybatis, 这种方式已经不常用了，下文不再说明， MyBatis3 提供了接口来调用方法。
+
+\subsection{Mapper 代理开发}
+
+Mapper 代理开发是指结合映射文件与接口的开发方式，它不需要通过字面值(上文的 selectAll)这种硬编码方式执行，安全性更高，更加面向接口编程，可以看作是 MyBatis3 对 XML 方式的一种改进，是目前主流的开发方式之一。
+
+如果映射文件过多，我们还可以在 <mappers> 中使用 <package> 元素包含对应包下的所有映射文件。下面两种写法效果相同:
+
+使用这种方式开发需要经历以下几步:
+\begin{itemize}
+    \item 配置: 编写 mybatis-config.xml 配置文件，定义与映射文件名相同的 Mapper 接口，并且映射文件和接口文件必须在同一目录下。
+    \item 映射: 设置映射文件的名称空间为 Mapper 接口的完全限定名。
+    \item 接口: 在接口中定义方法，方法名就是映射文件中的 id, 保持参数类型和返回值类型一致。
+    \item 编码: 通过 SqlSession 获取 Mapper 接口的代理对象并执行 sql 操作。
+\end{itemize}
+
+在配置过程中，使用代理开发的多个同目录的 mapper 映射可以改用 package 元素同一加载:
+
+\begin{xml}
+<mappers>
+    <mapper resource="learn/mybatis/simple/mapper/UserMapper.xml"/>
+    <mapper resource="learn/mybatis/simple/mapper/RoleMapper.xml"/>
+    <mapper resource="learn/mybatis/simple/mapper/PrivilegeMapper.xml"/>
+    <mapper resource="learn/mybatis/simple/mapper/UserRoleMapper.xml"/>
+    <mapper resource="learn/mybatis/simple/mapper/RolePrivilegeMapper.xml"/>
+</mappers>
+<!-- 等效写法 -->
+<mappers>
+    <package name="learn/mybatis/simple/mapper"/>
+</mappers>
+\end{xml}
+
+这种配置方法会先查找对应 java 包下的所有接口，并加载接口对应的 XML 映射文件。
+
+同样，mapper 文件的 namespace 也需要修改:
+
+\begin{xml}
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="learn.mybatis.simple.mapper.PrivilegeMapper"/>
+\end{xml}
+
+\subsection{SELECT 用法}
+
+\subsubsection*{查询单个结果}
+
+首先的，我们需要在 UserMapper.java 接口中声明 SELECT 方法，例如:
+\begin{Java}
+public interface UserMapper {
+    SysUser selectById(long id);
+}
+\end{Java}
+
+然后在对应的 UserMapper.xml 中添加下面代码:
+
+\begin{xml}
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="learn.mybatis.simple.mapper.UserMapper">
+    <resultMap id="userMap" type="learn.mybatis.simple.mapper.SysUser">
+        <id property="id" column="id"/>
+        <result property="userName" column="user_name"/>
+        <result property="userPassword" column="user_password"/>
+        <result property="userEmail" column="user_email"/>
+        <result property="userInfo" column="user_info"/>
+        <result property="headImg" column="head_img" jdbcType="BLOB"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+    </resultMap>
+    
+    <select id="selectById" resultMap="userMap">
+        select * from sys_user where id = #{id}
+    </select>
+</mapper>
+\end{xml}
+
+那么映射和接口文件/方法是怎么样绑定的呢?
+\begin{itemize}
+    \item 文件: 通过映射文件的 namespace 设置为接口的全限定名进行关联。如果不使用接口，则 namespace 可以随便写。
+    \item 方法: 通过 <select> 标签的 id 属性值绑定。
+\end{itemize}
+
+映射文件中重要的标签和属性:
+\begin{itemize}
+    \item <select>: 映射查询语句使用的标签，id 属性与接口中的方法名对应。
+    \item <resultMap>: 设置返回值的类型和映射关系。
+    \item ＃{id}: MyBatis SQL中使用预编译参数的一种方式，大括号中的id是传入的参数名。
+\end{itemize}
+
+其中 <resultMap> 是最为重要的标签，它所包含的标签如下:
+\begin{itemize}
+    \item <constructor>: 配置使用构造方法注入结果，包含以下两个子标签。
+    \begin{itemize}
+        \item <idArg>: id 参数，标记结果作为 id，可以帮助提高性能。
+        \item <arg>: 注入到构造方法的一个普通结果。
+    \end{itemize}
+    \item <id>: 一个 id 结果，标记结果作为 id, 可以帮助提高性能。
+    \item <result>: 注入到 Java 对象属性的普通结果。
+    \item <association>: 一个复杂的类型关联，许多结果将包成这种类型。
+    \item <collection>: 复杂类型的集合。
+    \item <discriminator>: 根据结果值来决定使用哪个结果映射。
+    \item <case>: 基于某些值的结果映射。
+\end{itemize}
+
+更多标签的作用请查看官网文档，这里不再说明。
+
+在使用时，我们只需要获通过 sqlSession 的 getMapper 获取接口对应的对象即可。
+
+\begin{Java}
+UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
+userMapper.selectAll();
+\end{Java}
+
+这里我们明明没有手动实现 UserMapper 接口，为什么就能用了呢？当然是动态代理，具体实现方法另查资料。
+
+\subsubsection*{查询多个结果}
+
+加入我们查询的结果不是单个对象而是对象集，例如在 UserMapper.java 中添加如下方法:
+
+\begin{Java}
+List<SysUser> selectAll();
+\end{Java}
+
+对应的映射文件需要添加如下代码:
+
+\begin{xml}
+<select id="selectAll" resultType="learn.mybatis.simple.model.SysUser">
+    SELECT id,
+           user_name     userName,
+           user_password userPassword,
+           user_email    userEmail,
+           user_info     userInfo,
+           head_img      headImg,
+           create_time   createTime
+    FROM sys_user
+</select>
+\end{xml}
+
+当返回结果大于1个时，必须使用 List<SysUser> 或 SysUser[] 作为返回类型，否则会抛 TooManyResultsException 异常。 
+
+此外，在映射文件中我们使用了 resultType 返回结果类型，配合别名可以实现类型的自动映射，而不需要手动设置 <resultMap>
+
+\paragraph*{名称映射规则} 如前文所述，MyBatis 有两种名称映射规则:
+\begin{itemize}
+    \item 通过 resultMap 手动设置结果类型。
+    \item 通过 SQL 别名配合 resultType 实现类型自动映射。
+\end{itemize}
+
+注意，<result> 中的 property 要和对象中的属性名相同，而实际上，MyBatis 会将这两者都转换为大写进行判断。
+
+我们知道，sql 语句是不区分大小写的，采用下划线命名，而 Java 属性一般采用小驼峰命名。MyBatis 十分贴心地为提供了一个全局属性 mapUnderscoreToCamelCase, 通过配置这个属性可以自动映射这两种命名。在 mybatis-config 文件中可以开启该属性:
+
+\begin{xml}
+<settings>
+    <setting name="mapUnderscoreToCamelCase" value="true"/>
+</settings>
+\end{xml}
+
+于是，我们就可以这样写了:
+\begin{xml}
+<select id="selectAll" resultType="learn.mybatis.simple.model.SysUser">
+    SELECT id, user_name, user_password, user_email, user_info, head_img, create_time
+    FROM sys_user
+</select>
+\end{xml}
+
+当然，也可以直接 select *, 但出于性能考虑，最好不要这样做。
+
+\subsubsection*{处理复杂返回值}
+
+前面的例子返回的都是一个表中的单个或多个数据，如果返回的数据中包含不止一个表中的结果，那么应该如何处理 resultType 呢? 例如如下语句:
+
+\begin{sql}
+SELECT r.id, r.role_name, r.enabled, r.create_by, r.create_time, u.user_name, u.user_email
+FROM sys_user AS u,
+     sys_user_role AS ur,
+     sys_role AS r
+         INNER JOIN ur on u.id = ur.user_id
+         INNER JOIN r on ur.role_id = r.id
+WHERE u.id = #{userId}
+\end{sql}
+
+这里有两种处理方式，一种是在 SysRole 对象中直接添加 userName 属性，这样仍然可以返回，但破坏了原对象，更推荐的方法是继承一个新的对象:
+
+\begin{Java}
+public class SysRoleExtend extends SysRole{
+    private String userName;
+    // getter setter 方法
+}
+\end{Java}
+
+这种方式比较适合在需要少量字段时使用，但如果需要大量字段，就不适用了。
+
+第二种方法，是直接让 SysRole 包含一个 SysUser 对象，然后修改对应的 XML 配置:
+
+\begin{Java}
+public class SysRole {
+    // 其他字段
+    private SysUser user;
+}
+\end{Java}
+
+\begin{xml}
+<select id="selectRolesByUserId" resultType="learn.mybatis.simple.model.SysRole">
+    SELECT r.id, r.role_name, r.enabled, r.create_by, r.create_time, u.user_name as "user.userName", u.user_email as "user.userEmail"
+    FROM sys_user AS u,
+        sys_user_role AS ur,
+        sys_role AS r
+            INNER JOIN ur on u.id = ur.user_id
+            INNER JOIN r on ur.role_id = r.id
+    WHERE u.id = #{userId}
+</select>
+\end{xml}
+
+\subsection{INSERT 用法}
+
+INSERT 的用法和 SELECT 类似:
+
+\begin{Java}
+int insert(SysUser sysUser);
+\end{Java}
+
+\begin{xml}
+<insert id="insert">
+    insert into sys_user(id, user_name, user_password, user_email, user_info, head_img, create_time)
+    values (#{id}, #{userName}, #{userPassword}, #{userEmail}, #{userInfo}, #{headImg, jdbcType=BLOB}, #{createTime, jdbcType=TIMESTAMP})
+</insert>
+\end{xml}
+
+\begin{Java}
+@Test
+public void testInsert() {
+    SqlSession sqlSession = this.getSqlSession();
+    try {
+        UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
+        SysUser user = new SysUser();
+        user.setUserName("test");
+        user.setUserPassword("123456");
+        user.setUserEmail("test@mybatis.com");
+        user.setUserInfo("test info");
+        user.setHeadImg(new byte[]{1,2,3});
+        user.setCreateTime(new Date());
+        int result = userMapper.insert(user);
+        Assert.assertEquals(1, result);
+        Assert.assertNull(user.getId());
+    } finally {
+        // 不影响其他测试，这里回滚
+        sqlSession.rollback();
+        sqlSession.close();
+    }
+}
+\end{Java}
+
+这里有两个要点，一是在映射文件中，为了防止类型错误，对于一些特殊的数据类型，建议指定具体的 jdbcType 值。例如 headImg 对应 BLOB, createTime 对应 TIMESTAMP。
+\begin{itemize}
+    \item BLOB对应的类型是ByteArrayInputStream，就是二进制数据流。
+    \item date、time、datetime对应的JDBC类型分别为DATE、TIME、TIMESTAMP。
+\end{itemize}
+
+此外的，我们会发现 insert 的默认返回值类型为 int，也即插入的数据条数。
+
+有些情况下，我们需要指定返回值以方便后续操作，例如主键自增的情况下，可以这样编写映射文件:
+\begin{xml}
+<insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    <!-- 由于主键自增，删除insert 中的 id -->
+</insert>
+\end{xml}
+
+useGeneratedKeys设置为true后，MyBatis会使用JDBC的getGeneratedKeys方法来取出由数据库内部生成的主键。获得主键值后将其赋值给keyProperty配置的id属性。当需要设置多个属性时，使用逗号隔开，这种情况下通常还需要设置 keyColumn 属性，按顺序指定数据库的列，这里列的值会和keyProperty配置的属性一一对应。
+
+但这种写法只适用于支持自增的数据库，比如 Oracle 就不支持主键自增，而是使用序列获取 id。对此可以使用另一种方法 <selectKey>，可以处理自增和序列赋值两种情况。
+
+\begin{xml}
+<insert id="insert3">
+    insert into sys_user(user_name, user_password, user_email, user_info, head_img, create_time)
+    values (#{userName}, #{userPassword}, #{userEmail}, #{userInfo}, #{headImg, jdbcType=BLOB}, #{createTime, jdbcType=TIMESTAMP}
+    <selectKey keyColumn="id" resultType="long" keyProperty="id" order="AFTER">
+        SELECT LAST_INSERT_ID()
+    </selectKey>
+</insert>
+\end{xml}
+
+其他属性不再说明，order属性的设置和使用的数据库有关。在MySQL数据库中，order属性设置的值是AFTER，因为当前记录的主键值在insert语句执行成功后才能获取到。而在Oracle数据库中，order的值要设置为BEFORE，这是因为Oracle中需要先从序列获取值，然后将值作为主键插入到数据库中。
+
+MySQL中的SQL语句SELECT LAST\_INSERT\_ID（）用于获取数据库中最后插入的数据的 ID 值。其他数据对应的语句需要自行查阅。
+
+\subsection{UPDATE 与 DELETE 用法}
+
+UPDATE 用法和前面类似，这里只给出映射文件片段:
+
+\begin{xml}
+<update id="updateById">
+    update sys_user
+    set user_name     = #{userName},
+        user_password = #{userPassword},
+        user_email    = #{userEmail},
+        user_info     = #{userInfo},
+        head_img      = #{headImg, jdbcType=BLOB},
+        create_time=#{createTime, jdbcType=TIMESTAMP}
+    where id = #{id}
+</update>
+\end{xml}
+
+DELETE 更简单:
+
+\begin{xml}
+<delete id="deleteById">
+    delete from sys_user where id = #{id}
+</delete>
+\end{xml}
+
+\subsection{多个接口参数的用法}
+
+参数的类型可以分为两种: 一种是基本数据类型，一种是 JavaBean。
+\begin{itemize}
+    \item 基本类型: 在 XML 文件中对应的 SQL 语句只会使用一个参数，例如 delete 方法。
+    \item JavaBean: 在 XML 文件中对应的 SQL 语句会有多个参数，例如 insert, update 方法。
+\end{itemize}
+
+之前我们都是将多个参数合并到一个 JavaBean 中，并使用这个 JavaBean 作为接口方法的参数。参数较少的时候，为此创建一个新的 JavaBean 就显得浪费，有两种方式解决这个问题: 使用 Map 类型作为参数或者使用 @Param 注解。
+
+使用Map类型作为参数的方法，就是在Map中通过key来映射XML中SQL使用的参数值名字，value用来存放参数值，需要多个参数时，通过Map的key-value方式传递参数值，由于这种方式还需要自己手动创建Map以及对参数进行赋值，其实并不简洁，所以对这种方式掠过。
+
+首先对不加 @param 的代码进行测试:
+
+\begin{Java}
+List<SysRole> selectRolesByUserIdAndRoleEnabled(Long userId, Integer enabled);
+\end{Java}
+
+\begin{xml}
+<select id="selectRolesByUserIdAndRoleEnabled" resultType="learn.mybatis.simple.model.SysRole">
+    select r.id, r.role_name, r.enabled, r.create_by, r.reate_time
+    from sys_user as u,
+        sys_user_role as ur,
+        sys_role as r
+             inner join ur on u.id = ur.user_id
+             inner join r on ur.role_id = r.id
+    where u.id = #{userId}
+        and r.enabled = #{enabled}
+</select>
+\end{xml}
+
+对他进行测试会显示如下错误:
+\begin{xml}
+Parameter 'userId' not found
+Available parameters are [0,1,param1,param2]
+\end{xml}
+
+这时如果将XML中的＃{userId}改为＃{0}或＃{param1}，将＃{enabled}改为＃{1}或＃{param2}，这个方法就可以被正常调用了。但并不推荐这样做
+
+正确的方法应该是在接口中加入 @Param 注解:
+
+\begin{Java}
+List<SysRole> selectRolesByUserIdAndRoleEnabled(
+    @Param("userId") Long userId, 
+    @Param("enabled") Integer enabled);
+\end{Java}
+
+这时的XML文件中对应的SQL的可用参数变成了[userId，enabled，param1，param2]，如果把＃{userId}改为＃{param1}，把＃{enabled}改为＃{param2}，测试也可以通过。
+
+给参数配置@Param注解后，MyBatis就会自动将参数封装成Map类型，@Param注解值会作为Map中的key，因此在SQL部分就可以通过配置的注解值来使用参数。
+
+当只有一个参数（基本类型或拥有TypeHandler配置的类型）的时候，为什么可以不使用注解？这是因为在这种情况下（除集合和数组外），MyBatis不关心这个参数叫什么名字就会直接把这个唯一的参数值拿来使用。
+
+但！如果包含多个 JavaBean 对象，比如:
+\begin{Java}
+List<SysRole> selectRolesByUserIdAndRoleEnabled(
+    @Param("user") SysUser user, 
+    @Param("role") SysRole role);
+\end{Java}
+
+就不能直接在映射文件中使用 \#{userId} 和 \#{enabled}，毕竟没法确定这些属性只有一个，需要使用 \#{user.id} 和 \#{role.enabled} 从两个 JavaBean 中去除指定属性的值。
+
+\newpage

@@ -1,0 +1,306 @@
+\section{MyBatis 代码生成器}
+
+作为一个优秀的程序员，“懒”是很重要的优点。不仅要会写代码，还要会利用（或自己实现）工具生成代码。MyBatis 的开发团队提供了一个很强大的代码生成器——MyBatis Generator(MBG) 来帮助我们缩减 SQL 语句。
+
+MBG 的版本和 MyBatis 的版本没有直接关系，不同的MBG版本包含的参数可能不一样。
+
+\subsection{使用 MyBatis Generator}
+
+\subsubsection{配置文件}
+
+在 src/main/resources 中创建 generator-config.xml 内容如下:
+
+\begin{xml}
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+<generatorConfiguration>
+    <properties resource="sql.properties"/>
+    <context id="MySqlContext" targetRuntime="MyBatis3Simple" defaultModelType="flat">
+        <property name="beginningDelimiter" value="`"/>
+        <property name="endingDelimiter" value="`"/>
+
+        <commentGenerator>
+            <property name="suppressDate" value="true"/>
+            <property name="addRemarkComments" value="true"/>
+        </commentGenerator>
+
+        <jdbcConnection driverClass="${driver}" connectionURL="${url}" userId="${username}" password="${password}">
+        </jdbcConnection>
+
+        <javaModelGenerator targetPackage="test.model" targetProject="src\main\java">
+            <property name="trimStrings" value="true"/>
+        </javaModelGenerator>
+
+        <sqlMapGenerator targetPackage="test.xml" targetProject="src\main\resources"/>
+
+        <javaClientGenerator type="XMLMAPPER" targetPackage="test.dao" targetProject="src\main\java"/>
+
+        <table tableName="%">
+            <generatedKey column="id" sqlStatement="MySql"/>
+        </table>
+    </context>
+</generatorConfiguration>
+\end{xml}
+
+先不管这东西是干嘛的，先运行起来看看怎么用。
+
+\subsubsection{运行 MyBatis Generaotr}
+
+MBG 提供了多种运行方式，各有优缺点，常用的有以下几种:
+\begin{itemize}
+    \item 使用 Java 编写运行代码。
+    \item 从命令提示符运行。
+    \item 使用 MavenPlugin 运行。
+    \item 使用IDE插件运行。
+\end{itemize}
+
+这里只介绍第一种方法，其他三种自行查阅资料。
+
+在运行前，需要将对应的 jar 包添加到项目中，可以直接下载 jar 包或者通过 maven 引入依赖。
+
+\begin{xml}
+<dependency>
+    <groupId>org.mybatis.generator</groupId>
+    <artifactId>mybatis-generator-core</artifactId>
+    <version>1.3.3</version>
+</dependency>
+\end{xml}
+
+然后创建对应的 Generator 类:
+
+\begin{Java}
+public class Generator {
+    public static void main(String[] args) throws Exception {
+        //MBG 执行过程中的警告信息
+        List<String> warnings = new ArrayList<String>();
+        //当生成的代码重复时，覆盖原代码
+        boolean overwrite = true;
+        //读取我们的 MBG 配置文件
+        InputStream is = Generator.class.getResourceAsStream("/generator/generatorConfig.xml");
+        ConfigurationParser cp = new ConfigurationParser(warnings);
+        Configuration config = cp.parseConfiguration(is);
+        is.close();
+
+        DefaultShellCallback callback = new DefaultShellCallback(overwrite);
+        //创建 MBG
+        MyBatisGenerator myBatisGenerator = new MyBatisGenerator(config, callback, warnings);
+        //执行生成代码
+        myBatisGenerator.generate(null);
+        //输出警告信息
+        for(String warning : warnings){
+            System.out.println(warning);
+        }
+    }
+}
+\end{Java}
+
+使用 Java 编码方式运行的好处是，generatorConfig.xml 配置的一些特殊的类（如commentGenerator标签中type属性配置的MyCommentGenerator类）只要在当前项目中，或者在当前项目的classpath中，就可以直接使用。使用其他方式时都需要特别配置才能在MBG 执行过程中找到 MyCommentGenerator 类并实例化，否则都会由于找不到这个类而抛出异常。
+
+使用Java编码不方便的地方在于，它和当前项目是绑定在一起的，在Maven多子模块的情况下，可能需要增加编写代码量和配置量，配置多个，管理不方便。但是综合来说，这种方式出现的问题最少，配置最容易，因此推荐使用。
+
+\subsection{XML 配置详解}
+
+配置文件必备的基本信息如下:
+\begin{xml}
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+<generatorConfiguration>
+...
+</generatorConfiguration>
+\end{xml}
+
+其中，头文件确定了对应的 DTD 文件用来规范格式。 generatorConfiguration 是根节点，他下面有三个子标签: 分别是 properties、classPathEntry和context。这三个标签的顺序必须与列举的顺序一致。
+
+properties 标签用于指定一个需要解析的外部属性文件，引入属性文件后，后面需要配置的 JDBC 信息可以通过 \$\{property\} 的形式引入。这个标签最多可以配置1个，也可以不配置。properties标签包含resource和url两个属性，只能使用其中一个属性来指定，同时出现则会报错。
+\begin{itemize}
+    \item resource: 指定 classpath 下的属性文件，类似com/myproject/generatorConfig.properties这样的属性值。
+    \item url: 指定文件系统上的特定位置，例如 file:///C:/myfolder/generatorConfig.properties。
+\end{itemize}
+
+第二个是classPathEntry标签。这个标签可以配置多个，也可以不配置。 classPathEntry标签最常见的用法是通过属性location指定驱动的路径，代码如下。
+\begin{xml}
+＜classPathEntry location=＂E:\mysql\mysql-connector-java-5.1.29.jar＂/＞
+\end{xml}
+
+第三个是context标签。这个标签是最重要的，该标签至少配置1个，可以配置多个。context标签用于指定生成一组对象的环境。例如指定要连接的数据库，要生成对象的类型和要处理的数据库中的表。运行MBG的时候还可以指定要运行的context。context标签只有一个必选属性id，用来唯一确定该标签，此外还有几个可选属性:
+
+\begin{itemize}
+    \item defaultModelType: 定义 MBG 如何生成实体类，有以下选项:
+    \begin{itemize}
+        \item defaultModelType: 和 hierarchical 类似，如果一个表的主键只有一个字段，那么不会为该字段生成单独的实体类，而是会将该字段合并到基本实体类中。
+        \item flat: 该模型只为每张表生成一个实体类。这个实体类包含表中的所有字段。这种模型最简单，推荐使用。
+        \item hierarchical：如果表有主键，那么该模型会产生一个单独的主键实体类，如果表还有BLOB字段，则会为表生成一个包含所有BLOB字段的单独的实体类，然后为所有其他的字段另外生成一个单独的实体类。MBG会在所有生成的实体类之间维护一个继承关系。
+    \end{itemize}
+    \item  targetRuntime：此属性用于指定生成的代码的运行时环境，有以下选项:
+    \begin{itemize}
+        \item MyBatis3: 默认值。
+        \item MyBatis3Simple: 这种情况不会生成与Example相关的方法。
+    \end{itemize}
+    \item introspectedColumnImpl: 该参数可以指定扩展 Introspected Column 类的实现类。
+\end{itemize}
+
+MBG配置中的其他几个标签基本上都是context的子标签，这些子标签（有严格的配置顺序，后面括号中的内容为这些标签可以配置的个数）包括以下几个: property(0+), plugin(0+), commentGenerator(0/1), jdbcConnection(1), javaTypeResolver(0/1), javaModelGenerator(1), sqlMapGenerator(0/1), javaClientGenerator(0/1), table(1+)。
+
+\subsubsection{配置标签}
+
+\subsubsection*{property 标签}
+
+假设数据库中有一个表，名为user info，中间有一个空格。在MySQL中可以使用反单引号“`”作为分隔符，例如`user info`，在SQL Server中则是[user info]。
+
+通过分隔符可以将其中的内容作为一个整体的字符串进行处理，当SQL中有数据库关键字时，使用反单引号括住关键字，可以避免数据库产生错误。
+
+property标签中包含了以下3个和分隔符相关的属性。
+\begin{itemize}
+    \item autoDelimitKeywords: 自动给关键字添加分隔符，MBG中维护了一个关键字列表，当数据库的字段或表与这些关键字一样时，MBG 会自动给这些字段或表添加分隔符。
+    \item beginningDelimiter: 配置前置分隔符的属性。
+    \item endingDelimiter: 配置后置分隔符的属性。
+\end{itemize}
+
+\begin{xml}
+<property name="autoDelimitKeywords" value="true"/>
+<property name="beginningDelimiter" value="`"/>
+<property name="endingDelimiter" value="`"/>
+\end{xml}
+
+\subsubsection*{plugin 标签}
+
+plugin 标签用来定义一个插件，用于扩展或修改通过 MBG 生成的代码。该插件将按在配置中配置的顺序执行。MBG插件使用的情况并不多。
+
+以缓存插件 org.mybatis.generator.plugins.CachePlugin 为例。这个插件可以在生成的 SQL XML 映射文件中增加一个 cache 标签。只有当targetRuntime为MyBatis3时，该插件才有效。
+
+可以这样进行配置(具体的插件属性不提及):
+
+\begin{xml}
+<plugin type="org.mybatis.generator.plugins.CachePlugin">
+    <property name="cache_eviction" value="LRU"/>
+    <property name="cache_size" value="1024"/>
+</plugin>
+\end{xml}
+
+增加这个配置后，生成的 Mapper.xml 文件中会增加如下的缓存相关配置:
+
+\begin{xml}
+<cache eviction="LRU" size="1024">
+...
+</cache>
+\end{xml}
+
+\subsubsection*{commentGenerator 标签}
+
+该标签用来配置如何生成注释信息，该标签有一个可选属性 type，可以指定用户的实现类，该类需要实现 org.mybatis.generator.api.CommentGenerator接口，而且必有一个默认空的构造方法。type属性接收默认的特殊值 DEFAULT，使用默认的实现类 DefaultCommentGenerator。
+
+默认的实现类中提供了三个可选属性，需要通过property属性进行配置。
+\begin{itemize}
+    \item suppressAllComments: 阻止生成注释，默认为 false;
+    \item suppressDate: 阻止生成的注释包含时间戳，默认为 false;
+    \item addRemarkComments: 注释是否添加数据库表的备注信息，默认为 false;
+\end{itemize}
+
+一般情况下，由于 MBG 生成的注释信息没有任何价值，而且有时间戳的情况下每次生成的注释都不一样，使用版本控制的时候每次都会提交，因而一般情况下都会屏蔽注释信息，可以如下配置。
+
+\begin{xml}
+<commentGenerator>
+    <property name="suppressDate" value="true"/>
+    <property name="addRemarkComments" value="true"/>
+</commentGenerator>
+\end{xml}
+
+自定义注释可以参考这篇文章: \url{https://blog.csdn.net/u011781521/article/details/78161201}
+
+\subsubsection*{jdbcConnection 标签}
+
+这个是用于连接数据库的标签，基础的四个属性不在说明。该标签还可以接受多个property子标签，这里配置的property属性都会添加到JDBC驱动的属性中。具体的值要看数据库的支持而定。
+
+\subsubsection*{javaTypeResolver 标签}
+
+该标签的配置用来指定JDBC类型和Java类型如何转换，最多可以配置一个。
+
+该标签提供了一个可选的属性 type。另外，和 commentGenerator 类似，该标签提供了默认的实现DEFAULT，一般情况下使用默认即可，需要特殊处理的情况可以通过其他标签配置来解决，不建议修改该属性。
+
+\subsubsection*{javaModelGenerator 标签}
+
+该标签用来控制生成的实体类，根据context标签中配置的defaultModelType属性值的不同，一个表可能会对应生成多个不同的实体类。该标签只有两个必选属性:
+\begin{itemize}
+    \item targetPackage: 生成实体类存放的包名。一般就是放在该包下，实际还会受到其他配置的影响。
+    \item targetProject：指定目标项目路径，可以使用相对路径或绝对路径。
+\end{itemize}
+
+该标签还支持以下几个 property 子标签属性:
+\begin{itemize}
+    \item constructorBased: 如果设置为 true 使用构造方法入参，默认为 false，使用 setter 方式入参。
+    \item enableSubPackages: 如果为true，MBG会根据catalog和schema来生成子包。如果为false就会直接使用targetPackage属性。默认为false。
+    \item immutable: 用来配置实体类属性是否可变。如果设置为true，那么constructorBased不管设置成什么，都会使用构造方法入参，并且不会生成setter方法。如果为false，实体类属性就可以改变。默认为false。
+    \item rootClass: 设置所有实体类的基类。如果设置，则需要使用类的全限定名称。并且，如果 MBG 能够加载 rootClass，那么MBG不会覆盖和父类中完全匹配的属性。
+    \item trimStrings：判断是否对数据库查询结果进行trim操作，默认值为false。如果设置为true就会生成如下代码。
+\begin{Java}
+public void setUserName(String userName) {
+    this.userName = userName == null ? null : userName.trim();
+}
+\end{Java}
+\end{itemize}
+
+\begin{xml}
+<javaModelGenerator targetPackage="test.model" targetProject="src\main\java">
+    <property name="trimStrings" value="true"/>
+</javaModelGenerator>
+\end{xml}
+
+\subsubsection*{sqlMapGenerator 标签}
+
+该标签用于配置SQL映射文件的属性，如果targetRuntime设置为MyBatis3，则只有当javaClientGenerator配置需要XML时，该标签才必须配置一个。如果没有配置javaClientGenerator，则使用以下规则。
+
+\begin{itemize}
+    \item 如果指定了一个sqlMapGenerator，那么MBG将只生成XML的SQL映射文件和实体类。
+    \item 如果没有指定sqlMapGenerator，那么MBG将只生成实体类。
+\end{itemize}
+
+该标签有两个必要属性:
+\begin{itemize}
+    \item targetPackage：生成SQL映射文件（XML文件）存放的包名。一般就是放在该包下，实际还会受到其他配置的影响。
+    \item targetProject：指定目标项目路径，可以使用相对路径或绝对路径。
+\end{itemize}
+
+该标签还有一个可选的 property 子标签属性 enableSubPackages，如果为 true，MBG会根据catalog和schema来生成子包。如果为false就会直接用targetPackage属性，默认为false。
+
+\begin{xml}
+<sqlMapGenerator targetPackage="test.xml" targetProject="src\main\resources"/>
+\end{xml}
+
+\subsubsection*{javaClientGenerator 标签}
+
+该标签用于配置Java客户端生成器（Mapper 接口）的属性，如果不配置该标签，就不会生成Mapper接口。该标签有以下3个必选属性。
+
+\begin{itemize}
+    \item type: 用于选择客户端代码（Mapper接口）生成器，用户可以自定义实现，需要继承 AbstractJavaClientGenerator 类，必须有一个默认空的构造方法。该属性提供了以下预设的代码生成器，由于context的targetRuntime的不同，需要指定的属性值也有多不同。
+    \begin{itemize}
+        \item XMLMAPPER: 所有的方法都在XML中，接口调用依赖XML文件。推荐使用，将接口和XML完全分离，容易维护，接口中不出现SQL语句，只在XML中配置SQL，修改SQL时不需要重新编译。
+        \item ANNOTATEDMAPPER：基于注解的Mapper接口，不会有对应的XML映射文件。
+        \item MIXEDMAPPER(MyBatis3)：XML和注解的混合形式。
+    \end{itemize}
+    \item targetPackage：生成 Mapper 接口存放的包名。一般就是放在该包下，实际还会受到其他配置的影响。
+    \item targetProject：指定目标项目路径，可以使用相对路径或绝对路径。
+\end{itemize}
+
+\begin{xml}
+<javaClientGenerator type="XMLMAPPER" targetPackage="test.dao" targetProject="src\main\java"/>
+\end{xml}
+
+\subsubsection{表标签}
+
+table是最重要的一个标签，该标签用于配置需要通过内省数据库的表，只有在table中配置过的表，才能经过上述其他配置生成最终的代码，该标签至少要配置一个，可以配置多个。
+
+table标签有一个必选属性tableName，该属性指定要生成的表名，可以使用SQL通配符匹配多个表。table标签包含了多个可选属性:
+
+\begin{itemize}
+    \item schema: 数据库的 schema，可以使用 SQL 通配符匹配。如果设置了该值，生成 SQL 的表名会变成如 schema.tableName 的形式。
+    \item catalog: 数据库的 catalog, 如果设置了该值，生成 SQL 的表名会变成 catalog.tableName 的形式。
+    ...... 
+\end{itemize}
+
+同时也包含了 <property> 在内的多个子标签。感兴趣自己查吧，太多了不想列。
+
+\newpage

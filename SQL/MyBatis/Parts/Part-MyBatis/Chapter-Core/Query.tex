@@ -1,0 +1,477 @@
+\section{MyBatis 高级查询}
+
+\subsection{高级结果映射}
+
+\subsubsection{一对一映射}
+
+一对一映射因为不需要考虑是否存在重复数据，因此使用起来很简单，而且可以直接使用MyBatis的自动映射。
+
+\paragraph*{使用自动映射处理一对一关系}
+
+使用自动映射就是通过别名让MyBatis自动将值匹配到对应的字段上，简单的别名映射如user\_name 对应 userName。
+
+除此之外 MyBatis 还支持复杂的属性映射，可以多层嵌套，例如将role.role\_name映射到role.roleName上。MyBatis会先查找role属性，如果存在role属性就创建role 对象，然后在role 对象中继续查找roleName，将role\_name的值绑定到role对象的roleName属性上。
+
+在 SysUser 中添加属性:
+\begin{Java}
+public class SysUser {
+    private SysRole role;
+    public SysRole getRole() {
+        return role;
+    }
+    public void setRole(SysRole role) {
+        this.role = role;
+    }
+    // 其他代码
+}
+\end{Java}
+
+\begin{xml}
+<select id="selectUserAndRoleById" resultType="learn.mybatis.simple.model.SysUser">
+    SELECT u.id,
+           u.user_name,
+           u.user_password,
+           u.user_email,
+           u.user_info,
+           u.head_img,
+           u.create_time,
+           r.id "role.id",
+           r.role_name "role.roleName",
+           r.enabled "role.enabled",
+           r.create_by "role.createBy",
+           r.create_time "role.createBy"
+    FROM sys_user AS u,
+         sys_role AS r,
+         sys_user_role AS ur
+             INNER JOIN ur on u.id = ur.user_id
+             INNER JOIN r on ur.role_id = r.id
+    WHERE u.id = #{id}
+</select>
+\end{xml}
+
+注意上述方法中sys\_role查询列的别名都是“role.”前缀，通过这种方式将role的属性都映射到了SysUser的role属性上。通过SQL日志可以看到已经查询出的一条数据，MyBatis将这条数据映射到了两个类中，像这种通过一次查询将结果映射到不同对象的方式，称之为关联的嵌套结果映射。
+
+\paragraph*{使用 resultMap 配置一对一映射}
+
+resultMap 方式，除了写起来繁，没其他缺点:
+
+\begin{xml}
+<resultMap id="userRoleMap" type="learn.mybatis.simple.model.SysUser">
+    <id property="id" column="id"/>
+    <result property="userName" column="user_name"/>
+    <result property="userPassword" column="user_password"/>
+    ......
+    <result property="role.id" column="role_id">
+    <result property="role.roleName" column="role_name">
+    <result property="role.enabled" column="enabled">
+    ......
+</resultMap>
+\end{xml}
+
+通过生成器可以生成一些基础代码后进行扩充可以方便一点。
+
+\begin{xml}
+<resultMap id="userRoleMap" type="learn.mybatis.simple.model.SysUser" extends="userMap">
+    <result property="role.id" column="role_id"/>
+    <result property="role.roleName" column="role_roleName"/>
+    <result property="role.enabled" column="role_enabled"/>
+    <result property="role.createBy" column="role_createBy"/>
+    <result property="role.createTime" column="role_create_ime" jdbcType="TIMESTAMP"/>
+</resultMap>
+\end{xml}
+
+\paragraph*{使用 resultMap 的 association 标签配置一对一映射}
+
+在resultMap中，association标签用于和一个复杂的类型进行关联，即用于一对一的关联配置。
+
+在上面配置的基础上，再做修改，改成association标签的配置方式，代码如下：
+
+\begin{xml}
+<resultMap id="userRoleMap" type="learn.mybatis.simple.model.SysUser" extends="userMap">
+    <association property="role" columnPrefix="role_" javaType="learn.mybatis.simple.model.SysRole">
+        <result property="id" column="id"/>
+        <result property="roleName" column="name"/>
+        <result property="enabled" column="enabled"/>
+        <result property="createBy" column="createBy"/>
+        <result property="createTime" column="create_img" jdbcType="TIMESTAMP"/>
+    </association>
+</resultMap>
+\end{xml}
+
+<association> 标签包含如下属性:
+\begin{itemize}
+    \item property: 对应实体类你中的属性名，必填。
+    \item javaType: 属性对应 java 类型。
+    \item resultMap: 使用现有的 resultMap。
+    \item columnPrefix: 配置前缀，下面就不用写了。
+\end{itemize}
+
+\paragraph*{association 标签的嵌套查询}
+
+除了前面3种通过复杂的SQL查询获取结果，还可以利用简单的SQL通过多次查询转换为我们需要的结果，这种方式与根据业务逻辑手动执行多次SQL的方式相像，最后会将结果组合成一个对象。
+
+association 标签的嵌套查询常用的属性如下:
+\begin{itemize}
+    \item select: 另一个映射查询的 id， MyBatis 会额外执行这个查询获取嵌套对象的结果。
+    \item column: 列名，将主查询中列的结果作为嵌套查询的参数，配置方式如: column = {prop = col1m prop2 = col2} prop1 和 prop2 将作为嵌套查询的参数。
+    \item fetchType: 数据加载方式，可选值为 lazy 和 eager，分别为延迟加载和积极加载，这个配置会覆盖全局的lazyLoadingEnabled配置。
+\end{itemize}
+
+使用嵌套查询的方式配置一个和前面功能一样的方法，首先在UserMapper.xml中创建如下的resultMap。
+
+\begin{xml}
+<resultMap id="userRoleMapSelect" type="learn.mybatis.simple.model.SysUser" extends="userMap">
+    <association property="role" column="{id = role_id}" select="learn.mybatis.simple.mapper.RoleMapper.selectRoleById"/>
+</resultMap>
+\end{xml}
+
+然后创建对应的 select 方法:
+
+\begin{xml}
+<select id="selectUserAndRoleByIdSelect" resultMap="userRoleMapSelect">
+    SELECT u.id,
+           u.user_name,
+           u.user_password,
+           u.user_email,
+           u.user_info,
+           u.head_img,
+           u.create_time,
+           ur.role.id
+    FROM sys_user AS u,
+         sys_user_role AS ur
+             INNER JOIN ur on u.id = ur.user_id
+    WHERE u.id = #{id}
+</select>
+\end{xml}
+
+\subsubsection{一对多映射}
+
+\paragraph*{collection 集合的嵌套结果映射}
+
+集合的嵌套结果映射就是指通过一次SQL查询将所有的结果查询出来，然后通过配置的结果映射，将数据映射到不同的对象中去。在一对多的关系中，主表的一条数据会对应关联表中的多条数据，因此一般查询时会查询出多个结果，按照一对多的数据结构存储数据的时候，最终的结果数会小于等于查询的总记录数。
+
+在 SysUser 中修改属性:
+
+\begin{Java}
+public class SysUser {
+    private List<SysRole> roleList;
+    public List<SysRole> getRoleList() {
+        return roleList;
+    }
+
+    public void setRoleList(List<SysRole> roleList) {
+        this.roleList = roleList;
+    }
+    // 其他成员
+}
+\end{Java}
+
+association 和 collection 的属性以及属性的作用完全相同，不再解释。如果我们已经配置过 userMap 和 roleMap, 那么我们可以直接这样写:
+
+\begin{xml}
+<resultMap id="userRoleListMap" type="learn.mybatis.simple.model.SysUser">
+    <collection property="roleList" columnPrefix="role_" resultMap="learn.mybatis.simple.mapper.RoleMapper.roleMapper"/>
+</resultMap>
+\end{xml}
+
+对应的映射代码如下:
+
+\begin{xml}
+<select id="selectAllUserAndRoles" resultMap="userRoleListMap">
+    SELECT u.id,
+           u.user_name,
+           u.user_password,
+           u.user_email,
+           u.user_info,
+           u.head_img,
+           u.create_time,
+           r.id          role_id,
+           r.role_name   role_role_name,
+           r.enabled     role_enabled,
+           r.create_by   role_create_by,
+           r.create_time role_create_time
+    FROM sys_user AS u,
+         sys_user_role AS ur,
+         sys_role AS r
+             INNER JOIN ur ON u.id = ur.user_id
+             INNER JOIN r ON ur.role_id = r.id
+</select>
+\end{xml}
+
+下面说明 mybatis 如何处理一对多的配置:
+
+MyBatis 在处理结果的时候，会判断结果是否相同，如果是相同的结果，则只会保留第一个结果，所以这个问题的关键点就是 MyBatis 如何判断结果是否相同。MyBatis 判断结果是否相同时，最简单的情况就是在映射配置中至少有一个id标签，在userMap中配置如下。
+
+\begin{xml}
+<id property = "id" column = "id"/>
+\end{xml}
+
+我们对 id（构造方法中为 idArg）的理解一般是，它配置的字段为表的主键（联合主键时可以配置多个id标签），因为MyBatis的resultMap只用于配置结果如何映射，并不知道这个表具体如何。id的唯一作用就是在嵌套的映射配置时判断数据是否相同，当配置id标签时，MyBatis只需要逐条比较所有数据中id标签配置的字段值是否相同即可。在配置嵌套结果查询时，配置id标签可以提高处理效率。
+
+这样一来，上面的查询就不难理解了。因为前两条数据的userMap部分的id相同，所以它们属于同一个用户，因此这条数据会合并到同一个用户中。
+
+很可能会出现一种没有配置id的情况。没有配置id时，MyBatis就会把resultMap中配置的所有字段进行比较，如果所有字段的值都相同就合并，只要有一个字段值不同，就不合并。
+
+在嵌套结果配置 id 属性时，如果查询语句中没有查询 id 属性配置的列，就会导致 id对应的值为null。这种情况下，所有值的id都相同，因此会使嵌套的集合中只有一条数据。所以在配置id列时，查询语句中必须包含该列。
+
+MyBatis会对嵌套查询的每一级对象都进行属性比较。MyBatis会首先比较顶层的对象，如果SysUser部分相同，就继续比较SysRole部分，如果SysRole不同，就会增加一个SysRole，两个SysRole相同就保留前一个。假设SysRole还有下一级，仍然按照该规则去比较。
+
+\subsubsection{鉴别器映射}
+
+有时一个单独的数据库查询会返回很多不同数据类型（希望有些关联）的结果集。discriminator 鉴别器标签就是用来处理这种情况的。鉴别器非常容易理解，因为它很像Java语言中的switch语句。
+
+discriminator标签常用的两个属性如下。
+\begin{itemize}
+    \item column: 用于设置要进行鉴别比较值的列。
+    \item javaType: 用于指定列的类型，保证使用相同的 Java 类型来比较。
+\end{itemize}
+
+discriminator标签可以有1个或多个case标签，case标签包含以下三个属性:
+\begin{itemize}
+    \item value: 该值为discriminator指定column用来匹配的值。
+    \item resultMap, resultType。
+\end{itemize}
+
+\begin{xml}
+<resultMap id = "..." type = "...">
+    <discriminator column="enabled" javaType="int">
+        <case value="1" resultMap="..."/>
+        <case value="0" resultMap="..."/>
+    </discriminator>
+</resultMap>
+\end{xml}
+
+\subsection{存储过程}
+
+\subsubsection{调用存储过程}
+
+添加存储过程与对应的映射文件如下:
+
+\begin{sql}
+# 根据用户 id 查询用户其他信息
+DROP PROCEDURE IF EXISTS `select_user_by_id`;
+DELIMITER ;;
+CREATE PROCEDURE `select_user_by_id`(
+    IN userId BIGINT,
+    OUT userName VARCHAR(50),
+    OUT userPassword VARCHAR(50),
+    OUT userEmail VARCHAR(50),
+    OUT userInfo TEXT,
+    OUT headImg BLOB,
+    OUT createTime DATETIME)
+BEGIN
+    SELECT user_name, user_password, user_email, user_info, head_img, create_time
+    INTO userName, userPassword, userEmail, userInfo, headImg, createTime
+    FROM sys_user
+    WHERE id = userId;
+END ;;
+DELIMITER ;
+\end{sql}
+
+\begin{xml}
+<select id="selectUserById" statementType="CALLABLE" useCache="false">
+    {call select_user_by_id(
+        #{id, mode = IN},
+        #{userName, mode = OUT, jdbcType = VARCHAR},
+        #{userPassword, mode = OUT, jdbcType = VARCHAR},
+        #{userEmail, mode = OUT, jdbcType = VARCHAR},
+        #{userInfo, mode = OUT, jdbcType = VARCHAR},
+        #{headImg, mode = OUT, jdbcType = BLOB, javaType = _byte[]},
+        #{createTime, mode = OUT, jdbcType = TIMESTAMP}
+    )}
+</select>
+\end{xml}
+
+在调用存储过程的方法中，需要把statementType设置为CALLABLE，在使用select标签调用存储过程时，由于存储过程方式不支持MyBatis的二级缓存，因此为了避免缓存配置出错，直接将select标签的useCache属性设置为false。
+
+OUT 模式的参数必须指定jdbcType。这是因为在IN模式下，MyBatis提供了默认的jdbcType，在OUT模式下没有提供。
+
+headImg还特别设置了javaType。在MyBatis映射的Java类中，不推荐使用基本类型，数据库BLOB类型对应的Java类型通常都是写成byte[]字节数组的形式的，因为 byte[]数组不存在默认值的问题，所以不影响一般的使用。但是在不指定javaType 的情况下，MyBatis 默认使用 Byte 类型。由于 byte 是基本类型，所以设置javaType时要使用带下画线的方式，在这里就是\_byte[]。\_byte对应的是基本类型，byte对应的是Byte类型。
+
+添加接口及对应的测试如下:
+
+\begin{xml}
+void selectUserById(SysUser user);
+\end{xml}
+
+\begin{Java}
+@Test
+public void testSelectUserById() {
+    try(SqlSession sqlSession = this.getSqlSession()) {
+        UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
+        SysUser user = new SysUser();
+        user.setId(1L);
+        userMapper.selectUserById(user);
+        Assert.assertNotNull(user.getUserName());
+    }
+}
+\end{Java}
+
+运行测试，所有的 OUT 属性就被加载到对应的对象中了。
+
+\subsubsection{多参数的存储过程}
+
+添加存储过程与对应的映射文件如下:
+
+\begin{sql}
+# 简单的根据用户名和分页参数进行查询，返回总数和分页数据
+DROP PROCEDURE IF EXISTS `select_user_page`;
+DELIMITER ;;
+CREATE PROCEDURE `select_user_page`(
+    IN userName VARCHAR(50),
+    IN _offset BIGINT,
+    IN _limit BIGINT,
+    OUT total BIGINT)
+BEGIN
+    SELECT count(*) INTO total FROM sys_user WHERE user_name LIKE CONCAT('%', userName, '%');
+    SELECT * FROM sys_user WHERE user_name LIKE CONCAT('%', userName, '%') LIMIT _offset,_limit;
+END ;;
+DELIMITER ;
+\end{sql}
+
+\begin{xml}
+<select id="selectUserPage" statementType="CALLABLE" useCache="false" resultMap="userMap">
+    {call select_user_page(
+        #{userName, mode = IN},
+        #{offset, mode = IN},
+        #{limit, mode = IN},
+        #{total, mode = OUT, jdbcType = BIGINT}
+    )}
+</select>
+\end{xml}
+
+这个映射字段对应的接口需要这样写:
+\begin{sql}
+List<SysUser> selectUserPage(Map<String, Object> params);
+\end{sql}
+
+由于需要多个入参和一个出参，而入参中除了userName属性在SysUser中，其他3个参数都和SysUser无关，因此为了使用SysUser而增加3个属性也是可以的。这里演示使用 Map 容器作为参数类型。
+
+\begin{Java}
+@Test
+public void testSelectUserPage() {
+    try(SqlSession sqlSession = this.getSqlSession()) {
+        UserMapper userMapper = sqlSession.getMapper(UserMapper.class);
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("userName","ad");
+        params.put("offset", 0);
+        params.put("limit", 10);
+        List<SysUser> userList = userMapper.selectUserPage(params);
+        Long total = (Long)params.get("total");
+        System.out.println(total);
+        for(SysUser user:userList){
+            System.out.println(user.getUserName());
+        }
+    }
+}
+\end{Java}
+
+\subsection{使用枚举或其他对象}
+
+\subsubsection{使用 MyBatis 的枚举类型处理器}
+
+首先创建枚举类型:
+
+\begin{Java}
+public enum Enabled {
+    disable, enable;
+}
+\end{Java}
+
+添加到对应类中:
+
+\begin{Java}
+private Enabled enabled;
+public Enabled getEnabled() {
+    return enabled;
+}
+
+public void setEnabled(Enabled enabled) {
+    this.enabled = enabled;
+}
+\end{Java}
+
+在数据库中不存在一个和Enabled枚举对应的数据库类型，因此在和数据库交互的时候，不能直接使用枚举类型，在查询数据时，需要将数据库int类型的值转换为Java中的枚举值。在保存、更新数据或者作为查询条件时，需要将枚举值转换为数据库中的int类型。
+
+MyBatis在处理Java类型和数据库类型时，使用TypeHandler（类型处理器）对这两者进行转换。Mybatis为Java 和数据库JDBC中的基本类型和常用的类型提供了TypeHandler接口的实现。MyBatis 在启动时会加载所有的 JDBC 对应的类型处理器，在处理枚举类型时默认使用org.apache.ibatis.type.EnumTypeHandler处理器，这个处理器会将枚举类型转换为字符串类型的字面值并使用，对于Enabled而言便是＂disabled＂和＂enabled＂字符串。
+
+除了这个枚举类型处理器，MyBatis还提供了另一个 EnumOrdinalTypeHandler处理器，这个处理器使用枚举的索引进行处理，可以解决此处遇到的问题。想要使用这个处理器，需要在mybatis-config.xml中添加如下配置。
+
+\begin{xml}
+<typeHandlers>
+    <typeHandler javaType = "learn.mybatis.simple.type.Enabled" handler = "org.apache.ibatis.type.EnumOrdinalTypeHandler"/>
+</typeHandlers>
+\end{xml}
+
+\subsubsection{自定义枚举类型处理器}
+
+如果值既不是枚举的字面值，也不是枚举的索引值，这种情况下就需要自己来实现类型处理器。
+
+修改枚举类型如下:
+\begin{Java}
+public enum Enabled {
+    enabled(1), disable(0);
+
+    private final int value;
+
+    Enabled(int value) {
+        this.value = value;
+    }
+
+    public int getValue() {
+        return value;
+    }
+}
+\end{Java}
+
+现在 Enabled 中的值和顺序无关，针对该类，添加新的枚举类型处理器。
+
+\begin{Java}
+public class EnabledTypeHandler implements TypeHandler<Enabled> {
+    private final Map<Integer, Enabled> enabledMap = new HashMap<Integer, Enabled>();
+
+    public EnabledTypeHandler() {
+        for(Enabled enabled: Enabled.values()) {
+            enabledMap.put(enabled.getValue(), enabled);
+        }
+    }
+
+    @Override
+    public void setParameter(PreparedStatement ps, int i, Enabled parameter, JdbcType jdbcType) throws SQLException {
+        ps.setInt(i, parameter.getValue());
+    }
+
+    @Override
+    public Enabled getResult(ResultSet rs, String columnName) throws SQLException {
+        return enabledMap.get(rs.getInt(columnName));
+    }
+
+    @Override
+    public Enabled getResult(ResultSet rs, int columnIndex) throws SQLException {
+        return enabledMap.get(rs.getInt(columnIndex));
+    }
+
+    @Override
+    public Enabled getResult(CallableStatement cs, int columnIndex) throws SQLException {
+        return enabledMap.get(cs.getInt(columnIndex));
+    }
+}
+\end{Java}
+
+EnabledTypeHandler实现了TypeHandler接口，并且针对4个接口方法对Enabled类型进行了转换。在TypeHandler接口实现类中，除了默认无参的构造方法，还有一个隐含的带有一个Class参数的构造方法。
+
+\begin{Java}
+public EnabledTypeHandler(Class<?> type) {
+    this();
+}
+\end{Java}
+
+当针对特定的接口处理类型时，使用这个构造方法可以写出通用的类型处理器，就像MyBatis 提供的两个枚举类型处理器一样。有了自己的类型处理器后，还需要在mybatis-config.xml中进行如下配置。
+
+\begin{xml}
+<typeHandlers>
+    <typeHandler javaType = "learn.mybatis.simple.type.Enabled" handler = "learn.mybatis.simple.type.EnabledTypeHandler"/>
+</typeHandlers>
+\end{xml}
+
+\newpage

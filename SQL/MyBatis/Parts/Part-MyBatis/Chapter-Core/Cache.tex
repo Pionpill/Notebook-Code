@@ -1,0 +1,136 @@
+\section{MyBatis 缓存}
+
+使用缓存可以使应用更快地获取数据，避免频繁的数据库交互，尤其是在查询越多、缓存命中率越高的情况下，使用缓存的作用就越明显。
+
+一般提到MyBatis缓存的时候，都是指二级缓存。一级缓存（也叫本地缓存）默认会启用，并且不能控制，因此很少会提到。
+
+\subsection{一级缓存}
+
+如果我们执行下面这段代码:
+
+\begin{Java}
+// 准备代码
+SysUser user1 = userMapper.selectById(1L);
+SysUser user2 = userMapper.selectById(1L);
+\end{Java}
+
+在第一次执行selectById方法获取SysUser数据时，真正执行了数据库查询，得到了user1的结果。第二次执行获取user2的时候，如果查日志可以看到，并没有执行 sql 语句，只有一次查询，也就是说第二次查询并没有执行数据库操作。
+
+MyBatis的一级缓存存在于 SqlSession的生命周期中，在同一个SqlSession中查询时，MyBatis会把执行的方法和参数通过算法生成缓存的键值，将键值和查询结果存入一个Map对象中。如果同一个SqlSession中执行的方法和参数完全一致，那么通过算法会生成相同的键值，当Map缓存对象中已经存在该键值时，则会返回缓存中的对象。
+
+缓存中的对象和我们得到的结果是同一个对象，反复使用相同参数执行同一个方法时，总是返回同一个对象。如果不想让selectById方法使用一级缓存，可以对该方法做如下修改。
+
+\begin{xml}
+<select id="selectById" flushCache="true" resultMap="userMap">
+    SELECT * FROM sys_user WHERE id = #{id}
+</select>
+\end{xml}
+
+修改在原来方法的基础上增加了flushCache=＂true＂，这个属性配置为true后，会在查询数据前清空当前的一级缓存。
+
+任何的 INSERT、UPDATE、DELETE操作都会清空一级缓存。
+
+\subsection{二级缓存}
+
+MyBatis的二级缓存非常强大，它不同于一级缓存只存在于SqlSession的生命周期中，而是可以理解为存在于 SqlSessionFactory 的生命周期中。虽然目前还没接触过同时存在多个SqlSessionFactory的情况，但可以知道，当存在多个SqlSessionFactory时，它们的缓存都是绑定在各自对象上的，缓存数据在一般情况下是不相通的。只有在使用如 Redis这样的缓存数据库时，才可以共享缓存。
+
+\subsubsection{配置二级缓存}
+
+在 MyBatis 的全局配置 settings 中有一个参数 cacheEnabled，这个参数是二级缓存的全局开关，默认值是 true，初始状态为启用状态。
+
+MyBatis的二级缓存是和命名空间绑定的，即二级缓存需要配置在Mapper.xml映射文件中，或者配置在 Mapper.java 接口中。在映射文件中，命名空间就是 XML 根节点 mapper 的namespace属性。在Mapper接口中，命名空间就是接口的全限定名称。
+
+\paragraph*{映射文件中配置二级缓存}
+
+在保证二级缓存的全局配置开启的情况下， 开启二级缓存只需要在映射文件中添加 <cache/>元素即可。
+
+\begin{xml}
+<mapper namespace = "xxx">
+    <cache/>
+    ......
+</mapper>
+\end{xml}
+
+默认的二级缓存有如下效果:
+\begin{itemize}
+    \item 映射语句文件中的所有 SELECT 语句将被缓存。
+    \item 映射语句文中的所有 INSERT，UPDATE，DELETE 语句会刷新缓存。
+    \item 缓存会使用 LRU(最近最少使用) 算法进行 GC。
+    \item 根据时间表（如no Flush Interval，没有刷新间隔），缓存不会以任何时间顺序来刷新。
+    \item 缓存会存储集合或对象（无论查询方法返回什么类型的值）的1024个引用。
+    \item 缓存会被视为read/write（可读/可写）的，意味着对象检索不是共享的，而且可以安全地被调用者修改，而不干扰其他调用者或线程所做的潜在修改。
+\end{itemize}
+
+这些属性可以通过缓存元素的属性来修改:
+
+\begin{xml}
+<cache eviction="FIFO" flushInterval="60000" size="512" readOnly="true"/>
+\end{xml}
+
+\paragraph*{接口中配置二级缓存}
+
+如果想对注解方法启用二级缓存，还需要在Mapper接口中进行配置，如果Mapper接口也存在对应的XML映射文件，两者同时开启缓存时，还需要特殊配置。
+
+\begin{Java}
+@CacheNamespace(eviction=FifoCache.class, flushInterval=60000, size=512, readOnly=true)
+public interface RoleMapper{
+    // 接口方法
+}
+\end{Java}
+
+当同时使用注解方式和 XML 映射文件时，如果同时配置了上述的二级缓存，就会抛出异常。
+
+这是因为Mapper接口和对应的XML文件是相同的命名空间，想使用二级缓存，两者必须同时配置（如果接口不存在使用注解方式的方法，可以只在XML中配置），因此按照上面的方式进行配置就会出错，这个时候应该使用参照缓存。
+
+\begin{Java}
+@CacheNamespaceRed(RoleMapper.class)
+public interface RoleMapper {
+    // 接口方法
+}
+\end{Java}
+
+Mapper接口可以通过注解引用XML映射文件或者其他接口的缓存，在XML中也可以配置参照缓存，如可以在RoleMapper.xml中进行如下修改。
+
+\begin{xml}
+<cache-ref namespace="learn.mybatis.simple.mapper.RoleMapper"/>
+\end{xml}
+
+这样配置后，XML就会引用Mapper接口中配置的二级缓存，同样可以避免同时配置二级缓存导致的冲突。
+
+MyBatis中很少会同时使用Mapper接口注解方式和XML映射文件，所以参照缓存并不是为了解决这个问题而设计的。参照缓存除了能够通过引用其他缓存减少配置外，主要的作用是解决脏读（后面章节详细介绍）。
+
+\subsubsection{使用二级缓存}
+
+需要注意的是，由于配置的是可读写的缓存，而MyBatis使用SerializedCache序列化缓存来实现可读写缓存类，并通过序列化和反序列化来保证通过缓存获取数据时，得到的是一个新的实例。因此，如果配置为只读缓存，MyBatis就会使用Map来存储缓存值，这种情况下，从缓存中获取的对象就是同一个实例。
+
+因为使用可读写缓存，可以使用SerializedCache序列化缓存。这个缓存类要求所有被序列化的对象必须实现 Serializable标记接口。
+
+当调用close方法关闭SqlSession时，SqlSession才会保存查询数据到二级缓存中。在这之后二级缓存才有了缓存数据。
+
+在实际使用过程中，如果我们输出日志，会出现 Cache Hit Ratio 字段，代表二级缓存命中率。
+
+MyBatis默认提供的缓存实现是基于Map实现的内存缓存，已经可以满足基本的应用。但是当需要缓存大量的数据时，不能仅仅通过提高内存来使用MyBatis的二级缓存，还可以选择一些类似EhCache的缓存框架或Redis缓存数据库等工具来保存MyBatis的二级缓存数据\footnote{由于我不会，所以省略原文这部分内容。}。
+
+二级缓存虽然好处很多，但并不是什么时候都可以使用。在以下场景中，推荐使用二级缓存。
+
+\begin{itemize}
+    \item 以查询为主的应用中，只有尽可能少的增、删、改操作。
+    \item 绝大多数以单表操作存在时，由于很少存在互相关联的情况，因此不会出现脏数据。
+    \item 可以按业务划分对表进行分组时，如关联的表比较少，可以通过参照缓存进行配置。
+\end{itemize}
+
+除了推荐使用的情况，如果脏读对系统没有影响，也可以考虑使用。在无法保证数据不出现脏读的情况下，建议在业务层使用可控制的缓存代替二级缓存。
+
+\subsection{脏数据的产生和避免}
+
+二级缓存虽然能提高应用效率，减轻数据库服务器的压力，但是如果使用不当，很容易产生脏数据。这些脏数据会在不知不觉中影响业务逻辑，影响应用的实效。
+
+MyBatis的二级缓存是和命名空间绑定的，所以通常情况下每一个Mapper映射文件都拥有自己的二级缓存，不同Mapper的二级缓存互不影响。在常见的数据库操作中，多表联合查询非常常见，由于关系型数据库的设计，使得很多时候需要关联多个表才能获得想要的数据。在关联多表查询时肯定会将该查询放到某个命名空间下的映射文件中，这样一个多表的查询就会缓存在该命名空间的二级缓存中。涉及这些表的增、删、改操作通常不在一个映射文件中，它们的命名空间不同，因此当有数据变化时，多表查询的缓存未必会被清空，这种情况下就会产生脏数据。
+
+假设有这样一种多表查询情形: 有三个不同的 sqlSession 对象，第一个SqlSession中获取了用户和关联的角色信息，第二个SqlSession中查询角色并修改了角色的信息，第三个SqlSession中查询用户和关联的角色信息。
+
+由于三个 sqlSession 对象不同，第二个 sqlSession 查询并修改数据后，第三个namespace对应的缓存数据并没有被更新，这时从缓存中直接取出数据，就出现了脏数据，因为角色名称已经修改，但是这里读取到的角色名称仍然是修改前的名字，因此出现了脏读。
+
+该如何避免脏数据的出现呢？这时就需要用到参照缓存了。当某几个表可以作为一个业务整体时，通常是让几个会关联的 ER 表同时使用同一个二级缓存，这样就能解决脏数据问题。
+
+\newpage

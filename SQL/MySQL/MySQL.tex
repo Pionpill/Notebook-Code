@@ -1,0 +1,89 @@
+\documentclass{PionpillNote-book}
+\usetikzlibrary {intersections,through,arrows.meta,graphs,shapes.misc,positioning,shapes.misc,positioning,calc}
+\usetikzlibrary{animations}
+\usetikzlibrary {shapes.geometric}
+\usetikzlibrary {animations}
+\usetikzlibrary {shapes.multipart}
+\usetikzlibrary {positioning}
+\usetikzlibrary {fit,shapes.geometric}
+\usetikzlibrary {automata}
+\usetikzlibrary {quotes}
+\usetikzlibrary {matrix}
+\usetikzlibrary {backgrounds}
+\usetikzlibrary {scopes}
+\usetikzlibrary {calc}
+\usetikzlibrary {intersections}
+\usetikzlibrary {svg.path}
+\usetikzlibrary {decorations}
+\usetikzlibrary {patterns}
+\usetikzlibrary {decorations.pathmorphing}
+\usetikzlibrary {shadows}
+\usetikzlibrary {bending}
+
+\title{MySQL 笔记}
+\author{
+    Pionpill \footnote{笔名：北岸，电子邮件：673486387@qq.com，Github：\url{https://github.com/Pionpill}} \\
+    本文档为作者学习 MySQL 时的笔记。\\
+}
+
+\date{\today}
+
+\begin{document}
+
+\pagestyle{plain}
+\maketitle
+
+\noindent\textbf{前言：}
+
+笔者为软件工程系在校本科生，有计算机学科理论基础(操作系统，数据结构，计算机网络，编译原理等)，本人在撰写此笔记时已经学过基础的数据库概念，类似于表，行，主键等概念不再赘述。
+
+在指令中出现的 <> 表示必要参数，[] 表示可选参数。一般的，做前端开发或者小厂开发看完基础部分即可。进阶部分适合中大厂的开发人员以及高级开发人员。
+
+本文分为以下几个部分:
+\begin{itemize}
+    \item MySQL 基础: 主要参考 《MySQL 必知必会》\footnote{《MySQL Crash Course》: [英] Ben Forta 2009 年第一版。}一书，快速过一遍 MySQL 基础语法，一些样例数据下载方式如下:
+    \begin{itemize}
+        \item \url{https://forta.com/wp-content/uploads/books/0672327120/mysql_scripts.zip}
+    \end{itemize}
+    \item MySQL 进阶: 主要参考 《高性能 MySQL》\footnote{High Performance MySQL(3rd): Baron Schwartz, Peter Zaitsev，Vadim Tkachenko. 2013年第三版}。讲解了内部原理及优化方法。
+    \begin{itemize}
+        \item 这是一本面向 DBA 的专业书籍，部分和后端无关的内容被我省略了。
+    \end{itemize}
+\end{itemize}
+
+本人的编写及开发环境如下：
+\begin{itemize}
+    \item OS: Windows11 
+    \item MySQL: 8.0.3
+\end{itemize}
+
+本文默认使用 MySQL5 及以上版本，远古版本不再提及。
+
+\date{\today}
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\setcounter{page}{1} 
+\pagestyle{fancy}
+
+\part{MySQL 基础}
+\chapter{介绍与基本操作}
+\import{Parts/Part-Basic/Chapter-Introduction}{Introduction.tex}
+\import{Parts/Part-Basic/Chapter-Introduction}{Database.tex}
+\chapter{基础数据操作语言}
+\import{Parts/Part-Basic/Chapter-Basic}{DML.tex}
+\import{Parts/Part-Basic/Chapter-Basic}{DDL.tex}
+\import{Parts/Part-Basic/Chapter-Basic}{DCL.tex}
+
+\part{MySQL 进阶}
+\chapter{深入了解 MySQL}
+\import{Parts/Part-Advance/Chapter-Introduction}{Framework.tex}
+\import{Parts/Part-Advance/Chapter-Introduction}{PerformanceSchema.tex}
+\chapter{优化 MySQL}
+\import{Parts/Part-Advance/Chapter-Optimization}{Schema.tex}
+\import{Parts/Part-Advance/Chapter-Optimization}{Index.tex}
+
+\end{document}

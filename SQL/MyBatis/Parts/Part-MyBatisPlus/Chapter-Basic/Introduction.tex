@@ -1,0 +1,96 @@
+\section{MyBatis-Plus 简介}
+
+\subsection{MyBatis-Plus 简介}
+
+MyBatis-Plus (opens new window)（简称 MP）是一个 MyBatis (opens new window)的增强工具，在 MyBatis 的基础上只做增强不做改变，为简化开发、提高效率而生。MP 不是 MyBatis 的官方工具，而是国人开发的第三方工具。
+
+说人话，MyBatis 要写很多 XML 映射文件，又需要定义很多接口，这使得开发过程要写的东西很多，MP 在其基础上，使用注解的方式简化了开发。
+
+MP 对应的坐标(Spring Boot)如下:
+
+\begin{xml}
+<dependency>
+    <groupId>com.baomidou</groupId>
+    <artifactId>mybatis-plus-boot-starter</artifactId>
+    <version>最新版本</version>
+</dependency>
+\end{xml}
+
+只需要引入 MP 即可，不用再引入 MyBatis。
+
+这部分默认读者已经会了 lombok，springboot 等出现的组件，下文默认基于 SpringBoot 开发。
+
+\subsection{MyBatis-Plus 开发过程}
+
+\subsubsection*{项目配置}
+
+导入依赖后，需要在主程序同目录下创建两个包: pojo, mapper。
+
+然后需要再主程序上加 @MapperScan 注解\footnote{@Mapper 注解用来替换映射文件中 <mapper> @MapperScan 则用于扫描 @Mapper。}。
+
+\begin{Java}
+@MapperScan("learn.example.mp.mapper")
+@SpringBootApplication
+public class MybatisPlusApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(MybatisPlusApplication.class, args);
+    }
+}
+\end{Java}
+
+
+写入数据库配置:
+
+\begin{xml}
+#mysql
+spring.datasource.driver-class-name=com.mysql.jdbc.Driver
+spring.datasource.url=jdbc:mysql://localhost:3306/mp?useUnicode=true&characterEncoding=utf8
+spring.datasource.username=root
+spring.datasource.password=123456
+
+#mybatis-plus
+mybatis-plus.configuration.log-impl=org.apache.ibatis.logging.stdout.StdOutImpl
+\end{xml}
+
+然后创建数据，可以参考这篇文章: \url{https://blog.csdn.net/qq_38490457/article/details/108809902}
+
+\subsubsection*{实体与接口}
+
+接下来分别创建实体类: pojo.Employee 和接口 mapper.EmployeeMapper
+
+\begin{Java}
+@Data
+@TableName("tbl_employee")
+public class Employee {
+    @TableId(value = "id", type= IdType.AUTO)
+    private Integer id;
+
+    @TableField("last_name")
+    private String lastName;
+
+    @TableField("email")
+    private String email;
+
+    @TableField("gender")
+    private Integer gender;
+
+    @TableField("age")
+    private Integer age;
+}
+\end{Java}
+
+\begin{Java}
+@Repository
+public interface EmployeeMapper extends BaseMapper<Employee> {
+}
+\end{Java}
+
+到此，就全部完成了，常用的 SQL 操作已经被封装在了 BaseMapper 内。
+
+相比 MyBatis，MP 做了这些:
+\begin{itemize}
+    \item 使用 @MapperScan 替换了映射文件，并自动读取了必要的配置。
+    \item 通过注解和已封装好的接口，自动实现了基本的 CRUD 操作。
+\end{itemize}
+
+不得不说，MP 让 MyBatis 更像 JPA 了。
