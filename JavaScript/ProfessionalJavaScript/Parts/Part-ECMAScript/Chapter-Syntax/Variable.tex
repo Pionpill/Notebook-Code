@@ -1,0 +1,167 @@
+\section{变量，作用域与内存}
+\subsection{原始值与引用值}
+
+原始值就是最简单的数据，引用值是由多个值构成的对象。JavaScript 中，6个基本数据类型是原始值，变量按保存的是数据本身，其他数据类型保存的是引用。
+
+与 Java/Python 不同的是，JavaScript 中的 String 类型是基本数据类型，是原始值，对应变量保存数据本身。
+
+\subsubsection*{动态属性}
+
+对于引用值而言，可以随时添加，修改和删除其属性和方法。
+
+\begin{JavaScript}
+let person = new Object();
+person.name = "Pionpill";
+\end{JavaScript}
+
+原始值不能拥有属性，尽管尝试添加属性不会报错(这样做没有意义)，但是调用时会报错。
+
+注意，原始类型的初始化可以只使用原始字面量形式。如果使用的是 \texttt{new} 关键字，则 JavaScript 会创建一个 \texttt{Object} 类型的实例，但其行为类似原始值。
+
+\subsubsection*{复制值}
+
+JavaScript 对值复制的方法同 Java 相同，原始值的复制将在内存中创建新的空间，而引用值的复制只是多加了一个引用(指向同一块内存区域)。
+
+\subsubsection*{传递参数}
+
+ECMAScript 中所有函数的参数都是按值传递的。也就是说在函数中会创建一个新的局部变量，是原变量的复制。
+
+下面通过一个例子说明引用值是如何按值传递的。
+
+\begin{JavaScript}
+function setName(obj) {
+    obj.name = "Pionpill";
+    obj = new Object();
+    obj.name = "Brandon";
+}
+
+let person = new Object();
+setName(person)
+console.log(person.name);   // "Pionpill"
+\end{JavaScript}
+
+上述例子中，最终的输出是 \texttt{"Pionpill"} 而不是 \texttt{"Brandon"}，注意我们全局变量中的 \texttt{person} 和 传入函数的(局部变量) \texttt{person} 是两个不同的变量，他们都指向一个 \texttt{Object} 实例。在第二行，局部变量 \texttt{person} 修改了所指向的 \texttt{Object} 实例，创建 \texttt{name} 属性，值为 \texttt{"Pionpill"}。但在第3行，局部变量 \texttt{person} 创建了一个新的 \texttt{Object} 实例，不再指向原先的区域，因此此时再对局部变量 \texttt{person} 进行修改，不会影响到全局的 \texttt{person} 所指向的实例。
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            上面示例代码仅因为要解释原理给出，实际作用中请不要随意在函数中改变属性或引用对象。
+        \end{notice}
+    }
+}
+
+\subsubsection*{确定类型}
+
+我们知道 \texttt{typeof} 操作符可以用来确定数据类型，但是在面向对象编程中，我们往往需要知道某一实例是什么类型的对象。这时候需要用到 \texttt{instanceof} 操作符。 
+
+\begin{JavaScript}
+person instanceof Object;   // person 是 Object 吗?
+colors instanceof Array;    // colors 是 Array 吗?
+\end{JavaScript}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            ECMA-262 规定，任何实现内部 \texttt{[call]} 方法的对象都应该在 \texttt{typeof} 检测时返回 \texttt{"function"}。但并不是所有浏览器都这样做。
+        \end{notice}
+    }
+}
+
+\subsection{上下文与作用域}
+
+\textit{基础的省略}。
+
+需要指出的是，所有通过 \texttt{var} 定义的全局变量和函数都会成为 \texttt{window} 对象的属性和方法。使用 \texttt{let} 和 \texttt{const} 的顶级声明不会定义在全局上下文中，但在作用域链解析上效果是一样的。
+
+\subsubsection*{作用域链增强}
+
+执行上下文主要有全局上下文和函数上下文两种(\texttt{eval() 调用内部存在第三种上下文})，但有其他方式来增强作用域链。某些语句会导致在作用域链前端临时添加一个上下文，这个上下文在实行代码后会被删除:
+\begin{itemize}
+    \item \texttt{try/catch} 语句的 \texttt{catch} 块
+    \item \texttt{with} 语句
+\end{itemize}
+
+\subsubsection*{变量声明}
+
+\texttt{var，let，const} 关键字以在前文进行过说明，这里不再累述。
+
+在子块中如果声明和父块同名的变量会掩盖父级变量，也即在子块中对这一变量的调用指的都是子块中的变量。如果父块是全局作用域，则可以使用 \texttt{windows.name} 调用对应变量。
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{advise}
+            虽然 JavaScript 允许父块和子块中出现同名变量，但不建议这样使用。
+        \end{advise}
+    }
+}
+
+\subsection{垃圾回收}
+\subsubsection*{标记清理}
+
+所有现代浏览器采用的 JavaScript 垃圾回收机制都是标记清理。当变量进入上下文时，变量会被加上存在于上下文中的标记。当变量离开上下文时，也会被加上离开上下文的标记\footnote{加标记也是局部变量与全局变量不同的原因。}。
+
+垃圾回收程序运行时，会标记内存中存储的所有变量。然后，它会将所有在上下文中的变量，以及被在上下文中的变量引用的变量的标记去掉。在此之后再被加上标记的变量就是待删除的了。随后垃圾回收程序做一次内存清理，销毁带标记的所有指并回收它们的内存。
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            还有一种垃圾回收机制：引用计数。不过已经被绝大多数浏览器弃用了。但 Python 的垃圾回收机制采用的是这种方式，有兴趣请读者自行查阅资料。
+        \end{notice}
+    }
+}
+
+垃圾回收机制是涉及浏览器底层的操作，了解这些底层知识对开发者并没有太多的益处，而且，开发者也无法改善这种底层操作(需要浏览器改善)。因此，这里我省略了很多书上的理论内容。
+
+\subsubsection*{内存管理}
+
+出于优化考虑，系统只会给浏览器分配较少的内存。因此将内存占用量保存在一个较小的值可以让页面性能更好。优化内存最好的方法就是只保存必要的数据。如果数据不需要，那么把它设置为 \texttt{null}，从而释放其引用。这也可以叫做解除引用。这个做法尤其适用于全局变量，因为局部变量在超出作用域后会自动被解除引用。
+
+\begin{JavaScript}
+let person = new Object();
+person.name = "Pionpill";
+
+let person = null;      // 解除引用
+\end{JavaScript}
+
+不过要注意，解除一个值的引用并不会自动导致相关内存被回收(可能多个变量指向同一对象)。解除引用的关键在于确保相关的值已经不在上下文。因此在下次垃圾回收时可能会将其回收。
+
+\noindent\textbf{使用 \texttt{let，const}}
+
+由于 \texttt{let，const} 关键字在声明变量时是块作用域，因此，在垃圾回收过程中变量会更加快速地被处理，而 \texttt{var} 则相对迟钝。
+
+\noindent\textbf{隐藏类}
+
+隐藏类是一种优化处理，Chrome 浏览器的 V8 引擎在解释后会采用这种优化处理，从而产生隐藏类。
+
+简而言之，如果两个示例相同(构造方法相同，类相同)，那么它们可能会指向同一个对象，这样就节省了开辟一个相同对象地空间。如果其中某个对象被改动了，则会智能地再创建一个新对象。这种处理方式和 Python 类似\footnote{我的另一本 《Fluent Python》 笔记有详细解释 Python 的这种做法。}。详细的处理过程请读者自行查阅文献，下面仅给出处理隐藏类的一些建议。
+
+隐藏类固然有好处，但是如果使用不当，这会成为累赘，比如如果我们要创建两个不同的类实例：应该在创建时就区分它们，而不是使用相同的构造函数(这样两个实例名会先指向同一实例，更改后再重新创建实例，步骤多余)。
+
+\begin{JavaScript}
+function Article(opt) {
+    this.title = "ababababa";
+    this.author = opt;
+}
+
+let a1 = new Article();
+let a2 = new Article("Pionpill");
+\end{JavaScript}
+
+此外，如果两个变量共享一个隐藏类，请不要使用 \texttt{delete} 语句修改类属性，这会导致生成相同的隐藏类片段，如果要删除，应该将值设为 \texttt{null}。
+
+\begin{JavaScript}
+let a1 = new Article();
+let a2 = new Article();
+
+a1.author = null;
+\end{JavaScript}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            CSDN 上鲜有隐藏类的相关文章，只有极致追求性能的开发者才会关注隐藏类的优化处理。在开发阶段无需过多关于这些内容，等优化阶段再处理。
+        \end{notice}
+    }
+}
+
+\newpage
