@@ -1,0 +1,29 @@
+\section{MyBatis 概述}
+
+\subsection{MyBatis 简介}
+
+MyBatis是一款优秀的支持自定义SQL查询、存储过程和高级映射的持久层框架，消除了几乎所有的JDBC代码和参数的手动设置以及结果集的检索。MyBatis可以使用XML或注解进行配置和映射。
+
+与其他的ORM（对象关系映射）框架不同，MyBatis并没有将Java对象与数据库表关联起来，而是将Java方法与SQL语句关联。
+
+MyBatis 有两种使用方式: 使用 jar 包和通过 maven 构建:
+\begin{itemize}
+    \item 直接使用: 将 mybatis-x.x.x.jar 文件置于 classpath 中.
+    \item maven 构建: 提供下列依赖:
+\begin{xml}
+<dependency>
+    <groupId>org.mybatis</groupId>
+    <artifactId>mybatis</artifactId>
+    <version>x.x.x</version>
+</dependency>
+\end{xml}
+\end{itemize}
+
+配置 Mybatis 的方法总的来说有三种:
+\begin{itemize}
+    \item Java 硬编码: 直接用 Java 手动创建配置，这个方式比较繁琐不常用。
+    \item Xml 配置: 通过 XML 文件让 Mybatis 解析，是主流的方法。
+    \item 注解: 利用反射配置，在 Spring 等框架中常用。
+\end{itemize}
+
+其中第一种不讲，后两种在下两节中说明

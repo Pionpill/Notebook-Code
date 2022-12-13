@@ -1,0 +1,45 @@
+\section{数据库的基本操作}
+
+\subsection{数据库的创建与删除}
+
+\subsubsection*{SHOW 语句}
+
+进入数据库后，我们需要选择我们要操作的数据库，在这之前我们需要查看已有的数据库:
+
+\begin{sql}
+SHOW databases;
+\end{sql}
+
+类似的，还有如下常用的 SHOW 语句:
+
+\begin{sql}
+SHOW TABLES;    -- 显示数据库下所有的表
+SHOW COLUMNS FROM <tableName>;  -- 显示表的所有列信息
+\end{sql}
+
+\subsubsection*{创建与删除数据库}
+
+创建数据库指令
+\begin{sql}
+CREATE DATABASE <databaseName>;
+\end{sql}
+
+删除数据库指令
+\begin{sql}
+DROP DATABASE <databaseName>;
+\end{sql}
+
+\subsubsection*{HELP 语句}
+
+与 Linux 操作系统类似，MySQL 提供了 HELP 语句帮助我们查询一些命令的使用方式。
+\begin{sql}
+HELP CREATE;    -- 查询 CREATE 相关的命令
+HELP CREATE DATABASE;   -- 查询该语句的使用方式
+\end{sql}
+
+如果你使用的是命令行，可以通过如下指令查看当前正在使用的数据库:
+\begin{sql}
+select database();
+\end{sql}
+
+\newpage

@@ -1,0 +1,135 @@
+\section{性能库 performance\_schema}
+
+MySQL 自带四个默认数据库如下:
+\begin{itemize}
+    \item mysql: 保存MySQL的权限、参数、对象和状态信息。
+    \item sys: 留给专业人员排查数据库使用的表。
+    \item information\_schema: 保存数据库信息，表信息...
+    \item performance\_schema: 收集性能参数的表。
+\end{itemize}
+
+\subsection{介绍}
+
+Performance Schema提供了有关MySQL服务器内部运行的操作上的底层指标。理解 Performance Schema 之前有两个概念选哟了解:
+\begin{itemize}
+    \item \textbf{程序插桩}: 程序插桩在MySQL代码中插入探测代码，以获取我们想了解的信息。
+    \item \textbf{消费表}: 存储关于程序插桩代码信息的表。如果我们为查询模块添加插桩，相应的消费者表将记录诸如执行总数、未使用索引的次数、花费的时间等信息。
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[scale = 1]
+        \node (0) at (0,0) {用户};
+        \node [draw, rectangle] (1) at (0,-1.5) {MySQL};
+        \node [draw, rectangle] (2) at (3,-1.5) {性能表引擎};
+        \node [draw, rectangle] (3) at (7,-1.5) {收集的数据};
+        \node [draw, rectangle] (4) at (10,-1.5) {DBA};
+        \draw [-Stealth] (0) -- (1);
+        \draw [-Stealth] (1) -- (2);
+        \draw [-Stealth] (2) -- (3);
+        \draw [-Stealth] (3) -- (4);
+    \end{tikzpicture}
+\end{figure}
+
+在performance\_schema中，setup\_instruments表包含所有支持的插桩的列表。所有插桩的名称都由用斜杠分隔的部件组成。
+\begin{itemize}
+    \item statement/sql/select
+    \item wait/synch/mutex/innodb/autoinc\_mutex
+\end{itemize}
+
+存放事件的表包含如下结尾:
+\begin{itemize}
+    \item \textbf{*\_current}: 当前服务器上进行中的事件。
+    \item \textbf{*\_history}: 每个线程最近完成的 10 个事件。
+    \item \textbf{*\_history\_long}: 每个线程最近完成的 10,000 个事件。
+    \item \textbf{event\_waits}: 底层服务器等待，例如获取互斥对象。
+    \item \textbf{events\_statements}: SQL 查询语句。
+    \item \textbf{events\_stages}: 配置文件信息，例如创建临时表或发送数据。
+    \item \textbf{events\_stransactions}: 事务。
+\end{itemize}
+
+类似的，还有其他几种类型的表:
+\begin{itemize}
+    \item \textbf{汇总表和摘要}: 保存有关该表所建议的内容的聚合信息。例如，memory\_summary\_by\_ thread\_by\_event\_name表保存了用户连接或任何后台线程的每个MySQL线程的聚合内存使用情况。
+    
+    摘要是一种通过删除查询中的变量来聚合查询的方法。例如以下查询：
+\begin{sql}
+SELECT user, birthday FROM users WHERE user_id = 19;
+SELECT user, birthday FROM users WHERE user_id = 13;
+SELECT user, birthday FROM users WHERE user_id = 27;
+\end{sql}
+
+    其摘要为:
+\begin{sql}
+SELECT user, birthday FROM users WHERE user_id = ?;
+\end{sql}
+
+    这允许Performance Schema跟踪摘要的延迟等指标，而无须单独保留查询的每个变体。
+    \item \textbf{实例表(Instance)}: 实例是指对象实例，用于MySQL安装程序。例如，file\_instances表包含文件名和访问这些文件的线程数。
+\end{itemize}
+
+MySQL服务端是多线程软件。它的每个组件都使用线程。每个线程至少有两个唯一标识符：一个是操作系统线程ID，另一个是MySQL内部线程ID。
+
+\subsection{配置}
+
+Performance Schema的部分设置只能在服务器启动时更改：比如启用或禁用Performance Schema本身以及与内存使用和数据收集的限制相关的变量。Performance Schema插桩和消费者表则可以被动态启用或禁用。
+
+启动或者禁用: 要启用或禁用Performance Schema，可以将变量performance\_schema设置为ON或OFF。这是一个只读变量，要么在配置文件中更改，要么在MySQL服务器启动时通过命令行参数更改。
+
+启用或禁用插桩: 插桩也可以被启用或禁用。可以通过setup\_instruments表查看插桩的状态：
+
+\begin{bash}
+*************************** 1. row ***************************
+    NAME: wait/synch/mutex/pfs/LOCK_pfs_share_list
+ ENABLED: NO
+   TIMED: NO
+PROPERTIES: singleton
+VOLATILITY: 1
+DOCUMENTATION: Components can provide their own performance_schema tables. This lock protects the list of such tables definitions.
+\end{bash}
+
+有三个方法可用于启用或禁用performance\_schema插桩：
+\begin{itemize}
+    \item 使用 setup\_instruments 表。
+    \item 调用sys schema中的ps\_setup\_enable\_instrument存储过程。
+    \item 使用performance-schema-instrument启动参数。
+\end{itemize}
+
+\begin{sql}
+-- 直接修改表
+UPDATE performance_schema.setup_instruments SET ENABLED = 'YES' WHERE NAME='statement/sql/select';
+-- 使用预定义的存储过程
+CALL sys.ps_setup_enable_instruments('statement/sql/select');
+\end{sql}
+
+消费者表的启用，禁用方式也类似，不再赘述。
+
+\subsection{使用}
+
+\subsubsection*{检查 SQL 语句}
+
+Schema提供了一组丰富的插桩来检查SQL语句的性能。你可以找到用于标准预处理语句和存储例程的插桩。使用performance\_schema，很容易找到引起性能问题的查询以及原因。
+
+要启用语句检测，需要启用statement类型的插桩:
+
+\begin{table}[H]
+    \centering
+    \caption{statement 类型的插桩}
+    \label{table:statement 类型的插桩}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{c|ccc}
+        \toprule
+        \textbf{插桩类} & \textbf{描述} \\
+        \midrule
+        statement/sql & SQL 语句，如 SELECT \\
+        statement/sp & 存储过程控制 \\
+        statement/schedular & 事件调度器 \\
+        statement/com & 命令，如 kill,quit \\
+        statement/abstract & 包含四种命令: clone, query, new\_packet, relay\_log \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+这部分内容比较晦涩，不写了。
+
+\newpage

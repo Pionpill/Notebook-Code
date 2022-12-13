@@ -1,0 +1,750 @@
+\section{DCL 数据控制语言}
+
+数据控制语言一般由数据库管理员使用，数据库使用者了解即可，《MySQL 必知必会》原书对这部分内容讲解很少，本人添加了一些基本指令的用法。
+
+\subsection{用户}
+
+顺便讲一下 用户名@地址 的作用:
+\begin{table}[H]
+    \small
+    \centering
+    \caption{地址类型}
+    \label{table:地址类型}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{c|ccc}
+        \toprule
+        \textbf{示例} & \textbf{说明} \\
+        \midrule
+        'user'@'localhost' & 本机登录 \\
+        'user'@'\%' & 任意地址登录 \\
+        'user'@'192.168.0.100' & 特定地址登录 \\
+        'user'@'192.168.*.*' & 只允许ip为192.168网段的地址登录 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+注意，从不同 IP 地址登陆的用户所拥有的权限是不同的。
+
+\subsubsection{创建用户}
+
+一般的，创建用户需要三个主要参数: 用户名，IP 地址，密码。
+
+\begin{sql}
+CREATE USER 'userName'@'IPAdress' IDENTIFIED WITH mysql_native_password BY 'password';
+-- 简化
+CREATE USER 'userName'@'IPAdress' IDENTIFIED BY 'password';
+\end{sql}
+
+对用户信息进行修改后，一般要刷新一下权限，之后的操作也类似:
+
+\begin{sql}
+FLUSH PRIVILEGES;
+\end{sql}
+
+对应的，可以修改删除用户:
+
+\begin{sql}
+-- 修改用户
+RENAME USER '旧用户名' TO '新用户名';
+-- 删除用户
+DROP USER 'userName'@'IPAdress';
+\end{sql}
+
+\subsubsection{修改密码}
+
+修改密码的方式有很多，常用的三种如下:
+
+第一种，修改用户表，5.7.6 以下版本密码列为 password，后续版本将 mysql.user 表中的 password 列代替成了 authentication\_string，并对密码进行了加锁，无法直接读取密码。
+
+\begin{sql}
+USE mysql;
+-- 5.7.6 之前
+UPDATE user SET password=password('新密码') 
+    WHERE user='用户名' AND host='IP地址';
+-- 5.7.6 之后
+UPDATE user SET authentication_string = PASSWORD('新密码')
+    WHERE user='用户名' AND host='IP地址';
+\end{sql}
+
+第二种 SET PASSWORD 语句，可以直接修改所用用户的密码，如果需要修改其他人的密码，则需要有 UPDATE 权限。同样的 5.7.6 版本进行了小调整。
+
+\begin{sql}
+-- 修改自己的密码，建议格式
+SET PASSWORD = '新密码';
+-- 修改别人的密码，5.7.6 之前
+SET PASSWORD FOR '用户名'@'IP地址' = PASSWORD('新密码');
+-- 修改别人的密码，5.7.6 之后建议使用
+SET PASSWORD FOR '用户名'@'IP地址' = '新密码';
+\end{sql}
+
+第三种，使用 ALTER USER 语句:
+
+\begin{sql}
+ALTER USER '用户名'@'IP地址' IDENTIFIED BY '新密码';
+\end{sql}
+
+\subsection{权限管理}
+
+权限管理有两个关键字，GRANT 和 REVOKE，分别代表授予权限和剥夺权限，两者的语法类似。
+
+\subsubsection{GRANT 授予权限}
+
+GRANT 的基本语法如下:
+\begin{sql}
+GRANT 权限1, 权限2… ,权限n ON 数据库名.表名 TO '用户名'@'地址';
+\end{sql}
+
+注意这里的数据库名和数据表名，可以用通配符 * 表示所有数据库/表。
+
+\begin{sql}
+-- 给所有 IP 地址登录的 user 账户所有表的所有权限
+GRANT ALL PRIVILEGES ON *.* TO 'user'@'%';
+-- 给所有 IP 地址登录的 user 账户 mysql.user 表的增删改查权限
+GRANT SELECT, INSERT, UPDATE, DELETE ON mysql.user to 'user'@'%';
+\end{sql}
+
+查看权限可以使用如下语句:
+\begin{sql}
+SHOW grants FOR 'user'@'%';
+\end{sql}
+
+具体的权限可以通过 SHOW PRIVILEGES; 语句查询。
+
+\subsubsection{REVOKE 剥夺权限}
+
+REVOKE 语法和 GRANT 一样，例子如下:
+
+\begin{sql}
+REVOKE SELECT ON crashcourse.* FROM beforta;
+\end{sql}
+
+\subsection{事务处理}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            注意，InnoDB 支持事务处理，MyISAM 则不支持。
+        \end{notice}
+    }
+}
+
+\subsubsection{事务处理的概念}
+
+事务处理（transactionprocessing）可以用来维护数据库的完整性，它保证成批的MySQL操作要么完全执行，要么完全不执行。
+
+举个很简单的数据库不完整的例子: 学生表添加课程，需要先检查是否存在课程，在进入学生表添加对应的数据，可能还会创建一个新的学期课程表添加数据。可能会因为某种数据库故障（如超出磁盘空间、安全限制、表锁等）阻止了这个过程的完成。如果是检查课程出现了故障还比较容易恢复，继续插入数据即可。但如果是插入数据过程出现了故障，这一列数据就会报废，甚至整个表出现问题。
+
+如何解决这种问题？这里就需要使用事务处理 了。事务处理是一种机制，用来管理必须成批执行的MySQL操作，以保证数据库不包含不完整的操作结果。利用事务处理，可以保证一组操作不会中途停止，它们或者作为整体执行，或者完全不执行（除非明确指示）。如果没有错误发生，整组语句提交给（写到）数据库表。如果发生错误，则进行回退（撤销）以恢复数据库到某个已知且安全的状态。
+
+在使用事务和事务处理时，有几个关键词汇反复出现。下面是关于事务处理需要知道的几个术语：
+
+\begin{itemize}
+    \item 事务(transaction) 指一组SQL语句;
+    \item 回退(rollback) 指撤销指定SQL语句的过程;
+    \item 提交(commit) 指将未存储的SQL语句结果写入数据库表;
+    \item 保留点(savepoint) 指事务处理中设置的临时占位符(place-holder)，你可以对它发布回退(与回退整个事务处理不同)。
+\end{itemize}
+
+\subsubsection{ROLLBACK 回滚}
+
+管理事务处理的关键在于将 SQL 语句组分解为逻辑块，并明确规定数据何时应该回退，何时不应该回退。
+
+MySQL 使用下面的语句来标识事务的开始:
+\begin{sql}
+START TRANSACTION;
+\end{sql}
+
+MySQL 的ROLLBACK 命令用来回退（撤销）MySQL语句，ROLLBACK 只能在一个事务处理内使用（在执行一条START TRANSACTION 命令之后）。请看下面的语句：
+
+\begin{sql}
+SELECT * FROM ordertotals;
+START TRANSACTION;
+DELETE FROM ordertotals;
+SELECT * FROM ordertotals;
+ROLLBACK;
+SELECT * FROM ordertotals;
+\end{sql}
+
+这个例子从显示ordertotals 表（此表在第24章中填充）的内容开始。首先执行一条SELECT 以显示该表不为空。然后开始一个事务处理，用一条DELETE 语句删除ordertotals 中的所有行。另一条SELECT 语句验证ordertotals 确实为空。这时用一条ROLLBACK 语句回退START TRANSACTION 之后的所有语句，最后一条SELECT 语句显示该表不为空。
+
+有两种语句无法回退，一是 SELECT 语句，因为回不回退没有区别; 二是 CREATE/DROP 操作。事务处理块中可以使用这两条语句，但如果你执行回退，它们不会被撤销。
+
+\subsubsection{COMMIT 提交}
+
+一般的MySQL语句都是直接针对数据库表执行和编写的。这就是所谓的隐含提交（implicitcommit），即提交（写或保存）操作是自动进行的。
+
+但是，在事务处理块中，提交不会隐含地进行。为进行明确的提交，使用COMMIT 语句，如下所示：
+
+\begin{sql}
+START TRANSACTION;
+DELETE FROM orderitems WHERE order_num = 20010;
+DELETE FROM orders WHERE order_num = 20010;
+COMMIT;
+\end{sql}
+
+在这个例子中，从系统中完全删除订单20010 。因为涉及更新两个数据库表orders 和orderItems ，所以使用事务处理块来保证订单不被部分删除。最后的COMMIT 语句仅在不出错时写出更改。如果第一条DELETE 起作用，但第二条失败，则DELETE 不会提交(实际上，它是被自动撤销的)。
+
+\subsubsection{SAVEPOINT 保留点}
+
+简单的 ROLLBACK 和 COMMIT 语句就可以写入或撤销整个事务处理。但是，只是对简单的事务处理才能这样做，更复杂的事务处理可能需要部分提交或回退。
+
+为了支持回退部分事务处理，必须能在事务处理块中合适的位置放置占位符。这样，如果需要回退，可以回退到某个占位符。这些占位符称为保留点。为了创建占位符，可如下使用SAVEPOINT 语句：
+
+\begin{sql}
+SAVEPOINT delete1;
+\end{sql}
+
+每个保留点都取标识它的唯一名字，以便在回退时，MySQL知道要回退到何处。为了回退到本例给出的保留点，可如下进行：
+
+\begin{sql}
+ROLLBACK TO delete1;
+\end{sql}
+
+保留点在事务处理完成（执行一条ROLLBACK 或COMMIT ）后自动释放。自MySQL 5以来，也可以用RELEASE SAVEPOINT 明确地释放保留点。
+
+详细案例: \url{https://morty.blog.csdn.net/article/details/103434169}
+
+\subsubsection{AUTOCOMMIT}
+
+默认的MySQL行为是自动提交所有更改。为指示MySQL不自动提交更改，需要使用以下语句：
+
+\begin{sql}
+SET AUTOCOMMIT=0;
+\end{sql}
+
+autocommit 标志决定是否自动提交更改，不管有没有COMMIT 语句。设置autocommit 为0 （假）指示MySQL不自动提交更改（直到autocommit 被设置为真为止）。
+
+\subsection{存储过程}
+
+\subsubsection{存储过程基础}
+
+MySQL称存储过程的执行为调用，因此MySQL执行存储过程的语句为CALL 。CALL 接受存储过程的名字以及需要传递给它的任意参数。请看以下例子：
+
+\begin{sql}
+CALL productpricing(@pricelow, @pricehigh, @priceaverage);
+\end{sql}
+
+其中，执行名为productpricing 的存储过程，它计算并返回产品的最低、最高和平均价格。
+
+创建一个返回产品平均价格的存储过程。以下是其代码：
+
+\begin{sql}
+CREATE PROCEDURE productpricing()
+BEGIN
+   SELECT Avg(prod_price) AS priceaverage
+   FROM products;
+END;
+\end{sql}
+
+如果存储过程接受参数，它们将在() 中列举出来。
+
+为显示用来创建一个存储过程的CREATE 语句，使用SHOW CREATE PROCEDURE 语句：
+
+\begin{sql}
+SHOW CREATE PROCEDURE ordertotal;
+\end{sql}
+
+这有个问题，在命令行中 ; 标志着 MySQL 语句的结尾，所以上述语句在定义过程中会出问题(遇到第一个 ; 就结束了)。所以要用下面这种语法:
+
+\begin{sql}
+DELIMITER //
+CREATE PROCEDURE productpricing()
+BEGIN
+   SELECT Avg(prod_price) AS priceaverage
+   FROM products;
+END //
+DELIMITER ;
+\end{sql}
+
+其中 DELIMITER// 告诉命令行实用程序使用// 作为新的语句结束分隔符，可以看到标志存储过程结束的END 定义为END// 而不是END; 
+
+存储过程在创建之后，被保存在服务器上以供使用，直至被删除。为删除刚创建的存储过程，可使用以下语句：
+
+\begin{sql}
+DROP PROCEDURE productpricing;
+\end{sql}
+
+注意这里不需要给出()和参数。
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            如果指定的过程不存在，则DROP PROCEDURE 将产生一个错误。当过程存在想删除它时（如果过程不存在也不产生错误）可使用DROP PROCEDURE IF EXISTS。其他句子也类似。
+        \end{notice}
+    }
+}
+
+\subsubsection{使用参数}
+
+一般，存储过程并不显示结果，而是把结果返回给你指定的变量。
+
+以下是productpricing 的修改版本(如果不先删除此存储过程，则不能再次创建它)：
+
+\begin{sql}
+CREATE PROCEDURE productpricing (
+    OUT pl DECIMAL(8,2),
+    OUT ph DECIMAL(8,2),
+    OUT pa DECIMAL(8,2)
+)
+BEGIN
+    SELECT Min(prod_price) INTO pl
+        FROM products;
+    SELECT Max(prod_price) INTO ph
+        FROM products;
+    SELECT Avg(prod_price) INTO pa
+        FROM products;
+END;
+\end{sql}
+
+此存储过程接受3个参数：pl 存储产品最低价格，ph 存储产品最高价格，pa 存储产品平均价格。每个参数必须具有指定的类型。
+
+MySQL 有三种参数类型:
+\begin{itemize}
+    \item IN(默认): 表明该参数是一个输入参数，无需输出
+    \item OUT: 表明该参数是一个输出参数，执行完存储过程之后会返回该值
+    \item INOUT: 既是输入也是输出
+\end{itemize}
+
+为调用此修改过的存储过程，必须指定3个变量名:
+
+\begin{sql}
+CALL productpricing(@pricelow, @pricehigh, @priceaverage);
+\end{sql}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            所有MySQL变量都必须以 @ 开始。
+        \end{notice}
+    }
+}
+
+在调用时，这条语句并不显示任何数据。它返回以后可以显示（或在其他处理中使用）的变量。为了显示检索出的产品平均价格，可如下进行：
+
+\begin{sql}
+SELECT @priceaverage;
+\end{sql}
+
+下面是另外一个例子，这次使用IN 和OUT 参数。ordertotal 接受订单号并返回该订单的合计：
+
+\begin{sql}
+CREATE PROCEDURE ordertotal(
+    IN onumber INT,
+    OUT ototal DECIMAL(8,2)
+    )
+BEGIN
+    SELECT Sum(item_price*quantity)
+        FROM orderitems
+        WHERE order_num = onumber
+        INTO ototal;
+END;
+
+CALL ordertotal(20005, @total);
+SELECT @total;
+\end{sql}
+
+\subsubsection{智能存储过程}
+
+迄今为止使用的所有存储过程基本上都是封装MySQL简单的SELECT语句。虽然它们全都是有效的存储过程例子，但它们所能完成的工作你直接用这些被封装的语句就能完成（如果说它们还能带来更多的东西，那就是使事情更复杂）。只有在存储过程内包含业务规则和智能处理时，它们的威力才真正显现出来。
+
+考虑这个场景。你需要获得与以前一样的订单合计，但需要对合计增加营业税，不过只针对某些顾客（或许是你所在州中那些顾客）。那么，你需要做下面几件事情：
+
+\begin{itemize}
+    \item 获得合计；
+    \item 把营业税有条件地添加到合计；
+    \item 返回合计。
+\end{itemize}
+
+存储过程如下:
+\begin{sql}
+-- Name: ordertotal
+-- Parameters: onumber = order number
+--             taxable = 0 if not taxable, 1 if taxable
+--             ototal = order total variable
+
+CREATE PROCEDURE ordertotal(
+    IN onumber INT,
+    IN taxable BOOLEAN,
+    OUT ototal DECIMAL(8,2)
+) COMMENT 'Obtain order total, optionally adding tax'
+
+BEGIN
+    -- Declare variable for total
+    DECLARE total DECIMAL(8,2);
+    -- Declare tax percentage
+    DECLARE taxrate INT DEFAULT 6;
+
+    -- Get the order total
+    SELECT Sum(item_price*quantity)
+        FROM orderitems
+        WHERE order_num = onumber
+        INTO total;
+
+    -- Is this taxable?
+    IF taxable THEN
+        -- Yes, so add taxrate to the total
+        SELECT total+(total/100*taxrate) INTO total;
+    END IF;
+
+    -- And finally, save to out variable
+    SELECT total INTO ototal;
+END;
+\end{sql}
+
+这显然是一个更高级，功能更强的存储过程。为试验它，请用以下两条语句：
+
+\begin{sql}
+-- 无税
+CALL ordertotal(20005, 0, @total);
+SELECT @total;
+-- 有税
+CALL ordertotal(20005, 1, @total);
+SELECT @total;
+\end{sql}
+
+\subsection{游标}
+
+MySQL检索操作返回一组称为结果集的行。这组返回的行都是与SQL语句相匹配的行（零行或多行）。使用简单的SELECT 语句，例如，没有办法得到第一行、下一行或前10行，也不存在每次一行地处理所有行的简单方法（相对于成批地处理它们）。
+
+有时，需要在检索出来的行中前进或后退一行或多行。这就是使用游标的原因。游标（cursor）是一个存储在MySQL服务器上的数据库查询，它不是一条SELECT 语句，而是被该语句检索出来的结果集。在存储了游标之后，应用程序可以根据需要滚动或浏览其中的数据。
+
+游标主要用于交互式应用，其中用户需要滚动屏幕上的数据，并对数据进行浏览或做出更改。
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            不像多数DBMS，MySQL游标只能用于存储过程（和函数）。
+        \end{notice}
+    }
+}
+
+\subsubsection{使用游标}
+
+使用游标涉及几个明确的步骤:
+\begin{itemize}
+    \item 在能够使用游标前，必须声明（定义）它。这个过程实际上没有检索数据，它只是定义要使用的SELECT 语句。
+    \item 一旦声明后，必须打开游标以供使用。这个过程用前面定义的SELECT 语句把数据实际检索出来。
+    \item 对于填有数据的游标，根据需要取出（检索）各行。
+    \item 在结束游标使用时，必须关闭游标。
+\end{itemize}
+
+在声明游标后，可根据需要频繁地打开和关闭游标。在游标打开后，可根据需要频繁地执行取操作。
+
+游标用 DECLARE 语句创建。DECLARE 命名游标，并定义相应的 SELECT 语句，根据需要带 WHERE 和其他子句。
+
+\begin{sql}
+CREATE PROCEDURE processorders()
+BEGIN
+   DECLARE ordernumbers CURSOR
+   FOR
+   SELECT ordernum FROM orders;
+END;
+\end{sql}
+
+DECLARE 语句用来定义和命名游标，这里为ordernumbers 。存储过程处理完成后，游标就消失（因为它局限于存储过程）。
+
+在定义游标后，可以使用 OPEN CURSOR 语句来打开它:
+
+\begin{sql}
+OPEN ordernumbers;
+\end{sql}
+
+在处理OPEN 语句时执行查询，存储检索出的数据以供浏览和滚动。游标处理完成后，应当使用如下语句关闭游标：
+
+\begin{sql}
+CLOSE ordernumbers;
+\end{sql}
+
+CLOSE 释放游标使用的所有内部内存和资源，因此在每个游标不再需要时都应该关闭。
+
+在一个游标关闭后，如果没有重新打开，则不能使用它。但是，使用声明过的游标不需要再次声明，用OPEN 语句打开它就可以了。
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            隐含关闭: 如果你不明确关闭游标，MySQL将会在到达 END 语句时自动关闭它。
+        \end{notice}
+    }
+}
+
+下面是前面例子得修改版本:
+
+\begin{sql}
+CREATE PROCEDURE processorders()
+BEGIN
+   -- Declare the cursor
+   DECLARE ordernumbers CURSOR
+   FOR
+   SELECT order_num FROM orders;
+   -- Open the cursor
+   OPEN ordernumbers;
+   -- Close the cursor
+   CLOSE ordernumbers;
+END;
+\end{sql}
+
+这个存储过程声明、打开和关闭一个游标。但对检索出的数据什么也没做。
+
+\subsubsection{使用游标数据}
+
+在一个游标被打开后，可以使用FETCH 语句分别访问它的每一行。FETCH 指定检索什么数据（所需的列），检索出来的数据存储在什么地方。它还向前移动游标中的内部行指针，使下一条FETCH 语句检索下一行（不重复读取同一行）。
+
+第一个例子从游标中检索单个行（第一行）：
+
+\begin{sql}
+CREATE PROCEDURE processorders()
+BEGIN
+   -- Declare local variables
+   DECLARE o INT;
+   -- Declare the cursor
+   DECLARE ordernumbers CURSOR
+   FOR
+   SELECT order_num FROM orders;
+   -- Open the cursor
+   OPEN ordernumbers;
+   -- Get order number
+   FETCH ordernumbers INTO o;
+   -- Close the cursor
+   CLOSE ordernumbers;
+END;
+\end{sql}
+
+其中FETCH 用来检索当前行的order\_num 列（将自动从第一行开始）到一个名为o 的局部声明的变量中。对检索出的数据不做任何处理。
+
+在下一个例子中，循环检索数据，从第一行到最后一行：
+
+\begin{sql}
+CREATE PROCEDURE processorders()
+BEGIN
+   -- Declare local variables
+   DECLARE done BOOLEAN DEFAULT 0;
+   DECLARE o INT;
+   -- Declare the cursor
+   DECLARE ordernumbers CURSOR
+   FOR
+   SELECT order_num FROM orders;
+   -- Declare continue handler
+   DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done=1;
+   -- Open the cursor
+   OPEN ordernumbers;
+   -- Loop through all rows
+   REPEAT
+      -- Get order number
+      FETCH ordernumbers INTO o;
+   -- End of loop
+   UNTIL done END REPEAT;
+   -- Close the cursor
+   CLOSE ordernumbers;
+END;
+\end{sql}
+
+与前一个例子一样，这个例子使用FETCH 检索当前order\_num 到声明的名为o 的变量中。但与前一个例子不一样的是，这个例子中的FETCH 是在REPEAT 内，因此它反复执行直到done 为真（由UNTIL done END REPEAT; 规定）。为使它起作用，用一个DEFAULT 0 （假，不结束）定义变量done 。那么，done 怎样才能在结束时被设置为真呢？答案是用以下语句：
+
+\begin{sql}
+DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done=1;
+\end{sql}
+
+这条语句定义了一个CONTINUE HANDLER ，它是在条件出现时被执行的代码。这里，它指出当SQLSTATE '02000' 出现时，SET done=1 。SQLSTATE '02000' 是一个未找到条件，当REPEAT 由于没有更多的行供循环而不能继续时，出现这个条件。
+
+如果调用这个存储过程，它将定义几个变量和一个 CONTINUE HANDLER ，定义并打开一个游标，重复读取所有行，然后关闭游标。
+
+如果一切正常，你可以在循环内放入任意需要的处理（在FETCH 语句之后，循环结束之前）。
+
+为了把这些内容组织起来，下面给出我们的游标存储过程样例的更进一步修改的版本，这次对取出的数据进行某种实际的处理：
+
+\begin{sql}
+CREATE PROCEDURE processorders()
+BEGIN
+   -- Declare local variables
+   DECLARE done BOOLEAN DEFAULT 0;
+   DECLARE o INT;
+   DECLARE t DECIMAL(8,2);
+   -- Declare the cursor
+   DECLARE ordernumbers CURSOR
+   FOR
+   SELECT order_num FROM orders;
+   -- Declare continue handler
+   DECLARE CONTINUE HANDLER FOR SQLSTATE '02000' SET done=1;
+   -- Create a table to store the results
+   CREATE TABLE IF NOT EXISTS ordertotals
+      (order_num INT, total DECIMAL(8,2));
+   -- Open the cursor
+   OPEN ordernumbers;
+   -- Loop through all rows
+   REPEAT
+      -- Get order number
+      FETCH ordernumbers INTO o;
+      -- Get the total for this order
+      CALL ordertotal(o, 1, t);
+      -- Insert order and total into ordertotals
+      INSERT INTO ordertotals(order_num, total)
+      VALUES(o, t);
+   -- End of loop
+   UNTIL done END REPEAT;
+   -- Close the cursor
+   CLOSE ordernumbers;
+END;
+\end{sql}
+
+\subsection{触发器}
+
+\subsubsection{触发器基础}
+
+MySQL语句在需要时被执行，存储过程也是如此。但是，如果你想要某条语句（或某些语句）在事件发生时自动执行，怎么办呢？触发器类似回调函数。例如插入电话号码时，检查格式是否正确; 订购一个产品时，都从库存数量中减去订购的数量。
+
+所有这些例子的共同之处是它们都需要在某个表发生更改时自动处理。这确切地说就是触发器。触发器是MySQL响应以下任意语句而自动执行的一条MySQL语句（或位于BEGIN 和END 语句之间的一组语句）：
+
+\begin{itemize}
+    \item DELETE; INSERT; UPDATE。
+\end{itemize}
+
+在创建触发器时，需要给出4条信息：
+\begin{itemize}
+    \item 唯一的触发器名;
+    \item 触发器关联的表;
+    \item 触发器应该响应的活动(DELETE, INSERT, UPDATE);
+    \item 触发器合适执行(处理前，处理后)。
+\end{itemize}
+
+触发器用CREATE TRIGGER 语句创建。下面是一个简单的例子：
+\begin{sql}
+CREATE TRIGGER newproduct AFTER INSERT ON products
+    FOR EACH ROW SELECT 'Product added' INTO @asd;
+\end{sql}
+
+在这个例子中，文本Product added 将对每个插入的行显示一次。
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{version}
+            原书上这段语句最后没有 INTO @asd 因为 MYSQL5以后，不允许触发器返回任何结果。因此只能将结果传入变量，再用 SELECT 调用。
+        \end{version}
+    }
+}
+
+为了测试这个触发器，使用INSERT 语句添加一行或多行到products 中，你将看到对每个成功的插入，显示Product added 消息。
+
+触发器按每个表每个事件每次地定义，每个表每个事件每次只允许一个触发器。因此，每个表最多支持6个触发器（每条INSERT 、UPDATE 和DELETE 的之前和之后）。单一触发器不能与多个事件或多个表关联，所以，如果你需要一个对INSERT 和UPDATE 操作执行的触发器，则应该定义两个触发器。
+
+如果BEFORE 触发器失败，则MySQL将不执行请求的操作。此外，如果BEFORE 触发器或语句本身失败，MySQL将不执行AFTER 触发器（如果有的话）。
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            仅有表支持触发器，视图，临时表都不支持。
+        \end{notice}
+    }
+}
+
+删除触发器使用 DROP TRIGGER 语句:
+
+\begin{sql}
+DROP TRIGGER newproduct;
+\end{sql}
+
+触发器不能更新或覆盖。为了修改一个触发器，必须先删除它，然后再重新创建。
+
+\subsubsection{INSERT 触发器}
+
+INSERT 触发器需要知道以下几点：
+
+\begin{itemize}
+    \item 在 INSERT 触发器代码内，可引用一个名为 NEW 的虚拟表，访问被插入的行；
+    \item 在 BEFORE INSERT 触发器中，NEW 中的值也可以被更新（允许更改被插入的值）；
+    \item 对于AUTO\_INCREMENT 列，NEW 在INSERT 执行之前包含0 ，在INSERT 执行之后包含新的自动生成值。
+\end{itemize}
+
+举个例子:
+\begin{sql}
+CREATE TRIGGER neworder AFTER INSERT ON orders
+    FOR EACH ROW SELECT NEW.order_num INTO @temp;
+\end{sql}
+
+此代码创建一个名为 neworder 的触发器，它按照AFTER INSERT ON orders 执行。在插入一个新订单到orders 表时，MySQL生成一个新订单号并保存到 order\_num 中。触发器从 NEW.order\_num 取得这个值并返回它。此触发器必须按照AFTER INSERT 执行，因为在BEFORE INSERT 语句执行之前，新order\_num 还没有生成。对于orders 的每次插入使用这个触发器将总是返回新的订单号。
+
+测试触发器:
+\begin{sql}
+INSERT INTO orders(order_date, cust_id)
+    VALUES(Now(), 10001);
+SELECT @temp;
+\end{sql}
+
+\subsubsection{DELETE 触发器}
+
+DELETE 触发器需要知道以下两点：
+
+\begin{itemize}
+    \item 在 DELETE 触发器代码内，你可以引用一个名为 OLD 的虚拟表，访问被删除的行；
+    \item OLD 中的值全都是只读的，不能更新。
+\end{itemize}
+
+下面的例子演示使用 OLD 保存将要被删除的行到一个存档表中：
+
+\begin{sql}
+CREATE TRIGGER deleteorder BEFORE DELETE ON orders
+FOR EACH ROW
+BEGIN
+   INSERT INTO archive_orders(order_num, order_date, cust_id)
+   VALUES(OLD.order_num, OLD.order_date, OLD.cust_id);
+END;
+\end{sql}
+
+在任意订单被删除前将执行此触发器。它使用一条INSERT 语句将OLD 中的值（要被删除的订单）保存到一个名为archive\_orders 的存档表中（为实际使用这个例子，你需要用与orders 相同的列创建一个名为archive\_orders 的表）。
+
+\subsubsection{UPDATE 触发器}
+
+UPDATE 触发器需要知道以下几点：
+
+\begin{itemize}
+    \item 在 UPDATE 触发器代码中，你可以引用一个名为 OLD 的虚拟表访问以前（UPDATE 语句前）的值，引用一个名为 NEW 的虚拟表访问新更新的值；
+    \item 在 BEFORE UPDATE 触发器中，NEW 中的值可能也被更新（允许更改将要用于 UPDATE 语句中的值）；
+    \item OLD 中的值全都是只读的，不能更新。
+\end{itemize}
+
+下面的例子保证州名缩写总是大写（不管UPDATE 语句中给出的是大写还是小写）：
+
+\begin{sql}
+CREATE TRIGGER updatevendor BEFORE UPDATE ON vendors
+    FOR EACH ROW SET NEW.vend_state = Upper(NEW.vend_state);
+\end{sql}
+
+\subsection{数据库维护}
+
+\subsubsection{备份数据}
+
+由于MySQL数据库是基于磁盘的文件，普通的备份系统和例程就能备份MySQL的数据。但是，由于这些文件总是处于打开和使用状态，普通的文件副本备份不一定总是有效。
+
+下面列出这个问题的可能解决方案。
+
+\begin{itemize}
+    \item 使用命令行实用程序 mysqldump 转储所有数据库内容到某个外部文件。在进行常规备份前这个实用程序应该正常运行，以便能正确地备份转储文件。
+    \item 可用命令行实用程序 mysqlhotcopy 从一个数据库复制所有数据（并非所有数据库引擎都支持这个实用程序）。
+    \item 可以使用MySQL的BACKUP TABLE 或SELECT INTO OUTFILE 转储所有数据到某个外部文件。这两条语句都接受将要创建的系统文件名，此系统文件必须不存在，否则会出错。数据可以用RESTORE TABLE 来复原。
+\end{itemize}
+
+\subsubsection{进行数据库维护}
+
+MySQL提供了一系列的语句，可以（应该）用来保证数据库正确和正常运行。
+
+ANALYZE TABLE ，用来检查表键是否正确。
+
+\begin{sql}
+ANALYZE TABLE orders;
+\end{sql}
+
+CHECK TABLE 用来针对许多问题对表进行检查。
+
+\begin{sql}
+CHECK TABLE orders, orderitems;
+\end{sql}
+
+\subsubsection{日志文件}
+
+MySQL维护管理员依赖的一系列日志文件。主要的日志文件有以下几种:
+
+\begin{itemize}
+    \item 错误日志。它包含启动和关闭问题以及任意关键错误的细节。此日志通常名为hostname.err ，位于data 目录中。此日志名可用--log-error 命令行选项更改。
+    \item 查询日志。它记录所有MySQL活动，在诊断问题时非常有用。此日志文件可能会很快地变得非常大，因此不应该长期使用它。此日志通常名为hostname.log ，位于data 目录中。此名字可以用--log 命令行选项更改。
+    \item 二进制日志。它记录更新过数据（或者可能更新过数据）的所有语句。此日志通常名为hostname-bin ，位于data 目录内。此名字可以用--log-bin 命令行选项更改。注意，这个日志文件是MySQL 5中添加的，以前的MySQL版本中使用的是更新日志。
+    \item 缓慢查询日志。顾名思义，此日志记录执行缓慢的任何查询。这个日志在确定数据库何处需要优化很有用。此日志通常名为hostname-slow.log ，位于data 目录中。此名字可以用--log-slow-queries 命令行选项更改。
+\end{itemize}

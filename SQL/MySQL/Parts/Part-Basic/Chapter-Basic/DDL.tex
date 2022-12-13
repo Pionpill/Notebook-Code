@@ -1,0 +1,602 @@
+\section{DDL 数据定义语言}
+
+数据定义语言，主要是针对数据库，数据表，视图的创建，修改。它包括以下主要语句关键字:
+\begin{itemize}
+    \item CREATE: 创建数据库，数据表，视图。
+    \item DROP: 删除表。
+    \item ALTER: 修改表。
+    \item RENAME: 对表进行重命名。
+    \item TRUNCATE: 清空表内容。
+\end{itemize}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{remark}
+            非常奇怪，《MySQL 必知必会》一书没有介绍数据库操作，数据类型。本人自行添加了这部分内容。
+        \end{remark}
+    }
+}
+
+\subsection{数据库操作}
+
+数据库操作非常简单，查看；创建；删除以及很少用到的修改。
+
+\subsubsection{创建数据库}
+
+在创建数据库之前，我们可以使用以下语句查看当前拥有的数据库:
+
+\begin{sql}
+SHOW DATABASES;
+\end{sql}
+
+更详细的，我们可以使用如下指令查看数据库信息:
+
+\begin{sql}
+SHOW CREATE DATABASE <databaseName>;
+\end{sql}
+
+创建数据库只需要确定数据库名称即可:
+
+\begin{sql}
+CREATE DATABASE <databaseName>;
+\end{sql}
+
+创建之后，我们可以使用数据库，如果不使用，则需要完全限定名来指定数据库。
+
+\begin{sql}
+USE <databaseName>;
+\end{sql}
+
+\subsubsection{删除数据库}
+
+就这:
+
+\begin{sql}
+DROP DATABASE <databaseName>;
+\end{sql}
+
+\subsection{数据类型}
+
+在进入到数据表操作之前，先说明一下基本的 MySQL 数据类型。
+
+如前文所述，MySQL 数据类型大致可分为四种: 串数据类型，数值数据类型，日期和时间数据类型，二进制数据类型。
+
+\subsubsection{串数据类型}
+
+串数据类型类比高级语言中的字符串。MySQL 的串数据类型大致分为两种:
+\begin{itemize}
+    \item 定长串: 串长度是确定的，占用的空间也是确定的，处理速度快，空间换时间。
+    \item 变长串: 串长度及其分配的空间不确定，由具体值确定，处理数据满，时间换空间。
+\end{itemize}
+
+不管使用何种形式的串数据类型，串值都必须括在引号内（通常单引号更好）。
+
+\begin{table}[H]
+    \small
+    \centering
+    \caption{串数据类型}
+    \label{table:串数据类型}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{c|ccc}
+        \toprule
+        \textbf{数据类型} & \textbf{类别} & \textbf{说明} & \textbf{示例} \\
+        \midrule
+        CHAR & 定长 & 1-255个字符。长度必须在创建时指定，默认 1 & CHAR(10) \\
+        VARCHAR & 变长 & 0-255个字符。最大长度可在创建时指定 & VARCHAR(255) \\
+        \midrule
+        TINYTEXT & 变长 & 与 TEXT 相同，最大长度为 255 字节 & TINYTEXT \\
+        MEDIUMTEXT & 变长 & 与 TEXT 相同，最大长度为 16K & MEDIUMTEXT \\
+        TEXT & 变长 & 最大 64K,创建时无需确定长度 & TEXT \\
+        LONGTEXT & 变长 &  与 TEXT 相同，最大长度为 4G & LONGTEXT \\
+        \midrule
+        ENUM & 变长 & 接受最多 64K 个串组成的集合的某个串 & ENUM(`A',`B') \\
+        SET & 变长 & 接受最多64个串组成的集合的零个或多个串 & SET(`A',`B') \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+关于 ENUM 和 SET 类型可以看下面两篇文章有个初步了解:
+\begin{itemize}
+    \item ENUM: \url{https://blog.csdn.net/qq_41684621/article/details/123111915}
+    \item SET: \url{https://blog.csdn.net/qq_32253969/article/details/121746458}
+\end{itemize}
+
+\subsubsection{数值数据类型}
+
+所有数值数据类型（除BIT 和BOOLEAN 外）都可以有符号或无符号。默认情况为有符号，可以使用UNSIGNED 关键字，这样做将允许你存储两倍大小的值。
+
+\begin{table}[H]
+    \small
+    \centering
+    \caption{数值数据类型}
+    \label{table:数值数据类型}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{c|ccc}
+        \toprule
+        \textbf{数据类型} & \textbf{类别} & \textbf{说明} & \textbf{示例} \\
+        \midrule
+        BIT & 二进制 & 位字段，1-64位 & b'01010001', 0x0001 \\
+        \midrule
+        BOOLEAN / BOOL & 布尔 & 本质上是 TINYINT(1) & true,0 \\
+        \midrule
+        TINYINT & 整数 & 8位，默认最大支持 127&  \\
+        SMALLINT & 整数 & 16位，默认最大支持 $ 3.2 \times 10^4$  &  \\
+        MEDIUMINT & 整数 & 24位，默认最大支持 $ 8.3 \times 10^6$ &  \\
+        INT / INTEGER & 整数 & 32位，默认最大支持 $ 2.1 \times 10^9$ &  \\
+        BIGINT & 整数 & 64位，默认最大支持 $ 9.2 \times 10^18$ &  \\
+        \midrule
+        REAL & 浮点 & 4字节的浮点值 &  \\
+        FLOAT & 浮点 & 单精度浮点值(4位) &  \\
+        DOUBLE & 浮点 & 双精度浮点值(8位) &  \\
+        DECIMAL / DEC & 浮点 & 精度可变浮点值 & decimal(5,2) \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+关于几种数值数据类型的基础用法如下:
+\begin{itemize}
+    \item BIT: \url{https://blog.csdn.net/dreamyuzhou/article/details/125535450}
+    \item DECIMAL: \url{https://blog.csdn.net/u013214212/article/details/103028775}
+\end{itemize}
+
+\subsubsection{日期和时间数据类型}
+
+\begin{table}[H]
+    \small
+    \centering
+    \caption{日期和时间数据类型}
+    \label{table:日期和时间数据类型}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{c|c|c}
+        \toprule
+        \textbf{数据类型} & \textbf{说明} & \textbf{格式} \\
+        \midrule
+        DATA & 表示1000-01-01～9999-12-31 的日期 & YYYY-MM-DD \\
+        TIME & 时间 & HH:MM:SS \\
+        DATETIME & DATE 和TIME 的组合 &  \\
+        TIMESTAMP & 功能和DATETIME 相同（但范围较小） &  \\
+        YEAR & 2位数字: 范围是1970～2069，4位数字: 范围是1901～2155 &  \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+TIMESTAMP 相关内容: \url{https://blog.csdn.net/hyfsx/article/details/114101630}
+
+\subsubsection{二进制数据类型}
+
+二进制数据类型可以存储图像，多媒体等等文件。
+
+\begin{table}[H]    
+    \small
+    \centering
+    \caption{二进制数据类型}
+    \label{table:二进制数据类型}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{c|ccc}
+        \toprule
+        \textbf{数据类型} & \textbf{最大长度} & \textbf{数据类型} & \textbf{最大长度} \\
+        \midrule
+        TINYBLOB & 255B & BLOB & 64K \\
+        MEDIUMBLOB & 16M & LONGBLOB & 4G \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{创建数据表}
+
+\subsubsection{CREATE TABLE 创建表}
+
+创建表必须给出两个主要信息: 表名和表列的名字及定义。
+
+\begin{sql}
+CREATE TABLE customers (
+    cust_id         int         NOT NULL AUTO_INCREMENT,
+    cust_name       char(50)    NOT NULL ,
+    cust_address    char(50)    NULL ,
+    cust_city       char(50)    NULL ,
+    cust_state      char(5)     NULL ,
+    cust_zip        char(10)    NULL ,
+    cust_country    char(50)    NULL ,
+    cust_contact    char(50)    NULL ,
+    cust_email      char(255)   NULL ,
+    PRIMARY KEY (cust_id)
+) ENGINE=InnoDB;
+\end{sql}
+
+除了表名，列名，列类型。还包含三个重要的其他信息: 列规定关键字，主键约束，引擎类型。
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            如果你仅想在一个表不存在时创建它，应该在表名后给出IF NOT EXISTS 。这样做不检查已有表的模式是否与你打算创建的表模式相匹配。它只是查看表名是否存在，并且仅在表名不存在时创建它。
+        \end{notice}
+    }
+}
+
+\subsubsection{NOT NULL 强制数据}
+
+默认情况下，列都是 NULL 列，即可以空缺。如果要指定某列不能空缺，可以使用 NOT NULL 进行规定。
+
+\begin{sql}
+CREATE TABLE orders (
+      order_num  int      NOT NULL AUTO_INCREMENT,
+      order_date datetime NOT NULL ,
+      cust_id    int      NOT NULL ,
+      PRIMARY KEY (order_num)
+    ) ENGINE=InnoDB;
+\end{sql}
+
+\subsubsection{AUTO\_INCREMENT 自增}
+
+AUTO\_INCREMENT 很好理解，自增。有两种方式指定初始值，一种是在创建表时用 AUTO\_INCREMENT=n 指定，一种通过 ALTER 语句指定: 
+
+\begin{sql}
+ALTER TABLE table_name AUTO_INCREMENT=n。
+\end{sql}
+
+AUTO\_INCREMENT 具体的数值遵循以下算法:
+\begin{itemize}
+    \item 如果插入的值与已有的编号重复，报错。
+    \item 如果插入的值大于已编号的值，则从这个新值开始递增。
+\end{itemize}
+
+AUTO\_INCREMENT 有以下注意点:
+\begin{itemize}
+    \item 值必须唯一, 且必须有唯一索引，以避免序号重复(是主键，或是主键的一部分)。
+    \item 值必须具有 NOT NULL 属性。
+    \item 序号的最大值受该列的数据类型约束，一旦达到上限，AUTO\_INCREMENT就会失效。
+\end{itemize}
+
+如果我们要获取上一个 AUTO\_INCREMENT 值，可以通过下列语法:
+\begin{sql}
+SELECT last_insert_id();
+\end{sql}
+
+\subsubsection{DEFAULT 指定默认值}
+
+使用 DEFAULT 可以指定某列的默认值，许多数据库开发人员使用默认值而不是 NULL 列。
+
+\begin{sql}
+CREATE TABLE orderitems (
+  order_num  int          NOT NULL ,
+  order_item int          NOT NULL ,
+  prod_id    char(10)     NOT NULL ,
+  quantity   int          NOT NULL  DEFAULT 1,
+  item_price decimal(8,2) NOT NULL ,
+  PRIMARY KEY (order_num, order_item)
+) ENGINE=InnoDB;
+\end{sql}
+
+\subsubsection{UNIQUE 唯一}
+
+顾名思义，这列的值必须是唯一的，有两种方法规定:
+
+\begin{sql}
+create table department(
+    id int,
+    name char(10) unique
+)
+create table department(
+    id int,
+    name char(10),
+    unique(name)
+)
+\end{sql}
+
+\subsubsection{PRIMARY KEY 主键}
+
+主键有的主要作用是确定该数据的唯一性，因此主键必须 UNIQUE 且 NOT NULL。
+
+主键有两种方式进行规定:
+
+\begin{sql}
+-- 方式 1
+CREATE TABLE orderitems
+(
+  order_num  int          NOT NULL,
+  order_item int          NOT NULL,
+  prod_id    char(10)     NOT NULL,
+  quantity   int          NOT NULL,
+  item_price decimal(8,2) NOT NULL,
+  PRIMARY KEY (order_num, order_item)
+) ENGINE=InnoDB;
+-- 方式 2
+CREATE TABLE orderitems
+(
+  order_num  int          NOT NULL  PRIMARY KEY,
+  order_item int          NOT NULL  PRIMARY KEY,
+  prod_id    char(10)     NOT NULL,
+  quantity   int          NOT NULL,
+  item_price decimal(8,2) NOT NULL
+) ENGINE=InnoDB;
+\end{sql}
+
+\subsubsection{FOREIGN KEY 外键}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            阿里开发规范: 禁用外键。除非不得已或者老板要求，不要用外键。
+        \end{notice}
+    }
+}
+
+外键的定义:
+\begin{itemize}
+    \item 外键是某个表中的一列，它包含在另一个表的主键中。
+    \item 外键也是索引的一种，是通过一张表中的一列指向另一张表中的主键，来对两张表进行关联。
+    \item 一张表可以有一个外键，也可以存在多个外键，与多张表进行关联。
+\end{itemize}
+
+外键的主要作用是保证数据的一致性和完整性，并且减少数据冗余。简言之，外键是为了关联其他数据表，例如在学生表中加入课程 ID 外键，以此来关联对应的课程数据。
+
+与主键不同，外键可以是 NULL 或重复(不要求 UNIQUE)。外键有如下要求:
+
+\begin{itemize}
+    \item 从表插入/修改/删除新行，其外键值不是主表的主键值便阻止插入/修改/删除。
+    \item 主表删除行，其主键值在从表里存在便阻止删除(要想删除，必须先删除从表的相关行)。
+    \item 主表修改主键值，旧值在从表里存在便阻止修改(要想修改，必须先删除从表的相关行)。
+\end{itemize}
+
+级联执行:
+\begin{itemize}
+    \item 主表删除行，连带从表的相关行一起删除。
+    \item 主表修改主键值，连带从表相关行的外键值一起修改。
+\end{itemize}
+
+创建外键的子句如下:
+\begin{sql}
+FOREIGN KEY (<columnName>) REFERENCE <tableName> (<columnName>)
+\end{sql}
+
+两种创建外键的方式
+
+\begin{sql}
+-- 创建表时创建
+CREATE TABLE Products (
+	prod_id     INT             NOT NULL PRIMARY KEY AUTO_INCREMENT,
+	vend_id     INT             NOT NULL COMMENT '供应商ID',
+	prod_name   VARCHAR(30)     NOT NULL COMMENT '产品名',
+	prod_price  DOUBLE          NOT NULL COMMENT '产品价格',
+	prod_desc   VARCHAR(100)    COMMENT '产品描述',
+	FOREIGN KEY (vend_id) REFERENCES Vendors (vend_id)CO
+);
+-- 已创建的表添加外键
+ALTER TABLE Products 
+    ADD FOREIGN KEY products_vendors_fk_1 (vend_id) REFERENCES Vendors (vend_id);
+\end{sql}
+
+
+总而言之，外键虽然能带来一定的好处，但操作外键却比较复杂，且影响数据库性能。如果可以，应尽量在应用层完成相关操作。下面有两个深入了解外键的链接:
+
+\begin{itemize}
+    \item 外键: \url{https://blog.csdn.net/Jerry_Chang31/article/details/105093881}
+    \item 创建外键: \url{https://blog.csdn.net/Jack_PengPeng/article/details/87690101}
+\end{itemize}
+
+\subsubsection{引擎类型}
+
+MySQL5 及后续版本默认使用 InnoDB 引擎，下面说一下几个常用引擎的区别:
+
+\begin{itemize}
+    \item InnoDB: MySQL5 及之后的默认引擎，具有事务处理能力，不支持全文本搜索，是最主流的引擎。
+    \item MyISAM: MySQL5 之前的默认引擎，不具备事务处理能力，支持全文本搜索，逐渐被 InnoDB 取代。
+    \item MEMORY: 功能等同于 MyISAM, 数据存储在内存中，不是磁盘，速度快，适用于临时表。
+\end{itemize}
+
+主要，只有 InnoDB 支持外键，其他引擎不支持外键。
+
+\subsubsection{字符集与校对}
+
+这部分了解即可。
+
+MySQL支持众多的字符集。为查看所支持的字符集完整列表，使用以下语句：
+
+\begin{sql}
+SHOW CHARACTER SET;
+\end{sql}
+
+校对是为规定字符如何比较的指令，如是否区分大小写。为了查看所支持校对的完整列表，使用以下语句：
+
+\begin{sql}
+SHOW COLLATION;
+\end{sql}
+
+实际上，字符集很少是服务器范围（甚至数据库范围）的设置。不同的表，甚至不同的列都可能需要不同的字符集，而且两者都可以在创建表时指定。
+
+\begin{sql}
+CREATE TABLE mytable (
+   columnn1   INT,
+   columnn2   VARCHAR(10)
+) DEFAULT CHARACTER SET hebrew
+  COLLATE hebrew_general_ci;
+\end{sql}
+
+除了能指定字符集和校对的表范围外，MySQL还允许对每个列设置它们，如下所示：
+
+\begin{sql}
+CREATE TABLE mytable (
+   columnn1   INT,
+   columnn2   VARCHAR(10),
+   column3    VARCHAR(10) CHARACTER SET latin1 COLLATE latin1_general_ci
+) DEFAULT CHARACTER SET hebrew
+  COLLATE hebrew_general_ci;
+\end{sql}
+
+校对在对用 ORDER BY 子句检索出来的数据排序时起重要的作用。可以显示指出 ORDER BY 所用的校对类型:
+
+\begin{sql}
+SELECT * FROM customers
+    ORDER BY lastname, firstname COLLATE latin1_general_cs;
+\end{sql}
+
+
+\subsection{其他表操作}
+
+\subsubsection{ALTER TABLE 更新表}
+
+理想状态下，当表中存储数据以后，该表就不应该再被更新。更新表往往需要大量的时间处理。
+
+ALTER TABLE 本身的语法十分简单:
+
+\begin{sql}
+ALTER TABLE vendors
+    ADD vend_phone CHAR(20);    -- 增加列
+    DROP old_vend_phone;        -- 删除列
+\end{sql}
+
+默认情况下，ADD/DROP 都是对列进行操作。也可以显示指定 COLUMN 关键字。
+
+更常用的，ALTER TABLE 用来指定外键约束:
+
+\begin{sql}
+ALTER TABLE Products
+    ADD FOREIGN KEY products_vendors_fk_1 (vend_id) REFERENCES Vendors (vend_id)
+\end{sql}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{notice}
+            使用 ALTER TABLE 需要及其小心，因为 MySQL 没有回滚，不能撤销。修改表往往会对一整列进行修改。
+        \end{notice}
+    }
+}
+
+\subsubsection{DROP TABLE 删除表}
+
+删除表是删除整个表，不同于行操作中的 DELETE FROM 删除所有行。
+
+\begin{sql}
+DROP TABLE customers2;
+\end{sql}
+
+除此之外，还可以用 TRUNCATE 删除表中所有数据:
+
+\begin{sql}
+TRUNCATE [TABLE] <tableName>;
+\end{sql}
+
+虽然 TRUNCATE 删除的是所有数据而不是表本省，但他属于 DDL 语言，速度更快。
+
+\subsubsection{RENAME TABLE 重命名表}
+
+可以重命名一个或多个表:
+
+\begin{sql}
+-- 重命名一个
+RENAME TABLE customers2 TO customers;
+-- 重命名多个
+RENAME TABLE old_student TO student,
+            old_major TO major,
+            old_teacher TO teacher;
+\end{sql}
+
+\subsection{视图}
+
+\subsubsection{视图的作用}
+
+视图是虚拟的表，表面上它和表的显示形式一样，都是表结构。实际上是对表的数据显示。
+
+视图从 MySQL5 开始引入，为什么要引入视图? 举个很简单的例子，学生选课，在学生表中只有课程的 ID，这就够了，因为可以根据 ID 再次查询到选课的相关信息，这样设计数据库避免了数据冗余。但是我要看数据的时候，选课 ID 对于人来说并不能提供任何信息，我需要将学生表和课程表组合起来。
+
+再举个例子，我要从几个表中提取相关的数据信息，可以这样做:
+\begin{sql}
+SELECT cust_name, cust_contact
+    FROM customers, orders, orderitems
+    WHERE customers.cust_id = orders.cust_id
+      AND orderitems.order_num = orders.order_num
+      AND prod_id = 'TNT2';
+\end{sql}
+
+也不是不行，但似乎有点麻烦，假如可以把整个查询包装成一个名为productcustomers 的虚拟表，则可以如下轻松地检索出相同的数据：
+
+\begin{sql}
+SELECT cust_name, cust_contact
+    FROM productcustomers
+    WHERE prod_id = 'TNT2';
+\end{sql}
+
+显而易见，这样更方便。可以看出，设计数据表的时候我们更关注的是性能，后续维护。但在使用数据表的时候，我们却希望更加方便，视图就是为了解决这个问题而出现的。
+
+使用视图有以下好处:
+\begin{itemize}
+    \item 简化复杂的SQL操作。
+    \item 使用表的组成部分而不是整个表。
+    \item 保护数据。可以给用户授予表的特定部分的访问权限而不是整个表的访问权限。
+    \item 更改数据格式和表示。视图可返回与底层表的表示和格式不同的数据。
+\end{itemize}
+
+在视图创建之后，可以用与表基本相同的方式利用它们。可以对视图执行SELECT 操作，过滤和排序数据，将视图联结到其他视图或表，甚至能添加和更新数据。
+
+重要的是知道视图仅仅是用来查看存储在别处的数据的一种设施。视图本身不包含数据，因此它们返回的数据是从其他表中检索出来的。在添加或更改这些表中的数据时，视图将返回改变过的数据。
+
+ \fbox{
+     \parbox{0.87\textwidth}{
+         \begin{notice}
+            试图本身并不包含数据，如果你用多个联结和过滤创建了复杂的视图或者嵌套了视图，可能会发现性能下降得很厉害。
+         \end{notice}
+     }
+ }
+
+ 视图有如下规则和限制:
+
+ \begin{itemize}
+    \item 与表一样，视图必须唯一命名。
+    \item 对于可以创建的视图数目没有限制。
+    \item 为了创建视图，必须具有足够的访问权限。这些限制通常由数据库管理人员授予。
+    \item 视图可以嵌套，即可以利用从其他视图中检索数据的查询来构造一个视图。
+    \item ORDER BY 可以用在视图中，但如果从该视图检索数据SELECT 中也含有ORDER BY ，那么该视图中的ORDER BY 将被覆盖。
+    \item 视图不能索引，也不能有关联的触发器或默认值。
+    \item 视图可以和表一起使用。例如，编写一条联结表和视图的SELECT 语句。
+ \end{itemize}
+
+ \subsubsection{使用视图}
+
+操作视图和操作表类似，常见语句如下:
+ \begin{itemize}
+    \item 创建视图: CREATE VIEW ... AS ...
+    \item 显示视图: SHOW CREATE VIEW viewName
+    \item 删除视图: DROP VIEW viewName
+    \item 更新视图: 先删除后创建，或者一起: CREATE OR REPLACE VIEW
+ \end{itemize}
+
+视图的作用有很多，下面举几个例子:
+
+\begin{sql}
+-- 利用视图简化复杂的联结
+CREATE VIEW productcustomers AS
+    SELECT cust_name, cust_contact, prod_id
+    FROM customers, orders, orderitems
+    WHERE customers.cust_id = orders.cust_id
+        AND orderitems.order_num = orders.order_num;
+-- 用视图重新格式化检索出的数据
+SELECT Concat(RTrim(vend_name), ' (', RTrim(vend_country), ')')
+    AS vend_title
+    FROM vendors
+    ORDER BY vend_name;
+-- 用视图过滤不想要的数据
+CREATE VIEW customeremaillist AS
+    SELECT cust_id, cust_name, cust_email
+    FROM customers
+    WHERE cust_email IS NOT NULL;
+-- 使用视图与计算字段
+CREATE VIEW orderitemsexpanded AS
+    SELECT prod_id, quantity, item_price, quantity*item_price AS expanded_price
+    FROM orderitems;
+\end{sql}
+
+一般，应该将视图用于检索(SELECT 语句)而不用于更新(INSERT 、UPDATE 和 DELETE)。前面提到过，视图本身并没有数据，只是对表数据的显示。如果视图定义中有如下操作，则不能对视图进行更新:
+
+\begin{itemize}
+    \item 分组: GROUP BY, HAVING
+    \item 联结
+    \item 子查询
+    \item 并
+    \item 聚集函数
+    \item DISTINCT
+    \item 导出/计算 列
+\end{itemize}
+
+由此可以看出，视图的限制还很很多的，没事别更新视图，看看就行了。
+
+\newpage

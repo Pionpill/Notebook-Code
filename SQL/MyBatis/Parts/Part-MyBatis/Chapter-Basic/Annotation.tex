@@ -1,0 +1,124 @@
+\section{MyBatis 的注解使用方式}
+
+MyBatis注解方式就是将SQL语句直接写在接口上。这种方式的优点是，对于需求比较简单的系统，效率较高。缺点是，当SQL有变化时都需要重新编译代码。更全面地使用注解开发应该学习 MyBatis-Plus。
+
+\subsection{@Select 注解}
+
+注解有多方便:
+
+\begin{Java}
+public interface RoleMapper {
+    @Select("SELECT id, role_name, enabled, create_by, create_time FROM sys_role WHERE id = #{id}")
+    SysRole selectById(Long id);
+}
+\end{Java}
+
+然后就可以直接在测试类中运行了。
+
+之前我们提到过 XML 配置有个问题: 如何实现字段映射? 同样有三种方式:
+\begin{itemize}
+    \item SQL语句使用别名;
+    \item mybatis-plus 配置文件中开启 mapUnderscoreToCamelCase 配置。
+    \item resultMap 方式。
+\end{itemize}
+
+前两种没什么好说的，和之前的操作一样，最后一种要用到 @Result 注解:
+
+\begin{Java}
+@Results(id = "roleResultMap", value = {
+        @Result(property = "id", column = "id", id = true),
+        @Result(property = "roleName", column = "role_name"),
+        @Result(property = "enabled", column = "enabled"),
+        @Result(property = "createBy", column = "create_by"),
+        @Result(property = "createTime", column = "create_time")
+})
+@Select("SELECT id, role_name, enabled, create_by, create_time FROM sys_role WHERE id = #{id}")
+SysRole selectById(Long id);
+\end{Java}
+
+有一个 id 属性是用来复用注解的。在 MyBatis3.3.1 及后续版本，可以使用 id 来服用 Results。
+
+\begin{Java}
+@ResultMap("roleResultMap")
+@Select("select * from sys_role")
+List<SysRole> selectAll();
+\end{Java}
+
+同时，如果 XML 配置了 resultMap，还可以根据对应的 id 获取。
+
+\subsection{@Insert 注解}
+
+Insert 本身是简单的，主要是返回值比较复杂。前面的会了，这里看一下例子就行了:
+
+\begin{Java}
+// 返回插入数据量
+@Insert("INSERT INTO sys_role(id, role_name, enabled, create_by, create_time) VALUES (#{id}, #{roleName}, #{enabled}, #{createBy}, #{createTime jdbcType=TIMESTAMP})")
+int insert(SysRole sysRole);
+
+// 返回主键，方法 1
+@Insert("INSERT INTO sys_role(role_name, enabled, create_by, create_time) VALUES #{roleName}, #{enabled}, #{createBy}, #{createTime jdbcType=TIMESTAMP})")
+@Options(useGeneratedKeys = true, keyProperty = "id")
+int insert2(SysRole sysRole);
+
+// 返回主键，方法 2
+@Insert("INSERT INTO sys_role(role_name, enabled, create_by, create_time) VALUES #{roleName}, #{enabled}, #{createBy}, #{createTime jdbcType=TIMESTAMP})")
+@SelectKey(statement = "SELECT LAST_INSERT_ID()", keyProperty = "id", resultType = Long.class, before = false)
+int insert3(SysRole sysRole);
+\end{Java}
+
+\subsection{@Update 和 @Delete 注解}
+
+这两种更简单了:
+
+\begin{Java}
+@Update("UPDATE sys_role SET role_name = #{roleName}, enable = #{enabled}, create_by = {createBy}, create_time = #{createTime, jdbcType = TIMESTAMP} WHERE id = #{id}")
+int updateById(SysRole sysRole);
+
+@Delete("DELETE FROM sys_role WHERE id = #{id}")
+int deleteById(Long id);
+\end{Java}
+
+\subsection{Provider 注解}
+
+除了上面 4 中注解可以使用简单的 SQL 外，MyBatis 还提供了 4 中 Provider 注解，分别是 @SelectProvoder, @DeleteProvider, @UpdateProvider, @DeleteProvider。
+
+下面来看看 @SelectProvider 的使用方法:
+
+\begin{Java}
+// 定义一个新 Provider 类
+public class PrivilegeProvider {
+    public String selectById(final Long id) {
+        return new SQL(){
+            {
+                SELECT("id, privilege_name, privilege_url");
+                FROM("sys_privilege");
+                WHERE("id = #{id}");
+            }
+        }.toString();
+    }
+}
+\end{Java}
+
+\begin{Java}
+// 使用 @SelectProvider
+@SelectProvider(type = PrivilegeProvider.class, method = "selectById")
+SysPrivilege selectById(Long id);
+\end{Java}
+
+Provider 提供了两个属性 type 和 method:
+\begin{itemize}
+    \item type: 包含 method 方法的类，这个类必须有空的构造方法，这个方法的值就是要执行的 SQL 语句。
+    \item method: 对应方法的放回值必须是 String 类型。
+\end{itemize}
+
+前面的 method 语法比较复杂，但又代码提示，还可以直接写字符串，效果是一样的:
+
+\begin{Java}
+public String selectById2(final Long id) {
+    return "SELECT id, privilege_name, privilege_url FROM sys_privilege WHERE id = #{id}";
+}
+\end{Java}
+
+说白了 Provider 就是将 SQL 语句卸载单独的类中。
+
+\newpage

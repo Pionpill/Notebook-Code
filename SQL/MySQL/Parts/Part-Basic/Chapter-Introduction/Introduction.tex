@@ -1,0 +1,75 @@
+\section{MySQL 简介}
+
+\subsection{安装}
+
+MySQL 有两种安装方式，一种是线上安装，一种是安装包安装。线上安装比较适合对 MySQL 熟悉的用户，可以自定义安装一些应用功能，但如果一次安装错了，后果很严重(亲身体会)。这里建议新手使用安装包安装的方式。MySQL8 社区版的安装可以参考这篇文章: \url{https://blog.csdn.net/weixin_43605266/article/details/110477391}。
+
+在 Window 上安装好 MySQL8 后，我们通过终端 \texttt{mysql} 命令进入数据库，可能会报如下错误:
+\begin{bash}
+ERROR 1045 (28000): Access denied for user 'ODBC'@'localhost' (using password: NO)
+\end{bash}
+
+这是因为 Windows 默认进入 SQL 的用户为 ODBC，但我们没有创建 ODBC 用户，使用如下指令进入 MySQL 即可:
+
+\begin{bash}
+mysql -u <userName> -p
+\end{bash}
+
+注意安装好后，本地服务器名: localhost (基本所有数据库系统的本地数据库服务器都是这个名字)，端口 3306 (MySQL 默认端口号)。
+
+\subsection{常用命令}
+
+为了更好的操作 MySQL，这里提前给出一些常用的命令。首先是在终端操作 MySQL 的一些命令:
+
+\begin{itemize}
+    \item mysql 服务器的启用与关闭(Windows 默认开启)。
+\begin{bash}
+net stop mysql  # 停止 mysql 服务
+net start mysql  # 启用 mysql 服务
+\end{bash}
+    \item 登录 mysql 服务器。如果是远程链接，需要参数 -h。
+\begin{bash}
+mysql [-h <hostIP>] -u <userName> -p [<password>]
+\end{bash}
+\end{itemize}
+
+其次是 MySQL 内部的几个常用命令(注意 mysql 所有命令都需要 ; 结尾，sql 语句不区分大小写，但关键字一般使用大写)。
+
+\begin{itemize}
+    \item 增加新用户。
+\begin{sql}
+CREATE USER '<userName>'@'LOCALHOST' IDENTIFIED BY '<password>';
+\end{sql}
+    \item 修改用户密码。
+\begin{sql}
+ALTER USER '<userName>'@'LOCALHOST' IDENTIFIED WITH MYSQL_NATIVE_PASSWORD BY '<newPassword>';
+\end{sql}
+    \item 显示所有数据库。
+\begin{sql}
+show databases;
+\end{sql}
+    \item 显示用户信息(注意 mysql 会对用户密码进行加密，所以无法获取密码，只能获取 user,host 等信息)。
+\begin{sql}
+SELECT <infos> FROM mysql.user;
+\end{sql}
+\end{itemize}
+
+\subsection{GUI 应用}
+
+MySQL 本体的 GUI 工具不是很好用，推荐两个好用的数据库 GUI 软件:
+
+\begin{itemize}
+    \item Navicat: 主流的 GUI 工具，公司一般都会用这个，费用昂贵。
+    \begin{itemize}
+        \item 官网: \url{https://navicat.com.cn/}
+    \end{itemize}
+    \item Dbeaver: 社区版免费，功能齐全，但有点卡。
+    \begin{itemize}
+        \item 官网: \url{https://dbeaver.io/}
+    \end{itemize}
+    \item VSCode-MySQL 插件: 全宇宙最好用的文本编辑器和最好的生态。
+\end{itemize}
+
+不使用这些辅助工具也完全没问题，只是在终端中写命令不是很方便。
+
+\newpage
