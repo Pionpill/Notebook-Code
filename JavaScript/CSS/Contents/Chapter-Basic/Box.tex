@@ -1,0 +1,138 @@
+\section{盒模型}
+
+\subsection{元素宽度问题}
+
+元素宽度包括基础的盒模型概念，多个盒模型占整个网页的宽度。
+
+\subsubsection*{盒模型}
+
+盒模型的宽度有两种计算方式，使用 \texttt{box-sizing} 控制，有两个属性值:
+\begin{itemize}
+    \item \texttt{content-box}: 高宽仅包含内部元素，默认值。
+    \item \texttt{border-box}: 高宽包括 \texttt{padding} 和 \texttt{border}。
+\end{itemize}
+
+\begin{figure}[H]
+    \small
+    \centering
+    \begin{minipage}[t]{0.4\linewidth}
+        \begin{tikzpicture}[scale = 1]
+            \draw[line width=0, color = black!10, fill=black!10] (-1.6,-1.6) rectangle (5.6,4.6);
+            \draw[line width=0, color = black!50, fill=black!50] (-1,-1) rectangle (5,4);
+            \draw[line width=0, color = black!20, fill=black!20] (-0.5,-0.5) rectangle (4.5,3.5);
+            \draw[line width=0, color = black!1, fill=black!1] (0,0) rectangle (4,3);
+            \begin{scope} [font = \footnotesize]
+                \node at (-1,-1.3) {margin};
+                \node at (-0.5,-0.75) {border};
+                \node at (0.2,-0.25) {padding};
+                \draw [Stealth-Stealth] (0,2) -- (4,2) node [midway, below] {width};
+                \draw [Stealth-Stealth] (3,0) -- (3,3) node [midway, right] {height};
+            \end{scope}
+        \end{tikzpicture}
+        \texttt{box-sizing: content-box}
+    \end{minipage}\qquad
+    \begin{minipage}[t]{0.4\linewidth}
+        \begin{tikzpicture}[scale = 1]
+            \draw[line width=0, color = black!10, fill=black!10] (-1.6,-1.6) rectangle (5.6,4.6);
+            \draw[line width=0, color = black!50, fill=black!50] (-1,-1) rectangle (5,4);
+            \draw[line width=0, color = black!20, fill=black!20] (-0.5,-0.5) rectangle (4.5,3.5);
+            \draw[line width=0, color = black!1, fill=black!1] (0,0) rectangle (4,3);
+            \begin{scope} [font = \footnotesize]
+                \node at (-1,-1.3) {margin};
+                \node at (-0.5,-0.75) {border};
+                \node at (0.2,-0.25) {padding};
+                \draw [Stealth-Stealth] (-1,2) -- (5,2) node [midway, below] {width};
+                \draw [Stealth-Stealth] (3,-1) -- (3,4) node [midway, right] {height};
+            \end{scope}
+        \end{tikzpicture}
+        \texttt{box-sizing: border-box}
+    \end{minipage}
+    \caption{box-sizing}
+\end{figure}
+
+在实际开发中，我们更常用 \texttt{border-box} 值，因为这样有助于我们对其视口。
+
+如我们使用默认值，在指定高宽时由于 \texttt{padding, border, margin} 都会影响整个盒模型在布局中的占用情况，如果我们缩放界面或者使用其他平台的设备查看网页，则很难确认最终的呈现效果。
+
+当然这个缺陷有几个解决方案，一是  \texttt{padding, border, margin} 都设置为 0，属于是自损800的方案。而是情况慢慢调整 \texttt{width, height} 的值，这在一个界面上也许有用，但如果在手机等其他设备上效果往往不尽人意。
+
+\subsubsection*{\texttt{box-sizing} 的继承问题}
+
+前面说过，只有内容相关和表格的一些属性会被继承，很遗憾 \texttt{box-sizing} 是不能继承的，这会给开发带来很多繁琐的问题，下面有几个解决方案:
+
+\begin{itemize}
+    \item \textbf{全局修改盒模型}: 这是最常用的方案，将所有盒模型均设置为 \texttt{border-box}，一般情况下没有问题。但如果我们使用第三方组件，如果有些组件使用的是 \texttt{content-box}，这会改变这些组建的样式。
+\begin{HTML}
+*, ::before, ::after {   
+    box-sizing: border-box;
+} 
+\end{HTML}
+    \item \textbf{根节点继承}: 为了避免组件样式被修改，我们可以使用 \texttt{inherit} 强制 \texttt{box-sizing} 继承，再在需要继承的父节点(通常是根节点，也即 \texttt{<html>}) 节点设置盒模型方案。
+\begin{HTML}
+:root {  
+    box-sizing: border-box;
+} 
+*, ::before, ::after {   
+    box-sizing: inherit;
+} 
+\end{HTML}
+\end{itemize}
+
+\subsection{元素高度问题}
+
+高度与宽度不同，由于网页高度是无限的，可以上下滑动，因此在高度方面我们更加关注元素的内容。为什么不用宽度来控制内容呢，因为宽度更加注重设备缩放以及分辨率问题。
+
+\subsubsection*{控制溢出行为}
+
+当明确设置一个元素的高度时，内容可能会溢出容器。用\texttt{overflow}属性可以控制溢出内容的行为，该属性支持以下4个值:
+\begin{itemize}
+    \item \texttt{visible}: 所有内容可见，即使溢出容器边缘。
+    \item \texttt{hidden}: 溢出容器内边距边缘的内容被裁剪，无法看见。
+    \item \texttt{scroll}: 容器出现滚动条，用户可以通过滚动查看剩余内容。在某些情况下，会出现水平和数值两种滚动条。
+    \item \texttt{auto}: 只有内容溢出时容器才会出现滚动条，多数情况下使用 \texttt{auto} 而不是 \texttt{scroll}。
+\end{itemize}
+
+虽然不推荐，但是少数情况下宽度也是可以控制溢出行为的，使用 \texttt{overflow-y, overflow-x} 可分别控制高宽的溢出行为。
+
+和高度相关的很多问题会在后面布局章节中说明，高度往往是随着布局的改变而改变的，除非特别需要，否则不要设置元素的高度，这会带来更棘手的问题。
+
+\subsubsection*{\texttt{min-height} 与 \texttt{max-height}}
+
+这两个属性可以指定最小或最大值，而不是明确定义高度，这样元素就可以在这些界限内自动决定高度。同样的还有 \texttt{min-width, max-width}。
+
+\subsection{外边距问题}
+
+\subsubsection*{负外边距}
+
+不同于 \texttt{border, padding}, 外边距 \texttt{margin} 是可以设置为负值得。负外边距有一些特殊用途，比如让元素重叠或者拉伸到比容器还宽。
+
+负外边距的具体行为取决于设置在元素的哪边:
+\begin{itemize}
+    \item 如果设置左边或顶部的负外边距，元素就会相应地向左或向上移动，导致元素与它前面的元素重叠。
+    \item 如果设置右边或者底部的负外边距，并不会移动元素，而是将它后面的元素拉过来。
+\end{itemize}
+
+\fbox{
+    \parbox{0.87\textwidth}{
+        \begin{warning}
+            如果元素被别的元素遮挡，利用负外边距让元素重叠的做法可能导致元素不可点击。
+        \end{warning}
+    }
+}
+
+\subsubsection*{外边距折叠}
+
+有一个奇怪的现象，有时候我们设置外边距为 1em，但是多个盒模型顶部/底部相邻时，理论上应该是 2em，但实际上只有 1em 距离，被吃了一半。这种现象叫做外边距折叠。
+
+外边距折叠的主要原因与包含文字的块之间的间隔相关。段落（\texttt{<p>}）默认有1em的上外边距和1em的下外边距。这是用户代理的样式表添加的，但当前后叠放两个段落时，它们的外边距不会相加产生一个2em的间距，而会折叠，只产生1em的间隔。
+
+折叠外边距的大小等于相邻外边距(两个及以上)中的最大值。
+
+有几个方式可以防止外边距折叠:
+\begin{itemize}
+    \item 对容器使用\texttt{overflow: auto}（或者非\texttt{visible}的值），防止内部元素的外边距跟容器外部的外边距折叠。这种方式副作用最小。
+    \item 在两个外边距之间加上边框或者内边距，防止它们折叠。
+    \item 如果容器为浮动元素、内联块、绝对定位或固定定位时，外边距不会在它外面折叠。
+    \item 当使用\texttt{Flexbox}布局或网络布局时，弹性布局内的元素之间不会发生外边距折叠。
+    \item 当元素显示为\texttt{table-cell}时不具备外边距属性，因此它们不会折叠。此外还有\texttt{table-row}和大部分其他表格显示类型
+\end{itemize}
