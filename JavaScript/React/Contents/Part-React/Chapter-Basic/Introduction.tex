@@ -1,0 +1,67 @@
+\section{React 简介}
+
+前端UI的本质问题是如何将来源于服务器端的动态数据和用户的交互行为高效地反映到复杂的用户界面上。React另辟蹊径，通过引入虚拟DOM、状态、单向数据流等设计理念，形成以组件为核心，用组件搭建U的开发模式。
+
+React 的特点可以归结为以下 4 点:
+\begin{itemize}
+    \item \textbf{声明式视图层}: React 采用 JSX 语法来声明视图层，可以在视图中绑定各种状态数据以及相关操作。
+    \item \textbf{简易更新流}: 声明式的视图定义方式有助于简化视图层的更新流程。你只需要定义u状态，React便会负责把它渲染成最终的UI。
+    \item \textbf{灵活渲染实现}: React并不是把视图直接渲染成最终的终端界面，而是先把它们渲染成虚拟DOM。虚拟DOM再在各个平台渲染(react-dom 对应浏览器；Node 对应服务端；React Native 对应移动端)。
+    \item \textbf{高效的 DOM 操作}: 基于React优异的差异比较算法，React可以尽量减少虚拟DOM到真实DOM的渲染次数，以及每次渲染需要改变的真实DOM节点数。
+\end{itemize}
+
+\subsection{开发环境}
+
+React 应用开发有两个必要环境:
+\begin{itemize}
+    \item \textbf{Node.js}: React 在本地开发调试需要使用到 Node.js 环境中的 NPM，Webpack 等依赖。
+    \item \textbf{NPM}: 模块管理工具，用来管理模块之间的依赖关系。也可以用 \textbf{Yarn} 代理，安装 Node。
+\end{itemize}
+
+辅助工具:
+\begin{itemize}
+    \item \textbf{Webpack}: 模块打包工具，不仅可以打包JS文件，配合相关插件的使用，它还可以打包图片资源和样式文件，己经具备一站式的JavaScript应用打包能力，是React开发的必要工具。
+    \item \textbf{Babel}: Babel是一个JavaScript编译器，为了浏览器兼容性考虑，需要把 ES6 或以后的语法编译成 ES5 及之前的语法达到向前兼容的目的。
+    \item \textbf{ESLint}: JavaScript 代码检查工具，由于 JS 的语法非常乱，同一种实现有多种写法，为了团队同一管理，会用 ESLint 进行风格检测。
+\end{itemize}
+
+这些工具的使用方法比较繁琐，可以直接用 React 提供的脚手架工具构建工程。在官方文档中提供了以下几个命名用于快速构建工程:
+
+\begin{bash}
+# 在当前目录下创建 my-app 项目
+npx create-react-app my-app
+# 运行项目
+cd my-app
+npm start
+\end{bash}
+
+通过这种方式创建的 React 项目结构如下(仅重要文件/文件夹):
+
+\begin{bash}
+my-app
+|- README.md            # react 相关的指令介绍(可删除)
+|- .gitignore           # 版本控制
+|- package.json         # 项目信息
+|- package-lock.json    # 项目绑定信息
+|- node_modules         # 工程依赖的模块，会被 .gitignore 忽视
+|- public               # 外部访问文件
+    |- index.html       # 应用入口界面
+    |- manifest.json    # 应用注册信息
+|- src              # 项目源代码，主要工作区
+    |- index.js     # 源代码入口
+    |- react-app-env    # 应用变量环境
+\end{bash}
+
+放入 public 文件夹下的资源可以被直接引用。
+
+还有很多其他文件，但主要的，启动一个项目会进入 \texttt{public/index.html} 界面，而这个界面一般加载了 \texttt{src/index.js} 脚本。开发者一般在 \texttt{src} 文件夹中写入功能。
+
+此外，如果使用 typescript开发，创建项目指令如下:
+
+\begin{bash}
+npx create-react-app my-app --template typescript
+\end{bash}
+
+会新增几个 ts 管理文件。
+
+\newpage
