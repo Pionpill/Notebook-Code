@@ -1,0 +1,109 @@
+\section{响应式设计}
+
+\begin{center}
+    \textit{这节讲的都是抽象概念，粒子请查看原书。如果只做桌面端设计也可以跳过这章。}
+\end{center}
+
+响应式设计主要用于解决多设备屏幕分辨率不同，响应式设计的主要目的是只需要创建一个网站，就可以在智能手机、平板，或者其他任何设备上运行，它有三大原则。
+
+\begin{itemize}
+    \item \textbf{移动优先}: 实现桌面布局之前先构建移动版的布局。
+    \item \textbf{\texttt{@media} 规则}: 使用这个样式规则，可以为不同大小的视口定制样式。用这一语法，通常叫作媒体查询（media queries），写的样式只在特定条件下才会生效。
+    \item \textbf{流式布局}: 这种方式允许容器根据视口宽度缩放尺寸。
+\end{itemize}
+
+\subsubsection*{移动优先}
+
+考虑用户使用移动端的场景，一般通过手机/平板打开网站都处于快速浏览的状态，而桌面端多处于工作/学习等状态。因此移动端需要的提供更直观简要的信息。
+
+移动端的需求和网页设计的逻辑是相符的，网页设计也应该先完成主要的核心功能，再考虑添加其他边缘功能。
+
+如果你失陪了小屏设备，需要在 \texttt{meta} 加上这么一句，不然浏览器会假定你的界面不是响应式的:
+
+\begin{HTML}
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+\end{HTML}
+
+\texttt{meta}标签的\texttt{content}属性里包含两个选项。首先，它告诉浏览器当解析CSS时将设备的宽度作为假定宽度，而不是一个全屏的桌面浏览器的宽度。其次当页面加载时，它使用\texttt{initial-scale}将缩放比设置为100\%。
+
+此外\texttt{content}属性还有第三个选项\texttt{user-scalable=no}，阻止用户在移动设备上用两个手指缩放。通常这个设置在实践中并不友好，不推荐使用。
+
+\subsubsection*{媒体查询}
+
+响应式设计的第二个原则是使用媒体查询。媒体查询允许某些样式只在页面满足特定条件时才生效。这样就可以根据屏幕大小定制样式。可以针对小屏设备定义一套样式，针对中等屏幕设备定义另一套样式，针对大屏设备再定义一套样式，这样就可以让页面的内容拥有多种布局。
+
+媒体查询使用\texttt{@media}规则选择满足特定条件的设备。简单的媒体查询如下代码所示:
+
+\begin{HTML}
+@media (min-width: 560px) {  
+    .title > h1 {
+        font-size: 2.25rem;  
+    } 
+} 
+\end{HTML}
+
+\texttt{@media}规则会进行条件检查，只有满足所有的条件时，才会将这些样式应用到页面上。本例中浏览器会检查\texttt{min-width: 560px}。只有当设备的视口宽度大于等于\texttt{560px}的时候，才会给标题设置\texttt{2.25rem}的字号。如果视口宽度小于\texttt{560px}，那么里面的所有规则都会被忽略。
+
+在媒体查询断点中推荐使用em单位。在各大主流浏览器中，当用户缩放页面或者改变默认的字号时，只有em单位表现一致。
+
+可以整复杂一点，设置多个条件:
+
+\begin{HTML}
+@media (max-width: 20em), (min-width: 35em) { ... }
+\end{HTML}
+
+媒体查询的所有条件如下:
+\begin{itemize}
+    \item \texttt{min-height}: 高度大于等于。
+    \item \texttt{max-height}: 高度小于等于。
+    \item \texttt{max-width}: 宽度小于等于。
+    \item \texttt{max-width}: 宽度小于等于。
+    \item \texttt{orientation: landscape}: 宽度大于高度。
+    \item \texttt{orientation: portrait}: 高度大于宽度。
+    \item \texttt{min-resolution: 2dppx}: 匹配屏幕分辨率大于等于2dppx（dppx指每个CSS像素里包含的物理像素点数）的设备。
+    \item \texttt{max-resolution: 2dppx}: 匹配屏幕分辨率小等于2dppx的设备。
+\end{itemize}
+
+比较少见的，还可以使用 \texttt{@media screen} 控制打印时的网页布局。
+
+\subsubsection*{流式布局}
+
+流式布局，有时被称作液体布局（liquid layout），指的是使用的容器随视口宽度而变化。它跟固定布局相反，固定布局的列都是用px或者em单位定义。固定容器（比如，设定了\texttt{width: 800px}的元素）在小屏上会超出视口范围，导致需要水平滚动条，而流式容器会自动缩小以适应视口。
+
+在流式布局中，主页面容器通常不会有明确宽度，也不会给百分比宽度，但可能会设置左右内边距，或者设置左右外边距为auto，让其与视口边缘之间产生留白。也就是说容器可能比视口略窄，但永远不会比视口宽。
+
+\subsubsection*{响应式图片}
+
+图片传输往往要消耗大量流量，在不同大小的设备下可以放置不同分辨率的图片，比如:
+
+\begin{HTML}
+@media (min-width: 35em) {
+    .hero {
+        padding         : 5em 3em;
+        font-size       : 1.2rem;
+        background-image: url(coffee-beans-medium.jpg);
+    }
+}
+
+@media (min-width: 50em) {
+    .hero {
+        padding         : 7em 6em;
+        background-image: url(coffee-beans.jpg);
+    }
+}
+\end{HTML}
+
+在不同屏幕的浏览器上加载这样的网页，根本看不出有什么区别。
+
+HTML里的\texttt{<img>}标签有一个 \texttt{srcset} 属性可以根据条件指定不同的图片URL:
+
+\begin{HTML}
+<img alt="A white coffee mug on a bed of coffee beans"
+    src="coffee-beans-small.jpg"
+    srcset="coffee-beans-small.jpg 560w,
+        coffee-beans-medium.jpg 800w,
+        coffee-beans.jpg 1280w"
+/> 
+\end{HTML}
+
+这种 方式允许针对不同的屏幕尺寸优化图片。更棒的是，浏览器会针对高分辨率的屏幕做出调整。如果设备的屏幕像素密度是2倍，浏览器就会相应地加载更高分辨率的图片。
