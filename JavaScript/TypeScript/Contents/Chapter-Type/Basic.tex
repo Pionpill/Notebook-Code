@@ -1,0 +1,167 @@
+\section{基础类型}
+
+TypeScript 支持 JavaScript 的几乎所有数据类型，同时还提供了枚举类型。
+
+\subsection{固有数据类型}
+
+\subsubsection*{布尔值}
+
+布尔值仅有 \texttt{true/false} 值。
+
+\begin{TypeScript}
+let isDone: boolean = false;
+\end{TypeScript}
+
+\subsubsection*{数字}
+
+和 JavaScript 相同。
+
+\begin{TypeScript}
+let decLiteral: number = 6;
+let hexLiteral: number = 0xf00d;
+let binaryLiteral: number = 0b1010;
+let octalLiteral: number = 0o744;
+\end{TypeScript}
+
+\subsubsection*{字符串}
+
+和 JavaScript 相同，支持模组字符串。
+
+\begin{TypeScript}
+let name: string = "bob";
+let you: string = "tom"
+let sentence: string = "Hello ${ you }, my name is ${ name }."
+\end{TypeScript}
+
+\subsubsection*{\texttt{Null} 和 \texttt{Undefined}}
+
+TypeScript里，\texttt{undefined}和\texttt{null}两者各自有自己的类型分别叫做\texttt{undefined}和\texttt{null}。 和 \texttt{void}相似，它们的本身的类型用处不是很大：
+
+\begin{TypeScript}
+// Not much else we can assign to these variables!
+let u: undefined = undefined;
+let n: null = null;
+\end{TypeScript}
+
+默认情况下\texttt{null}和\texttt{undefined}是所有类型的子类型。
+
+当指定了\texttt{--strictNullChecks}标记(也建议指定)，\texttt{null}和\texttt{undefined}只能赋值给\texttt{void}和它们各自。 
+
+
+
+
+
+\subsubsection*{数组}
+
+TypeScript 定义了两种操作数组元素的方式。第一种，可以在元素类型后面接上 []，表示由此类型元素组成的一个数组，第二种方式是使用数组泛型，Array<元素类型>。
+
+\begin{TypeScript}
+let list: number[] = [1,2,3];
+let list: Array<number> = [1,2,3];
+\end{TypeScript}
+
+\subsubsection*{\texttt{Object}}
+
+\texttt{object} 表示非原始类型，是 JavaScript 中最重要的类型，JavaScript 中所有的对象都源自 \texttt{Object}。
+
+\subsection{新增数据类型}
+
+\subsubsection*{元组}
+
+元组类型允许表示一个已知元素数量和类型的数组，各元素的类型不必相同。 比如，你可以定义一对值分别为 string和number类型的元组。
+
+\begin{TypeScript}
+let x: [string, number];
+x = ['hello', 10];
+x = [10, 'hello'];
+\end{TypeScript}
+
+\subsubsection*{枚举}
+
+\texttt{enum} 是对 JavaScript 数据类型的一个补充。默认情况下枚举元素从下标 0 开始，也可以手动指定下标。
+
+\begin{TypeScript}
+enum Color {Red, Green, Blue}
+let c: Color = Color.Green;
+\end{TypeScript}
+
+\subsubsection*{\texttt{Any}}
+
+\texttt{any} 表示任意类型，是不确定类型时 \texttt{Object} 的替代方案，因为 \texttt{any} 封装了属于他自己的方法。
+
+\begin{TypeScript}
+let notSure: any = 4;
+notSure.ifItExists(); // okay, ifItExists might exist at runtime
+notSure.toFixed(); // okay, toFixed exists (but the compiler doesn't check)
+\end{TypeScript}
+
+\subsubsection*{\texttt{Void}}
+
+\texttt{void} 像 \texttt{any} 的反义词，表示没有任意类型。由于 TypeScript 是强类型语言，所以需要引入 \texttt{void} 作为某些函数的返回值。
+
+\begin{TypeScript}
+function warnUser(): void {
+    console.log("This is my warning message");
+}
+\end{TypeScript}
+
+声明一个\texttt{void}类型的变量没有什么大用，因为你只能为它赋予\texttt{undefined}和\texttt{null}：
+
+\begin{TypeScript}
+let unusable: void = undefined;
+\end{TypeScript}
+
+\subsubsection*{\texttt{Never}}
+
+\texttt{never} 类型表示的是那些用不存在的值的类型。 例如， \texttt{never}类型是那些总是会抛出异常或根本就不会有返回值的函数表达式或箭头函数表达式的返回值类型； 变量也可能是 \texttt{never}类型，当它们被永不为真的类型保护所约束时。
+
+\begin{TypeScript}
+// 返回never的函数必须存在无法达到的终点
+function error(message: string): never {
+    throw new Error(message);
+}
+// 推断的返回值类型为never
+function fail() {
+    return error("Something failed");
+}
+// 返回never的函数必须存在无法达到的终点
+function infiniteLoop(): never {
+    while (true) {
+    }
+}
+\end{TypeScript}
+
+\subsection{变量声明}
+
+TypeScript 是强类型(静态类型)语言，它的变量声明机制和 Python 的 type hint 类似，函数声明后面也可以加 \texttt{:} 表示返回值类型:
+
+\begin{TypeScript}
+let [变量名] : [类型] = 值;
+let num: number = 6;
+\end{TypeScript}
+
+可以在类型中增加 | 表示或:
+
+\begin{TypeScript}
+let list: [number | boolean];
+\end{TypeScript}
+
+如果没有显示指出类型，TypeScript 编译器会自动推断。
+
+\subsubsection*{类型断言}
+
+类型断言是指程序员知道某个数据类型是什么，因而显示地在数据中写入对应的类型。这类似于 Java 中的泛型。
+
+在 TypeScript 中有两种类型断言语法，一种是泛型式地尖括号，一种是 \texttt{as} 关键字。两种写法等价:
+
+\begin{TypeScript}
+let someValue: any = "this is a string";
+// 尖括号形式
+let strLength: number = (<string>someValue).length;
+// as 关键字
+let strLength: number = (someValue as string).length;
+\end{TypeScript}
+
+如果在 TypeScript 中使用 JSX，只能使用 \texttt{as} 语法。
+
+\newpage

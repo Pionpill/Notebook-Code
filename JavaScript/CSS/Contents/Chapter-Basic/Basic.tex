@@ -1,0 +1,174 @@
+\section{层叠样式表}
+
+\subsection{层叠}
+
+层叠决定了如何解决冲突，当声明冲突时，层叠会依次根据三种条件解决冲突：
+\begin{itemize}
+    \item 样式表的来源: 内联 > 外部 > 默认
+    \item 选择器优先级: 例如 \texttt{id} > \texttt{class}
+    \item 源码顺序: 样式在样式表里的声明顺序。
+\end{itemize}
+
+\subsubsection{样式表的来源}
+
+开发者编写的样式表属于作者样式表，除此之外还有用户代理样式表(浏览器默认样式)。有的浏览的允许用户定义一个用户样式表，优先级介于作者样式表的用户代理样式表之间。
+
+样式表的优先级为: 作者样式表 > 用户样式表 > 用户代理样式表。
+
+\subsubsection*{\texttt{!important} 声明}
+
+样式来源规则有一个例外：标记为重要（\texttt{important}）的声明:
+
+\begin{HTML}
+color: red !important
+\end{HTML}
+
+标记了 \texttt{!important} 的声明会被当作更高优先级的来源。
+
+\subsubsection{理解优先级}
+
+浏览器将优先级分为两部分：HTML的行内样式和选择器的样式。
+
+\subsubsection*{行内样式}
+
+如果用HTML的\texttt{style}属性写样式，这个声明只会作用于当前元素。实际上行内元素属于“带作用域的”声明，它会覆盖任何来自样式表或者\texttt{<style>}标签的样式。行内样式没有选择器，因为它们直接作用于所在的元素。
+
+如果要覆盖样式表里的行内声明，需要为声明添加\texttt{!important}，这样能将它提升到一个更高优先级的来源。但如果行内样式也被标记为\texttt{!important}，就无法覆盖它了。最好是只在样式表内用\texttt{!important}。
+
+\subsubsection*{选择器优先级}
+
+一般的，选择器优先级如下: ID > Class > Tag。伪类选择器与属性选择器和类选择器优先级相同; 通用选择器和组合器对优先级没有影响。
+
+有时候我们会混用多个选择器，一个常用的表示优先级的方式是用数值形式来标记，通常用逗号隔开每个数。如，“1,2,2”表示选择器由1个ID、2个类、2个标签组成。优先级最高的ID列为第一位，紧接着是类，最后是标签。
+
+比如 \texttt{\#page-header \#page-title} 有两个 Id, 表示为 ``2,0,0'' \texttt{ul li}有2个标签，表示为 ``0,0,2''，很明显 200 > 002，前者优先级更高。
+
+如果涉及到行内样式，可以在最前面加一个数字表示是否为行内样式，此时，行内样式的优先级为“1,0,0,0”。不过这并没有实际意义，因为行内样式总是高于外部样式，而行内样式又不会写(一般不写)得过于复杂。
+
+至于 \texttt{!important}，所有使用该关键字的样式都会提升到最高的优先级来源(升维)，因此他总是最高级的，多个 \texttt{!important} 会让一切回到起点，即撇去 \texttt{!important} 比较优先级。
+
+\subsubsection{源码顺序}
+
+如果两个声明的来源和优先级相同，其中一个声明在样式表中出现较晚，或者位于页面较晚引入的样式表中，则该声明胜出。
+
+\begin{HTML}
+.nav a {        /* 0,1,1 */
+  color: white;
+  background-color: #13a4a4;
+  padding: 5px;
+  border-radius: 2px;
+  text-decoration: none;
+}
+
+a.featured {    /* 0,1,1 */
+  background-color: orange;
+}
+\end{HTML}
+
+上面两个声明块优先级都是 ``0,1,1'' 但下面的被选中使用。
+
+由于这个特性多个状态的书写顺序就显得尤其重要，比如对按钮有悬停和激活两种状态，如果悬停状态在激活状态之后，激活后将会显示悬停的样式。因此状态的书写顺序应该为: \texttt{a:linked > a:visited > a:hover > a:active}。
+
+\subsubsection*{层叠值}
+
+浏览器遵循三个步骤，即来源、优先级、源码顺序，来解析网页上每个元素的每个属性。如果一个声明在层叠中“胜出”，它就被称作一个层叠值。元素的每个属性最多只有一个层叠值。
+
+\subsubsection*{两条经验法则}
+
+处理层叠时有两条通用的经验法则:
+\begin{itemize}
+    \item 非必要不要使用 \texttt{ID}: 如果不是要通过脚本控制节点树，应不用 ID 选择器。
+    \item 不要使用 \texttt{!important}: 使用 \texttt{!important} 将带来一个新的维度，这让维护变得非常困难。
+\end{itemize}
+
+\subsection{继承}
+
+如果一个元素的某个属性没有层叠值，则可能会继承某个祖先元素的值。比如通常会给\texttt{<body>}元素加上\texttt{font-family}，里面的所有后代元素都会继承这个字体，就不必给页面的每个元素明确指定字体了。
+
+但不是所有的属性都能被继承。默认情况下，只有特定的一些属性能被继承，通常是我们希望被继承的那些。它们主要是跟文本相关的属性：\texttt{color、font、font-family、font-size、font-weight、font-variant、font-style、line-height、letter-spacing、text-align、text-indent、text-transform、white-space、ord-spacing}。
+
+此外，列表的一些属性也会被继承。
+
+\subsubsection*{\texttt{inherit} 关键字}
+
+有时，我们想用继承代替一个层叠值。这时候可以用\texttt{inherit}关键字。可以用它来覆盖另一个值，这样该元素就会继承其父元素的值。
+
+\begin{HTML}
+a {
+    color: inherit;
+    text-decoration: underline;
+}
+\end{HTML}
+
+这么做的好处是如果父样式颜色改变，子样式也会随之改变。
+
+\subsubsection*{\texttt{initial} 关键字}
+
+\texttt{initial}关键字用于撤销作用于某个元素的样式，恢复为默认值。
+
+\begin{HTML}
+a {
+    color: initial;
+    text-decoration: underline;
+}
+\end{HTML}
+
+和 \texttt{initial} 很像的有 \texttt{auto} 值，但 \texttt{auto} 并不是所有属性的默认值。
+
+\subsection{相对单位}
+
+CSS为网页带来了后期绑定（late-binding）的样式：直到内容和样式都完成了，二者才会结合起来。这会给设计流程增加复杂性，而这在其他类型的图形设计中是不存在的。不过这也带来了好处，即一个样式表可以作用于成百上千个网页。此外，用户还能直接改变最终的渲染效果，比如用户可以改变默认字号或者缩放浏览器窗口。
+
+\subsubsection*{\texttt{em} 和 \texttt{rem}}
+
+\texttt{em}是最常见的相对长度单位，适合基于特定的字号进行排版。在CSS中，1\texttt{em}等于当前元素的字号，其准确值取决于作用的元素。浏览器会根据相对单位的值计算出绝对值，称作计算值（computed value）。
+
+由于 \texttt{em} 指代当前元素的字号，因此 \texttt{font-size} 不可以指定为 \texttt{em}，比较字号不能是自己的多少倍，不过如果父级可以得出字号大小，这样做是可以做的。默认的字号是 16px，也即 \texttt{medium} 关键字的值。
+
+\texttt{em} 相信绝大多数人都用过，\texttt{rem} 就不一定了。\texttt{rem} 是 \texttt{root em} 的缩写，表示根元素的单位。除此之外还有个 \texttt{ex} 表示 \texttt{x} 字体的大小，通常是 \texttt{em} 的一半。
+
+在实际开发中，通常用用\texttt{rem}设置字号，用\texttt{px}设置边框，用\texttt{em}设置其他大部分属性。
+
+\subsubsection*{视口相对单位}
+
+前面介绍的\texttt{em}和\texttt{rem}都是相对于\texttt{font-size}定义的，但CSS里不止有这一种相对单位。还有相对于浏览器视口定义长度的视口的相对单位:
+\begin{itemize}
+    \item \texttt{vh}: 视口高度的 1/100;
+    \item \texttt{vw}: 视口宽度的 1/100;
+    \item \texttt{vmin}: 视口高度和宽度中较小一方的 1/100;
+    \item \texttt{vmax}: 视口高度和宽度中较大一方的 1/100。
+\end{itemize}
+
+灵活使用这些相对单位可以帮助我们有效解决跨端问题。
+
+此外，CSS 提供了一个 \texttt{calc()} 函数，可以对值进行基本运算，支持包括加减乘除运算，运算符两边都需要留出一个空格。比如 \texttt{calc(1em + 10px)}。
+
+\subsubsection*{无单位值}
+
+当一个元素的值定义为长度（\texttt{px、em、rem}，等等）时，子元素会继承它的计算值。当使用\texttt{em}等单位定义行高时，它们的值是计算值。使用无单位的数值时，继承的是声明值，即在每个继承子元素上会重新算它的计算值。这样得到的结果几乎总是我们想要的。
+
+\subsubsection*{自定义属性}
+
+自定义属性(全称: 层叠变量的自定义属性) 给CSS引进了变量的概念，开启了一种全新的基于上下文的动态样式。你可以声明一个变量，为它赋一个值，然后在样式表的其他地方引用这个值。
+
+比如我们定义一个自定义属性:
+
+\begin{HTML}
+:root {  
+    --main-font: Helvetica, Arial, sans-serif;
+} 
+\end{HTML}
+
+调用函数var()就能使用该变量。
+
+\begin{HTML}
+p {  
+    font-family: var(--main-font);
+} 
+\end{HTML}
+
+在样式表某处为自定义属性定义一个值，作为“单一数据源”，然后在其他地方复用它。这种方式特别适合反复出现的值，比如颜色值。
+
+如果\texttt{var()}函数算出来的是一个非法值，对应的属性就会设置为其初始值。
+
+\newpage

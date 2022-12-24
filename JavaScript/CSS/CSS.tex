@@ -1,0 +1,81 @@
+\documentclass{PionpillNote-book}
+\usetikzlibrary {intersections,through,arrows.meta,graphs,shapes.misc,positioning,shapes.misc,positioning,calc}
+\usetikzlibrary{animations}
+\usetikzlibrary {shapes.geometric}
+\usetikzlibrary {animations}
+\usetikzlibrary {shapes.multipart}
+\usetikzlibrary {positioning}
+\usetikzlibrary {fit,shapes.geometric}
+\usetikzlibrary {automata}
+\usetikzlibrary {quotes}
+\usetikzlibrary {matrix}
+\usetikzlibrary {backgrounds}
+\usetikzlibrary {scopes}
+\usetikzlibrary {calc}
+\usetikzlibrary {intersections}
+\usetikzlibrary {svg.path}
+\usetikzlibrary {decorations}
+\usetikzlibrary {patterns}
+\usetikzlibrary {decorations.pathmorphing}
+\usetikzlibrary {shadows}
+\usetikzlibrary {bending}
+\usetikzlibrary{decorations.pathreplacing}
+
+\title{CSS 笔记}
+\author{
+    Pionpill \footnote{笔名：北岸，电子邮件：673486387@qq.com，Github：\url{https://github.com/Pionpill}} \\
+    本文档为作者系统学习CSS时的笔记。\\
+}
+
+\date{\today}
+
+\begin{document}
+
+\pagestyle{plain}
+\maketitle
+
+\noindent\textbf{前言：}
+
+本文主要参考书籍: <<深入解析 CSS>>\footnote{<<CSS IN DEPTH>>: [美] Keith J. Grant 黄小璐译 2020年4月 第一版}。顾名思义，主要参考书籍是一本进阶书，因此本文不适合完全不了解 CSS 的入门读者。在阅读本文之前，确保有以下前置知识:
+\begin{itemize}
+    \item 掌握 HTML。
+    \item 熟悉 CSS 的部分属性以及一些选择器。
+\end{itemize}
+
+HTML 与 CSS 的诸多标签/属性不一定要全部知道，不了解的直接查 MDN 文档即可。
+
+这本笔记完全不能代替原书，仅是对原书的一个要点记录，只有对 CSS 有经验但需要查阅资料的读者适合本书。也可以将本书当作一个概要，根据不了的内容另行查找资料。
+
+本人的编写及开发环境如下：
+\begin{itemize}
+    \item IDE: VSCode 1.72 
+    \item Chrome: 91.0
+    \item Node.js: 18.12
+    \item OS: Window11
+\end{itemize}
+
+\date{\today}
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\setcounter{page}{1} 
+\pagestyle{fancy}
+
+\chapter{基础}
+\import{Contents/Chapter-Basic}{Basic.tex}
+\import{Contents/Chapter-Basic}{Box.tex}
+\chapter{布局}
+\import{Contents/Chapter-Layout}{Float.tex}
+\import{Contents/Chapter-Layout}{Flexbox.tex}
+\import{Contents/Chapter-Layout}{Grid.tex}
+\import{Contents/Chapter-Layout}{Position.tex}
+\import{Contents/Chapter-Layout}{Responsive.tex}
+\chapter{动画}
+\import{Contents/Chapter-Animation}{Style.tex}
+\import{Contents/Chapter-Animation}{Transitions.tex}
+\import{Contents/Chapter-Animation}{Animation.tex}
+\end{document}
+

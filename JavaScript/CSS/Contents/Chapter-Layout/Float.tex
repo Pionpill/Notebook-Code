@@ -1,0 +1,62 @@
+\section{浮动布局}
+
+浮动布局，顾名思义，它会让元素浮动在界面上，类似于 word 文档里面的图片浮动。
+
+浮动布局是一种很老的布局方案，现在基本已经不用了，Flexbox 正在取代浮动布局，一般只有做旧版兼容的时候会用到浮动布局。但要实现将图片移动到网页一侧，并且让文字围绕图片的效果，浮动仍然是唯一的方法。
+
+\subsection*{容器折叠}
+
+浮动布局存在一些问题(特性)，浮动元素不同于普通文档流的元素，它们的高度不会加到父元素上。类似 word 文章中图片的高度由自己确定，对其他元素没有影响。
+
+在网页中，这个特性存在一些问题，有时候浮动元素需要被父级元素包围，最简单的方式是增加一个 \texttt{<div>} 标签，并添加 \texttt{clear: both} 属性，\texttt{clear} 属性指定一个元素是否必须移动(清除浮动后)到在它之前的浮动元素下面。这样直到有 \texttt{clear} 属性标签的内容都会被包括在内:
+
+\begin{HTML}
+<div style="clear: both"></div>
+\end{HTML}
+
+但这样存在一个问题，我们为了添加 CSS 属性而创建了新的 HTML 标签。
+
+进一步的解决方案是使用 \texttt{::after} 伪元素，这样就不用构建新的标签了:
+
+\begin{HTML}
+.float::after {
+    clear: both;
+}
+\end{HTML}
+
+注意，要给包含浮动的元素清除浮动，而不是给别的元素，比如浮动元素本身，或包含浮动的元素的后面的兄弟元素。
+
+这个清除浮动还有个一致性问题没有解决：浮动元素的外边距不会折叠到清除浮动容器的外部，非浮动元素的外边距则会正常折叠。要解决这个问题可以使用 \texttt{display: table} 使用表格布局。
+
+\subsubsection*{BFC}
+
+BFC(block formatting context) 即 块级格式化上下文, BFC是网页的一块区域，元素基于这块区域布局。虽然BFC本身是环绕文档流的一部分，但它将内部的内容与外部的上下文隔离开。这种隔离为创建BFC的元素做出了以下3件事情。
+
+\begin{itemize}
+    \item 包含了内部所有元素的上下外边距。它们不会跟BFC外面的元素产生外边距折叠。
+    \item 包含了内部所有的浮动元素。
+    \item 不会跟BFC外面的浮动元素重叠。
+\end{itemize}
+
+简而言之，BFC里的内容不会跟外部的元素重叠或者相互影响。如果给元素增加\texttt{clear}属性，它只会清除自身所在BFC内的浮动。如果强制给一个元素生成一个新的BFC，它不会跟其他BFC重叠。给元素添加以下的任意属性值都会创建BFC。
+
+\begin{itemize}
+    \item \texttt{float}: \texttt{left} 或 \texttt{right}。
+    \item \texttt{overflow}: \texttt{hidden、auto、scroll}。
+    \item \texttt{display}: \texttt{inline-block、table-cell、table-caption、flex、inline-flex、grid、inline-grid}。拥有这些属性的元素称为块级容器（block container）。
+    \item \texttt{position}：\texttt{absolute, fixed}。
+\end{itemize}
+
+最常见的设置 BFC 的方式是: \texttt{overflow: auto}，这并不会实际上改变什么，但是设置了 BFC。
+
+\subsubsection*{网格系统}
+
+网络系统是一种定义样式的方案，而不是具体的技术。
+
+网格系统可以提高代码的可复用性。网格系统提供了一系列的类名，可添加到标记中，将网页的一部分构造成行和列。它应该只给容器设置宽度和定位，不给网页提供视觉样式，比如颜色和边框。需要在每个容器内部添加新的元素来实现想要的视觉样式。
+
+要构建一个网格系统，首先要定义它的行为。通常网格系统的每行被划分为特定数量的列，一般是12个，但也可以是其他数。每行子元素的宽度可能等于1~12个列的宽度。选取12作为列数是因为它能够被2、3、4、6整除，组合起来足够灵活。
+
+在实际操作中，我们往往给标签添加 \texttt{column-x} 这样的属性构建网络，在 CSS 中使用 \texttt{[class*="column-"]} 这类属性选择器批量控制网络。再通过 \texttt{column-x} 详细控制单个元素属性。
+
+\newpage

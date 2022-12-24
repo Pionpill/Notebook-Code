@@ -1,0 +1,292 @@
+\section{Hook，函数组件，高级用法}
+
+最早支持 Hook 的 React 版本是 16.8。Hook 是完全可选的一项技术，Hook 技术使用与否不影响项目功能。但在本文撰写的2022年，函数组件配合 Hook 技术已经成为了主流写法; 同时这章会和借函数组件讲解一些高级用法，这些用法(除了 Hook)在类组件也同样适用。
+
+在 React 官网对 Hook 的介绍中，有一句: \textit{没有计划从 React 中移除 class}。由此可以看出 Hook 可以让函数组件实现所有的类组件功能，并且更为便捷高效。
+
+\subsection{基础 Hook}
+
+Hook 的本质就是 JavaScript 函数，它可以让你“钩入” React 的特性。\texttt{State Hook} 和 \texttt{Effect Hook} 是 Hook 的两个核心函数，分别让函数组件获取了 \texttt{state} 与生命周期。
+
+\subsubsection{State Hook}
+
+下面是使用Hook技术的一个函数组件:
+\begin{JavaScript}
+import React, { useState } from 'react';
+
+function Example() {
+  // 声明一个叫 “count” 的 state 变量。
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <p>You clicked {count} times</p>
+      <button onClick={() => setCount(count + 1)}>
+        Click me
+      </button>
+    </div>
+  );
+}
+\end{JavaScript}
+
+在函数组件中，我们没有 \texttt{this}，所以我们不能分配或读取 \texttt{this.state}。我们直接在组件中调用 \texttt{useState} Hook。
+
+\texttt{useState} 会返回一个有两个元素的数组：当前状态和一个让你更新它的函数。它类似类组件的 \texttt{this.setState}，但是它不会把新的 \texttt{state} 和旧的 \texttt{state} 进行合并(因此它是 \texttt{const} 的，也可以直接操作 \texttt{state})。\texttt{useState} 唯一的参数就是初始 \texttt{state}。
+
+\subsubsection*{\texttt{state} 特性}
+
+前面我们说过，\texttt{state} 会 \texttt{props} 的改变通常会需要重新 \texttt{render} 组件。因此我们对 \texttt{state} 的操作必须十分小心，只有必要的，关联组件状态的数据才需要放在 \texttt{state} 中。
+
+在上面的代码中，我们使用 \texttt{const} 修饰的数据接受了 \texttt{useState} 的返回值，这说明 \texttt{state} 数据本身是不可修改的，为此类组件中 React 专门提供了一个 \texttt{setState} 方法修改，Hook 也提供了对应的方法用于更新 \texttt{state}。
+
+\texttt{state} 的更新是异步的，组件的\texttt{state}并不会立即改变，\texttt{setState}只是把要修改的状态放入一个队列中，React会优化真正的执行时机，并且出于性能原因，可能会将多次\texttt{setState}的状态修改合并成一次状态修改。因此不要依赖当前的 \texttt{state} 值计算下一个 \texttt{state} 值。
+
+由于 \texttt{state} 本身应该是不可修改的对象，因此尽可能地使用 \texttt{string，number} 等数据类型，如果要用到数组或其他可变类型，则需要考虑是应该修改这些类型的数据，才是创建一个新的对应类型传给 \texttt{state}。最好的方法自然是使用 \texttt{const} 关键字。
+
+\subsubsection{Effect Hook}
+
+Effect Hook 对应的函数是 \texttt{useEffect} ，它给函数组件增加了操作副作用的能力。它跟类组件中的 \texttt{componentDidMount、componentDidUpdate} 和 \texttt{componentWillUnmount} 具有相同的用途，只不过被合并成了一个 API。
+
+\begin{JavaScript}
+// 相当于 componentDidMount 和 componentDidUpdate:
+useEffect(() => {
+  // 使用浏览器的 API 更新页面标题
+  document.title = `You clicked ${count} times ${count}`;
+});
+\end{JavaScript}
+
+当你调用 useEffect 时，就是在告诉 React 在完成对 DOM 的更改后(对应生命周期：\texttt{compone ntDidMount、componentDidUpdate})运行你的“副作用”函数。由于副作用函数是在组件内声明的，所以它们可以访问到组件的 \texttt{props} 和 \texttt{state}。与类组件生命周期不同的是，\texttt{useEffect} 调度的 \texttt{effect} 不会阻塞浏览器更新屏幕。
+
+\texttt{useEffect} 可以返回一个函数，React 将会在执行清除操作时调用它(对应生命周期: \texttt{compo nentWillUnmount})，因此常被命名为 \texttt{cleanup}。
+
+在某些情况下，每次渲染后都执行清理或者执行 \texttt{effect} 可能会导致性能问题。在类组件中，我们可以通过在 \texttt{componentDidUpdate} 中添加对 \texttt{prevProps} 或 \texttt{prevState} 的比较逻辑解决，在 \texttt{useEffect} 中可以通过添加第二个可选参数实现相同效果:
+
+\begin{JavaScript}
+useEffect(() => {
+  document.title = `You clicked ${count} times ${count}`;
+}, [count]); // 仅在 count 更改时更新
+\end{JavaScript}
+
+\subsubsection{自定义 Hook}
+
+自定义 Hook 主要用于解决组件之间逻辑共享问题。当我们想在两个函数之间共享逻辑时，我们会把它提取到第三个函数中。而组件和 Hook 都是函数，所以也同样适用这种方式。
+
+自定义 Hook 是一个函数，其名称以 “use” 开头，函数内部可以调用其他的 Hook:
+
+\begin{JavaScript}
+import { useState, useEffect } from 'react';
+
+function useFriendStatus(friendID) {
+  const [isOnline, setIsOnline] = useState(null);
+
+  useEffect(() => {
+    function handleStatusChange(status) {
+      setIsOnline(status.isOnline);
+    }
+
+    ChatAPI.subscribeToFriendStatus(friendID, handleStatusChange);
+    return () => {
+      ChatAPI.unsubscribeFromFriendStatus(friendID, handleStatusChange);
+    };
+  });
+
+  return isOnline;
+}
+\end{JavaScript}
+
+与 React 组件不同的是，自定义 Hook 不需要具有特殊的标识。我们可以自由的决定它的参数是什么，以及它应该返回什么（如果需要的话）。换句话说，它就像一个正常的函数。但是它的名字应该始终以 \texttt{use} 开头，这样可以一眼看出其符合 Hook 的规则。
+
+此处 \texttt{useFriendStatus} 的 Hook 目的是订阅某个好友的在线状态。这就是我们需要将 \texttt{friendID} 作为参数，并返回这位好友的在线状态的原因。
+
+使用自定义 Hook 只需要在函数组件中调用即可。
+
+\begin{JavaScript}
+function FriendStatus(props) {
+  const isOnline = useFriendStatus(props.friend.id);
+
+  if (isOnline === null) {
+    return 'Loading...';
+  }
+  return isOnline ? 'Online' : 'Offline';
+}
+\end{JavaScript}
+
+\subsection{进阶 Hook}
+
+\subsubsection{Context Hook}
+
+Context 提供了一个无需为每层组件手动添加 \texttt{props}，就能在组件树间进行数据传递的方法。例如当前认证的用户、主题或首选语言。
+
+\begin{JavaScript}
+// 调用 API 创建一个 Context
+const ThemeContext = React.createContext('light');
+function MyElement() {
+  const theme = useContext(ThemeContext); // 使用 Context Hook
+  return (
+    <button style={{ background: theme.background, color: theme.foreground }}>
+      I am styled by theme context!
+    </button>
+  );
+}
+\end{JavaScript}
+
+React 提供的关于 Context 的 API 有这些(不包含 Context Hook):
+\begin{itemize}
+  \item \textbf{\texttt{React.createContext}}
+  
+\begin{JavaScript}
+  const MyContext = React.createContext(defaultValue);
+\end{JavaScript}
+  
+  创建一个 Context 对象。当 React 渲染一个订阅了这个 Context 对象的组件，这个组件会从组件树中离自身最近的那个匹配的 \texttt{Provider} 中读取到当前的 \texttt{context} 值。只有当组件所处的树中没有匹配到 Provider 时，其 \texttt{defaultValue} 参数才会生效。这有助于在不使用 Provider 包装组件的情况下对组件进行测试。
+
+  \item \textbf{\texttt{Context.Provider}}
+
+\begin{HTML}
+<MyContext.Provider value={/* 某个值 */}>
+\end{HTML}
+
+每个 Context 对象都会返回一个 Provider React 组件，它允许消费组件订阅 context 的变化。Provider 接收一个 \texttt{value} 属性，传递给消费组件。一个 Provider 可以和多个消费组件有对应关系。多个 Provider 也可以嵌套使用，里层的会覆盖外层的数据。
+
+当 Provider 的 \texttt{value} 值发生变化时，它内部的所有消费组件都会重新渲染。Provider 及其内部 consumer 组件都不受制于 \texttt{shouldComponentUpdate} 函数，因此当 consumer 组件在其祖先组件退出更新的情况下也能更新。
+
+  \item \textbf{\texttt{Class.contextType}}
+  
+  挂载在 class 上的 \texttt{contextType} 属性会被重赋值为一个由 React.createContext() 创建的 Context 对象。这能让你使用 \texttt{this.context} 来消费最近 Context 上的那个值。你可以在任何生命周期中访问到它，包括 render 函数中。
+
+  \item \textbf{\texttt{Context.Consumer}}
+  
+\begin{HTML}
+<MyContext.Consumer>
+  {value => /* 基于 context 值进行渲染*/}
+</MyContext.Consumer>
+\end{HTML}
+
+  这里，React 组件也可以订阅到 context 变更。这能让你在函数式组件中完成订阅 context。
+
+  \item \textbf{\texttt{Context.displayName}}
+  
+\begin{HTML}
+const MyContext = React.createContext(/* some value */);
+MyContext.displayName = 'MyDisplayName';
+<MyContext.Provider> // "MyDisplayName.Provider" 在 DevTools 中
+<MyContext.Consumer> // "MyDisplayName.Consumer" 在 DevTools 中
+\end{HTML}
+
+  context 对象接受一个名为 displayName 的 property，类型为字符串。React DevTools 使用该字符串来确定 context 要显示的内容。
+\end{itemize}
+
+看看例子:
+
+\begin{JavaScript}
+// theme-context.js
+export const themes = {
+  light: {
+    foreground: '#000000',
+    background: '#eeeeee',
+  },
+  dark: {
+    foreground: '#ffffff',
+    background: '#222222',
+  },
+};
+export const ThemeContext = React.createContext(
+  themes.dark // 默认值
+);
+// themed-button.js
+import {ThemeContext} from './theme-context';
+
+class ThemedButton extends React.Component {
+  render() {
+    let props = this.props;
+    let theme = this.context;
+    return (
+      <button
+        {...props}
+        style={{backgroundColor: theme.background}}
+      />
+    );
+  }
+}
+ThemedButton.contextType = ThemeContext;
+export default ThemedButton;
+\end{JavaScript}
+
+
+\texttt{useHook} 本质上就是替换了类组件中的 \texttt{static contextType = MyContext} 或者 \texttt{<MyCon text.Consumer>}。仍然需要在上层组件树中使用 \texttt{<MyContext.Provider>} 来为下层组件提供 context。
+
+\subsubsection{Ref Hook}
+
+Ref 转发是一项将 ref 自动地通过组件传递到其一子组件的技巧。
+
+看下面这个常规组件:
+
+\begin{JavaScript}
+function FancyButton(props) {
+  return (
+    <button className="FancyButton">
+      {props.children}
+    </button>
+  );
+}
+\end{JavaScript}
+
+React 组件隐藏其实现细节，包括其渲染结果。其他使用 \texttt{FancyButton} 的组件通常不需要获取内部的 DOM 元素 \texttt{button} 的 \texttt{ref}。这很好，因为这防止组件过度依赖其他组件的 DOM 结构。
+
+但是一旦组件变得复杂，当我们需要操作组件中的子元素时，由于 React 对组建的封装，如果直接操作原生 DOM 往往会无法轻易获取某个元素。Ref 转发是一个可选特性，其允许某些组件接收 ref，并将其向下传递（换句话说，“转发”它）给子组件。
+
+在下面的示例中，\texttt{FancyButton} 使用 \texttt{React.forwardRef} 来获取传递给它的 \texttt{ref}，然后转发到它渲染的 DOM \texttt{button}：
+
+\begin{JavaScript}
+const FancyButton = React.forwardRef((props, ref) => (
+  <button ref={ref} className="FancyButton">
+    {props.children}
+  </button>
+));
+
+// 你可以直接获取 DOM button 的 ref：
+const ref = React.createRef();
+<FancyButton ref={ref}>Click me!</FancyButton>;
+\end{JavaScript}
+
+这样，使用 \texttt{FancyButton} 的组件可以获取底层 DOM 节点 \texttt{button} 的 ref ，并在必要时访问，就像其直接使用 DOM \texttt{button} 一样。使用 Ref 转发后发生了如下事件:
+
+\begin{itemize}
+  \item 我们通过调用 \texttt{React.createRef} 创建了一个 React ref 并将其赋值给 \texttt{ref} 变量。
+  \item 我们通过指定 \texttt{ref} 为 JSX 属性，将其向下传递给 \texttt{<FancyButton ref={ref}>}。
+  \item React 传递 \texttt{ref} 给 forwardRef 内函数 \texttt{(props, ref) => ...}，作为其第二个参数。
+  \item 我们向下转发该 \texttt{ref} 参数到 \texttt{<button ref={ref}>}，将其指定为 JSX 属性。
+  \item 当 \texttt{ref} 挂载完成，\texttt{ref.current} 将指向 <button> DOM 节点。
+\end{itemize}
+
+第二个参数 \texttt{ref} 只在使用 \texttt{React.forwardRef} 定义组件时存在。常规函数和 class 组件不接收 \texttt{ref} 参数，且 \texttt{props} 中也不存在 \texttt{ref}。
+
+\texttt{useRef} 返回一个可变的 ref 对象，其 \texttt{.current} 属性被初始化为传入的参数（\texttt{initialValue}）。返回的 ref 对象在组件的整个生命周期内保持不变。
+
+一个常见的用例便是命令式地访问子组件：
+
+\begin{JavaScript}
+const TextInputWithFocusButton: React.FC = () => {
+  const inputEl: MutableRefObject<any> = useRef(null)
+  const handleFocus = () => {
+    // `current` 指向已挂载到 DOM 上的文本输入元素
+    inputEl.current.focus()
+  }
+  return (
+    <p>
+      <input ref={inputEl} type="text" />
+      <button onClick={handleFocus}>Focus the input</button>
+    </p>
+  )
+}
+\end{JavaScript}
+
+\begin{itemize}
+  \item 使用 \texttt{useRef} 创建一个 ref 并保存在 \texttt{inputEl} 中。
+  \item 在 \texttt{return} 语句中，将 \texttt{inputEl} 通过 \texttt{ref} 标签属性绑定在 \texttt{<input>} 元素中。
+  \item 在 \texttt{<button>} 点击事件中使用 \texttt{inputEl} 进而获得 \texttt{<input>} 元素进行控制。
+\end{itemize}
+
+本质上，\texttt{useRef} 就像是可以在其 \texttt{.current} 属性中保存一个可变值的“盒子”。
+
+如果你将 ref 对象以 \texttt{<div ref={myRef} />} 形式传入组件，则无论该节点如何改变，React 都会将 ref 对象的 \texttt{.current} 属性设置为相应的 DOM 节点。然而，\texttt{useRef()} 比 ref 属性更有用。它可以很方便地保存任何可变值。

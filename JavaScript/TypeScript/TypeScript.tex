@@ -1,0 +1,50 @@
+\documentclass{PionpillNote-book}
+
+\title{TypeScript Notebook}
+\author{
+    Pionpill \footnote{笔名：北岸，电子邮件：673486387@qq.com，Github：\url{https://github.com/Pionpill}} \\
+    本文档为作者学习 TypeScript 的笔记。\\
+}
+
+\date{\today}
+
+\begin{document}
+
+\pagestyle{plain}
+\maketitle
+
+\noindent\textbf{前言：}
+
+本位介绍 TypeScript 相关语法。TypeScript 是 JavaScript 的超集，是有类型的 JavaScript，他比 JavaScript 更加严格，有更多的 OOP 理念，适用于大型项目，对后端程序员更加友好。
+
+TypeScript 是 JavaScript 的超集。在实际应用中先用 TypeScript 语法编写脚本，再使用 \texttt{tsc} 命令将 ts 文件编译成 js 文件，在运行。因此，JavaScript 能用的语法，TypeScript 绝大部分都能用，即使报错不建议用，也可以强制编译。
+
+本文默认读者会 JavaScript，因此相关内容不再说明。主要参考资料为微软官方的 TypeScript HandBook。
+
+环境如下:
+\begin{itemize}
+    \item OS: Window11
+    \item TypeScript: 3
+\end{itemize}
+
+\date{\today}
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\setcounter{page}{1} 
+\pagestyle{fancy}
+
+\part{ECMAScript}
+\chapter{基础语法}
+\import{Contents/Chapter-Type}{Basic.tex}
+\import{Contents/Chapter-Type}{Function.tex}
+\chapter{面向对象}
+\import{Contents/Chapter-OOP}{Interface.tex}
+\import{Contents/Chapter-OOP}{Class.tex}
+
+
+\end{document}
+

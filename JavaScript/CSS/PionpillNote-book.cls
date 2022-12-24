@@ -43,7 +43,7 @@
 \RequirePackage{bm}                     % 公式加粗
 \RequirePackage{pgf-umlcd}              % 类图
 \RequirePackage{multicol}               % 双栏
-\RequirePackage{pgf-umlcd}              % 类图
+\RequirePackage[toc, page, title, titletoc, header]{appendix}
 
 % 扩展的表格宏包和插图宏包
 % \RequirePackage{subfig}
@@ -58,7 +58,7 @@
 \fancyhf{}
 \renewcommand\headrulewidth{0pt}
 \fancyfoot[L]{\small{\today}}
-\fancyfoot[C]{\small{Core Java Notebook}}
+\fancyfoot[C]{\small{CSS Notebook}}
 \fancyfoot[R]{\small{ \thepage{} / \pageref{LastPage}}}
 % titletoc-目录样式
 \titlecontents{section}[0pt]{\addvspace{2pt}\filright}%
