@@ -58,7 +58,7 @@
 \fancyhf{}
 \renewcommand\headrulewidth{0pt}
 \fancyfoot[L]{\small{\today}}
-\fancyfoot[C]{\small{Core Java Notebook}}
+\fancyfoot[C]{\small{JavaScript Notebook}}
 \fancyfoot[R]{\small{ \thepage{} / \pageref{LastPage}}}
 % titletoc-目录样式
 \titlecontents{section}[0pt]{\addvspace{2pt}\filright}%
