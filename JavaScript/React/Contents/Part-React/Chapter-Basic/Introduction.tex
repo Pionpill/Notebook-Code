@@ -10,7 +10,7 @@ React 的特点可以归结为以下 4 点:
     \item \textbf{高效的 DOM 操作}: 基于React优异的差异比较算法，React可以尽量减少虚拟DOM到真实DOM的渲染次数，以及每次渲染需要改变的真实DOM节点数。
 \end{itemize}
 
-\subsection{开发环境}
+\subsection{React 开发环境}
 
 React 应用开发有两个必要环境:
 \begin{itemize}
@@ -21,8 +21,8 @@ React 应用开发有两个必要环境:
 辅助工具:
 \begin{itemize}
     \item \textbf{Webpack}: 模块打包工具，不仅可以打包JS文件，配合相关插件的使用，它还可以打包图片资源和样式文件，己经具备一站式的JavaScript应用打包能力，是React开发的必要工具。
-    \item \textbf{Babel}: Babel是一个JavaScript编译器，为了浏览器兼容性考虑，需要把 ES6 或以后的语法编译成 ES5 及之前的语法达到向前兼容的目的。
-    \item \textbf{ESLint}: JavaScript 代码检查工具，由于 JS 的语法非常乱，同一种实现有多种写法，为了团队同一管理，会用 ESLint 进行风格检测。
+    \item \textbf{Babel}: Babel是一个JavaScript编译器，为了浏览器兼容性考虑，需要把 ES6 或以后的语法编译成 ES5 及之前的语法达到向前兼容的目的，同时也负责编译 JSX 语法。
+    \item \textbf{ESLint}: JavaScript 代码检查工具，由于 JS 的语法非常乱，同一种实现有多种写法，风格不尽相同，为了团队同一管理，会用 ESLint 进行风格检测。
 \end{itemize}
 
 这些工具的使用方法比较繁琐，可以直接用 React 提供的脚手架工具构建工程。在官方文档中提供了以下几个命名用于快速构建工程:
@@ -63,5 +63,33 @@ npx create-react-app my-app --template typescript
 \end{bash}
 
 会新增几个 ts 管理文件。
+
+\subsubsection*{\texttt{create-react-app}}
+
+\texttt{create-react-app} 是一个单独的包，用于快速构建 React 项目，开源地址: \url{https://github.com/facebook/create-react-app}。
+
+但实际上我们使用改包创建完 React 项目后，\texttt{package} 文件中并没有对应的包信息，这与 \texttt{npx} 命名的执行逻辑有关。使用 \texttt{npx} 命令会自动查找当前依赖包中的可执行文件，如果没有就在 \texttt{PATH} 中寻找，再找不到就会帮助我们安装，且安装的包在使用后会被卸载。
+
+也就是说我们使用上述指令后，\texttt{npx} 帮我们安装了 \texttt{create-react-app} 包，然后构建了项目，最后将 \texttt{create-react-app} 包删除。渣男行为属于是。
+
+\subsection{React 编程风格}
+
+个人总结的 React 三个直观的编程风格: 声明式，all-in-js，vDOM。
+\begin{itemize}
+    \item \textbf{声明式}: 编程风格。
+    
+    声明式是函数式编程的一种风格，与之对应的是命令式。命令式很好理解，就是具体的命令，逻辑处理；命令式函数会显式地表明内部逻辑。声明式可以简单理解为只调用相关操作，不考虑内部具体逻辑。在实际项目中表现为将具体功能封装后，主要函数只负责调用。因此在 React 项目中很少直接看到函数该怎么做，而是关注于做什么。
+    \item \textbf{all-in-js}: 组件化。
+    
+    前端三剑客中 HTML 负责结构，CSS 负责样式，JavaScript 负责逻辑。这样的分化存在一个问题，当项目过大后，一点小改动会使得整个前端牵一发而动全身。可能因为 HTML 的改变，DOM 结构发生变化；因为 CSS 的改变，预料之外的元素样式发生了变化...
+    
+    React 认为这三者天然存在耦合性，因此用 JSX 控制 HTML，将三者统一由js控制，而将整个界面分为零散的小组件进行管理。如果使用 \texttt{styled-component} 或 \texttt{TailWindCss}，js 可以进一步控制 css，真正实现 all-in-js。
+
+    \item \textbf{vDOM}: 性能优化。
+    
+    在 React 中可以创建 React 元素，即可以“自定义”新标签(虽然这些标签实际上还是原生 DOM)，React 标签可以进一步封装。同时 vDOM 可以更加智能地让原生界面进行重绘与回流，React 内部做了大量优化让开发者既能快速开发，又不用担心性能。
+\end{itemize}
+
+此外，React 比 Vue 的一大优势是强大的生态，除了 react 项目本身，还有 react-native，next.js，redux.js 等众多优秀的项目。
 
 \newpage

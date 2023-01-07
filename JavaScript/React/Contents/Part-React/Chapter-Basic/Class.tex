@@ -1,51 +1,12 @@
-\section{组件基础，类组件，基础用法}
+\section{React 类组件}
 
-\subsection{JSX}
-
-JSX 是一种用于描述凹的JavaScript扩展语法，React使用这种语法描述组件的 UI, 在 TypeScript 可以使用 TSX。
-
-React 的一个核心思想是 all-in-js，即脚本控制所有。React 认为 HTML，CSS，JS 三者天生就存在耦合关系；与其分离三者各自书写长段的代码，不如由 JS 统一控制三者构成组件，让组件功能单一化。Vue 也采用了这种策略，只不过更多 Vue 开发者倾向于使用 template，而不是完全由 js 代替操作。
-
-JSX 的语法和 XML 相同，都是使用成对的标签构成一个树状结构的数据，例如：
-
-\begin{JavaScript}
-const element = (
-    <div>
-        <h1>Hello, World!</h1>
-    </div>
-)
-\end{JavaScript}
-
-JSX 有以下语法规范:
-\begin{itemize}
-    \item 节点数必须仅有一个根标签，通常是 \texttt{<div>} 或用 React 定义的 \texttt{<Wrapper>}。
-    \item Html 原生标签用小写表示，React 定义的标签用大写表示。除此以外，React 定义的标签与原生标签使用上没有区别。
-    \item 在 JSX 中使用 JavaScript 表达式需要用大括号包起来。且至多包括一条语句(可以是箭头函数)。如果是纯字符串则正常使用。
-    \item 格式上，如果只有一个标签可以不写 (), 否则 JSX 需要被包含在 () 中。
-\end{itemize}
-
-由于 js 语法和 Html 语法关键字有重合，例如 \texttt{class}。因此部分属性的名称会有所改变，主要的变化有：HTML 中的 \texttt{class} 要写成 \texttt{className}；事件属性要用小驼峰命名法，例如 \texttt{onclick -> onClick}。此外 JSX 中的注释需要用大括号包起来: \texttt{\{/**/\}}。
-
-\subsubsection*{JSX 的本质}
-
-JSX 本质上只是一种语法糖，一般的，用 .js 文件写 JSX 语法也不会有问题，\texttt{Node} 编译器会自动识别。习惯上，我们将含有 JSX 语法的文件命名为 \texttt{.jsx} 以表示存在 UI 组件，其他脚本逻辑则保留在 \texttt{.jx} 文件中。
-
-下面是 JSX 语法转换后的语句:
-
-\begin{JavaScript}
-// JSX
-const element = <div className= 'foo' >Hello, React</div> 
-// 转换后
-const element = React.createElement('div',{className:'foo'},'Hello, React'); 
-\end{JavaScript}
+类组件已经完成了它的使命，自 React16 给出 Hooks 后，React 主流的方向是使用函数组件。不过一些老项目仍在使用类组件，类组件的用法了解即可。如果有一定基础，也可以跳过类组件这一小节。
 
 \subsection{类组件}
 
 \subsubsection{定义组件}
 
 组件是React的核心概念，是React应用程序的基石。组件将应用的U拆分成独立的、可复用的模块，React应用程序正是由一个一个组件搭建而成的。
-
-定义一个组件有两种方式，由 ES6 \texttt{class} 定义类组件或用函数组件。现在主流的方案是 函数组件+Hooks。
 
 \subsubsection*{类组件}
 

@@ -1,0 +1,382 @@
+\section{React 状态管理}
+
+这一节开始，所介绍的内容都是函数组件与 Hooks。本节及以后只会用到函数组件。
+
+\subsection{\texttt{useState} 钩子}
+
+\subsubsection{\texttt{useState}}
+
+在函数组件中，我们没有 \texttt{this}(更准确地说，不会用\texttt{this})，所以我们不能分配或读取 \texttt{this.state}。我们直接在组件中调用 \texttt{useState} Hook 让组件通过 state 保存状态数据:
+
+\begin{JavaScript}
+import React, { useState } from 'react';
+
+function Example() {
+  // 声明一个叫 “count” 的 state 变量。
+  const [count, setCount] = useState(0);    // 数组解构
+
+  return (
+    <div>
+      <p>You clicked {count} times</p>
+      <button onClick={() => setCount(count + 1)}>
+        Click me
+      </button>
+    </div>
+  );
+}
+\end{JavaScript}
+
+\texttt{useState} 会返回一个有两个元素的数组：当前状态和一个让你更新它的函数。它类似类组件的 \texttt{this.setState}，但是它不会把新的 \texttt{state} 和旧的 \texttt{state} 进行合并(因此它是 \texttt{const} 的，也可以直接操作 \texttt{state})。\texttt{useState} 唯一的参数就是初始 \texttt{state}。
+
+\subsubsection*{\texttt{state} 特性}
+
+前面我们说过，\texttt{state} 会 \texttt{props} 的改变通常会需要重新 \texttt{render} 组件。因此我们对 \texttt{state} 的操作必须十分小心，只有必要的，关联组件状态的数据才需要放在 \texttt{state} 中。
+
+在上面的代码中，我们使用 \texttt{const} 修饰的数据接受了 \texttt{useState} 的返回值，这说明 \texttt{state} 数据本身是不可修改的，为此类组件中 React 专门提供了一个 \texttt{setState} 方法修改，Hook 也提供了对应的方法用于更新 \texttt{state}(下文也叫做 \texttt{setState})。
+
+\texttt{state} 的更新是异步的，组件的\texttt{state}并不会立即改变，\texttt{setState}只是把要修改的状态放入一个队列中，React会优化真正的执行时机，并且出于性能原因，可能会将多次\texttt{setState}的状态修改合并成一次状态修改。因此不要依赖当前的 \texttt{state} 值计算下一个 \texttt{state} 值。
+
+由于 \texttt{state} 本身应该是不可修改的对象，因此尽可能地使用 \texttt{string，number} 等数据类型，如果要用到数组或其他可变类型，则需要考虑是应该修改这些类型的数据，还是创建一个新的对应类型传给 \texttt{state}。
+
+\subsubsection*{组件树的状态}
+
+为了避免状态乱用与更好地管理状态，衍生出了两种组件树之间传递状态的方案，分别是沿组件树向下发送状态和向上发送交互。
+
+沿组件树向下发送状态很好理解，子元素接受父元素的状态作为参数。向上发送交互也很好理解，在子组件中调用 \texttt{setState} 方法即可，这里主要看一下向上发送交互:
+
+\begin{JavaScript}
+export default function StarRating({ style = {}, totalStars = 5, ...props }) {
+  const [selectedStars, setSelectedStars] = useState(0);
+  return (
+    <div style={{ padding: 5, ...style }}>
+      {createArray(totalStars).map((n, i) => (
+        <Star
+          key={i}
+          selected={selectedStars > i}
+          onSelect={() => setSelectedStars(i + 1)}
+          {...props}
+        />
+      ))}
+      <p>
+        {selectedStars} of {totalStars} stars
+      </p>
+    </div>
+  );
+}
+\end{JavaScript}
+
+向上发送交互的过程:
+\begin{itemize}
+    \item 子标签 \texttt{<Star>} 通过 \texttt{onSelect} 函数调用 \texttt{setSelectedStars} 方法。
+    \item 父组件 \texttt{selectedStar} 被改变。
+    \item ReactDOM 识别到组件 state 发生改变，尝试重绘。
+\end{itemize}
+
+\subsubsection*{异步更新}
+
+前面说过，\texttt{state} 的更新是异步的，多次\texttt{setState}的状态修改会合并成一次状态修改，如果我们需要避免异步更新导致数据不准确可以这样写:
+
+\begin{JavaScript}
+const [count, setCount] = useState(0);
+function handleClickFn() {
+  setTimeout(() => {
+    setCount((prevCount) => {
+      return prevCount + 1
+    })
+  }, 3000);
+}
+\end{JavaScript}
+
+当使用上述方法更新(也叫函数式更新) state 的时候，就不会出现异步问题，因为它可以获取之前的 state 值，也就是代码中的 prevCount 每次都是最新的值。
+
+\subsubsection{\texttt{useReducer}}
+
+\texttt{useReducer} 是 \texttt{useState} 的替代方案:
+
+\begin{JavaScript}
+const [state, dispatch] = useReducer(reducer, initialArg, init);
+\end{JavaScript}
+
+\begin{itemize}
+    \item \texttt{reducer}: 处理函数。
+    \item \texttt{initialArg}: 初始值。
+\end{itemize}
+
+如果 state 逻辑比较复杂或者一个 state 依赖之前的 state，使用 \texttt{useReducer} 更合适。
+
+\texttt{reducer} 函数接受两个参数，一个当前 state 值，一个 \texttt{action} 表示 \texttt{dispatch} 传入的值:
+
+\begin{JavaScript}
+/* 当state需要维护多个数据且它们互相依赖时，推荐使用useReducer
+组件内部只是写dispatch({...})
+处理逻辑的在useReducer函数中。获取action传过来的值，进行逻辑操作
+*/
+
+function reducer(state, action) {
+  const { type, nextName } = action;
+  switch (type) {
+    case "ADD":
+      return {
+        ...state,
+        age: state.age + 1
+      };
+    case "NAME":
+      return {
+        ...state,
+        name: nextName
+      };
+  }
+  throw Error("Unknown action: " + action.type);
+}
+
+export default function ReducerTest() {
+  const [state, dispatch] = useReducer(reducer, { name: "qingying", age: 12 });
+  function handleInputChange(e) {
+    dispatch({
+      type: "NAME",
+      nextName: e.target.value
+    });
+  }
+  function handleAdd() {
+    dispatch({
+      type: "ADD"
+    });
+  }
+  const { name, age } = state;
+  return (
+    <>
+      <input value={name} onChange={handleInputChange} />
+      <br />
+      <button onClick={handleAdd}>添加1</button>
+      <p>
+        Hello,{name}, your age is {age}
+      </p>
+    </>
+  );
+}
+\end{JavaScript}
+
+相当于将数据处理逻辑抽象到了 \texttt{reducer} 中处理，\texttt{setState} 改为 \texttt{dispatch} 只负责传递参数。
+
+本质上 \texttt{useReducer} 和 \texttt{useState} 实现的效果是相同的，因此 \texttt{useReducer} 也会导致 state 改变，需要重新 render。可以将 \texttt{useReducer} 看作一种设计模式，将具体的逻辑抽象出去，更符合 React 声明式理念。 
+
+\subsection{\texttt{useRef} 钩子}
+
+\subsubsection{\texttt{useRef} 基础}
+
+\texttt{useRef} 和 \texttt{useState} 一样，可以在函数组件中直接创建:
+
+\begin{JavaScript}
+const refContainer = useRef(initialValue);
+\end{JavaScript}
+
+\begin{itemize}
+    \item 返回一个\texttt{可变的} \texttt{ref} 对象，该对象仅有一个 \texttt{current} 属性，初始值为传入的参数。
+    \item 返回的 \texttt{ref} 对象在组建的整个生命周期保持不变。
+    \item 更新 \texttt{current} 值不会导致 render。
+    \item 更新 \texttt{useRef} 是副作用，应该放在 \texttt{useEffect} 里。
+\end{itemize}
+
+在 React 运行机制一章里，我们通过输出 React 元素对象，可以看到所有元素对象都有一个 \texttt{ref} 成员。可以直接使用标签属性绑定 \texttt{ref} 值。
+
+\begin{JavaScript}
+const TextInputWithFocusButton = () => {
+   const inputEl = useRef(null);
+   const handleFocus = () => {
+       inputEl.current.focus();
+   }
+   return (
+       <p>
+           <input ref={inputEl} type="text" />
+           <button onClick={handleFocus}>Focus the input</button>
+       </p>
+   )
+}
+\end{JavaScript}
+
+这样，我们就将 \texttt{inputEl} 绑定到了 \texttt{input} 标签上，以后可以通过 \texttt{inputEl.current} 直接操作 \texttt{<input>} 元素。
+
+除了 \texttt{useRef} 还有个 \texttt{createRef}，\texttt{crateRef} 唯一的区别是每次组件更新都会重新返回新的引用，除此之外没有区别。
+
+\subsubsection{\texttt{useRef} 共享数据}
+
+\texttt{useState} 有一个特性，不同渲染之间无法共享 state 状态值。如果我们在函数组件中写函数并使用 \texttt{state}，当我们更改状态的时候，React会重新渲染组件，每次的渲染都会拿到独立的 \texttt{state} 值，并重新定义对应的函数，每个函数体里的 state 值也是它自己的，这会导致函数内的 state 值无法更新\footnote{这个情况用的比较少，所以没有贴源码，有兴趣可以通过链接看原文}。
+
+如果我们要在函数中获取实时状态，有两种方案，一是在函数外定义一个全局变量，由于变量是定义在组件外，所以不同渲染间是可以共用该变量,所以每次都会获取最新的变量值。这种方案的一个坏处是会定义全局变量，如果多个组件都有全局变量可能会让代码变得比较难维护，尤其是多个组件用同一个全局变量。
+
+第二种方案是使用 \texttt{useRef}:
+
+\begin{JavaScript}
+const LikeButton: React.FC = () => {
+  let like = useRef(0);
+  function handleAlertClick() {
+    setTimeout(() => {
+      alert(`you clicked on ${like.current} ${like.current}`);
+    }, 3000);
+  }
+  return (
+    <>
+      <button onClick={() => { like.current = like.current + 1; }}>
+        {like.current}赞
+      </button>
+      <button onClick={handleAlertClick}>Alert</button>
+    </>
+  );
+};
+export default LikeButton;
+
+\end{JavaScript}
+
+这样的好处是数据在组件内，和其他组件没有关系。同时也说明 \texttt{useRef} 可以返回任意类型，不仅仅是绑定React 元素。
+
+\subsubsection{\texttt{forwardRef}}
+
+有的时候，我们需要获取React组件的某个 dom 元素，但是子组件已经被我们封装了，无法直接通过 React 组件获取内部 dom 元素节点。传统的方法是通过 Web API 一层层向下找 dom 节点。这有两个缺陷，一是如果封装的很深，获取 dom 节点的代码会很长; 二是回流可能会导致dom结构改变，用硬编码的方式会找不到 dom 节点。
+
+于是 React 提供了 React.forwardRef 函数:
+
+\begin{JavaScript}
+React.forwardRef((props, ref) => {}) 
+\end{JavaScript}
+
+\begin{itemize}
+    \item 该函数返回一个 React 组件。
+    \item 这个组件会接受 \texttt{ref} 参数，用于绑定内部标签的 \texttt{ref}。
+    \item 父组件通过传入 \texttt{ref} 实参与子组件对应标签的 \texttt{ref} 绑定。
+    \item 父组件绑定后，可以通过\texttt{ref} 获取到对应的 dom 元素。
+\end{itemize}
+
+\begin{JavaScript}
+const FancyButton = React.forwardRef((props, ref) => (  
+  <button ref={ref} className="FancyButton">    
+    {props.children}
+  </button>
+));
+const ref = React.useRef();
+<FancyButton ref={ref}>Click me!</FancyButton>;
+\end{JavaScript}
+
+\subsubsection{\texttt{useImperativeHandle}}
+
+直接暴露给父组件带来的问题是某些情况的不可控，父组件可以拿到DOM后进行任意的操作，但多数情况下我们希望限定只做某些操作。通过\texttt{useImperativeHandle}可以值暴露固定的操作。
+
+\begin{JavaScript}
+useImperativeHandle(ref, createHandle, [deps])
+\end{JavaScript}
+
+\begin{JavaScript}
+function FancyInput(props, ref) {
+  const inputRef = useRef();
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current.focus();
+    }
+  }));
+  return <input ref={inputRef} ... />;
+}
+FancyInput = forwardRef(FancyInput);
+\end{JavaScript}
+
+这样，渲染 <FancyInput ref={fancyInputRef} /> 的父组件就只可以调用 fancyInputRef.current.focus()。
+
+\texttt{useImperativeHandle} 一般与 \texttt{forwardRef} 配合使用。
+
+\subsection{\texttt{useContext} 钩子}
+
+Context 提供了一个无需为每层组件手动添加 \texttt{props}，就能在组件树间进行数据传递的方法。例如当前认证的用户、主题或首选语言。
+
+\texttt{useContext} 不同于 \texttt{useState} 与 \texttt{useRef}，他需要先通过 \texttt{React.createContext} 创建数据。再通过 \texttt{useContext()} 或者 \texttt{Context.Provider} 使用数据。
+
+最常用的使用方式如下:
+
+\begin{JavaScript}
+// 调用 API 创建一个 Context
+const ThemeContext = React.createContext('light');
+function MyElement() {
+  const theme = useContext(ThemeContext); // 使用 Context Hook
+  return (
+    <button style={{ background: theme.background, color: theme.foreground }}>
+      I am styled by theme context!
+    </button>
+  );
+}
+\end{JavaScript}
+
+React 提供的关于 Context 的 API 有这些(不包含 Context Hook):
+\begin{itemize}
+  \item \textbf{\texttt{React.createContext}}
+  
+\begin{JavaScript}
+  const MyContext = React.createContext(defaultValue);
+\end{JavaScript}
+  
+  创建一个 Context 对象。当 React 渲染一个订阅了这个 Context 对象的组件，这个组件会从组件树中离自身最近的那个匹配的 \texttt{Provider} 中读取到当前的 \texttt{context} 值。只有当组件所处的树中没有匹配到 Provider 时，其 \texttt{defaultValue} 参数才会生效。这有助于在不使用 Provider 包装组件的情况下对组件进行测试。
+
+  \item \textbf{\texttt{Context.Provider}}
+
+\begin{HTML}
+<MyContext.Provider value={/* 某个值 */}>
+\end{HTML}
+
+每个 Context 对象都会返回一个 Provider React 组件，它允许消费组件订阅 context 的变化。Provider 接收一个 \texttt{value} 属性，传递给消费组件。一个 Provider 可以和多个消费组件有对应关系。多个 Provider 也可以嵌套使用，里层的会覆盖外层的数据。
+
+当 Provider 的 \texttt{value} 值发生变化时，它内部的所有消费组件都会重新渲染。Provider 及其内部 consumer 组件都不受制于 \texttt{shouldComponentUpdate} 函数，因此当 consumer 组件在其祖先组件退出更新的情况下也能更新。
+
+  \item \textbf{\texttt{Class.contextType}}
+  
+  挂载在 class 上的 \texttt{contextType} 属性会被重赋值为一个由 React.createContext() 创建的 Context 对象。这能让你使用 \texttt{this.context} 来消费最近 Context 上的那个值。你可以在任何生命周期中访问到它，包括 render 函数中。
+
+  \item \textbf{\texttt{Context.Consumer}}
+  
+\begin{HTML}
+<MyContext.Consumer>
+  {value => /* 基于 context 值进行渲染*/}
+</MyContext.Consumer>
+\end{HTML}
+
+  这里，React 组件也可以订阅到 context 变更。这能让你在函数式组件中完成订阅 context。
+
+  \item \textbf{\texttt{Context.displayName}}
+  
+\begin{HTML}
+const MyContext = React.createContext(/* some value */);
+MyContext.displayName = 'MyDisplayName';
+<MyContext.Provider> // "MyDisplayName.Provider" 在 DevTools 中
+<MyContext.Consumer> // "MyDisplayName.Consumer" 在 DevTools 中
+\end{HTML}
+
+  context 对象接受一个名为 displayName 的 property，类型为字符串。React DevTools 使用该字符串来确定 context 要显示的内容。
+\end{itemize}
+
+比较少用的，结合 \texttt{<Context.Provider>} 与 \texttt{<Context.Consumer>}:
+
+\begin{JavaScript}
+const ThemeContext = createContext()
+
+class App extends React.Component {
+  render () {
+    return (
+      // 使用 Context.Provider 包裹后续组件，value指定值 
+      <ThemeContext.Provider value={'red'}>
+        <Bottom></Bottom>
+      </ThemeContext.Provider>
+    )
+  }
+}
+
+class Bottom extends React.Component {
+  render () {
+    return (
+      // Context.Consumer Consumer消费者使用Context的值
+      // 但子组件不能是其他组件，必须渲染一个函数，函数的参数就是Context的值
+      <ThemeContext.Consumer>
+        {
+          theme => <h1>ThemeContext的值为{theme}</h1>
+        }
+      </ThemeContext.Consumer>
+    )
+  }
+}
+\end{JavaScript}
+
+\newpage
