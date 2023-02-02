@@ -1,0 +1,220 @@
+\section{接口}
+
+\subsection{对象接口}
+
+由于 JavaScript 没有类这个概念，只有对象与原型，因此 TypeScript 的接口也是基于对象。
+
+\begin{TypeScript}
+function printLabel(labelledObj: { label: string }) {
+    console.log(labelledObj.label);
+}
+  
+let myObj = { size: 10, label: "Size 10 Object" };
+printLabel(myObj);
+\end{TypeScript}
+
+类型检查其会查看 \texttt{printLabel} 的调用，只有参数是存在一个名为 \texttt{label} 的 \texttt{string} 对象时，才能通过。
+
+这样写比较混乱，实参类型太复杂了，可以更面向对象一点:
+
+\begin{TypeScript}
+interface LabelledValue {
+    label: string;
+}
+function printLabel(labelledObj: LabelledValue) {
+    console.log(labelledObj.label);
+}
+let myObj = {size: 10, label: "Size 10 Object"};
+printLabel(myObj);
+\end{TypeScript}
+
+可以看出，可传统的编程语言相比，我们并没有继承这个 \texttt{LabelledValue} 接口，该接口存在的意义仅仅是做检查，检查是否满足 \texttt{interface} 定义的东西，而不是实现接口。
+
+\subsubsection*{可选属性}
+
+接口里的属性不全都是必需的。 有些是只在某些条件下存在，或者根本不存在。可以通过在形参后加 \texttt{?} 表示可选: 
+
+\begin{TypeScript}
+interface SquareConfig {
+    color?: string;
+    width?: number;
+}
+
+function createSquare(config: SquareConfig): {color: string; area: number} {
+    let newSquare = {color: "white", area: 100};
+    if (config.color) {
+        newSquare.color = config.color;
+    }
+    if (config.width) {
+        newSquare.area = config.width * config.width;
+    }
+    return newSquare;
+}
+
+let mySquare = createSquare({color: "black"});
+\end{TypeScript}
+
+\subsubsection*{只读属性}
+
+一些对象属性只能在对象刚刚创建的时候修改其值。 你可以在属性名前用 \texttt{readonly} 来指定只读属性:
+
+\begin{TypeScript}
+interface Point {
+    readonly x: number;
+    readonly y: number;
+}
+let p1: Point = { x: 10, y: 20 };
+p1.x = 5; // error!
+\end{TypeScript}
+
+TypeScript具有\texttt{ReadonlyArray<T>}类型，它与\texttt{Array<T>}相似，只是把所有可变方法去掉了，因此可以确保数组创建后再也不能被修改：
+
+\begin{TypeScript}
+let a: number[] = [1, 2, 3, 4];
+let ro: ReadonlyArray<number> = a;
+ro[0] = 12; // error!
+ro.push(5); // error!
+ro.length = 100; // error!
+a = ro; // error!
+\end{TypeScript}
+
+如果像赋值到普通数组，可以这样写:
+
+\begin{TypeScript}
+a = ro as number[];
+\end{TypeScript}
+
+\texttt{readonly} 与 \texttt{const} 类似。一般 \texttt{readonly} 用作对象的属性，\texttt{const} 则作为一般变量。
+
+\subsubsection*{额外的属性检查}
+
+在 \texttt{TypeScript} 中， \textbf{对象字面量}会被特殊对待而且会经过 额外属性检查，当将它们赋值给变量或作为参数传递的时候。 如果一个对象字面量存在任何“目标类型”不包含的属性时，你会得到一个错误。
+
+\begin{TypeScript}
+// 基于前面的 SquareConfig
+// error: 'colour' not expected in type 'SquareConfig'
+let mySquare = createSquare({ colour: "red", width: 100 });
+\end{TypeScript}
+
+绕开这些检查非常简单。 最简便的方法是使用类型断言：
+
+\begin{TypeScript}
+let mySquare = createSquare({ width: 100, opacity: 0.5 } as SquareConfig);
+\end{TypeScript}
+
+然而，最佳的方式是能够添加一个字符串索引签名，前提是你能够确定这个对象可能具有某些做为特殊用途使用的额外属性。 如果 \texttt{SquareConfig}带有上面定义的类型的\texttt{color}和\texttt{width}属性，并且还会带有任意数量的其它属性，那么我们可以这样定义它：
+
+\begin{TypeScript}
+interface SquareConfig {
+    color?: string;
+    width?: number;
+    [propName: string]: any;
+}
+\end{TypeScript}
+
+还有最后一种跳过这些检查的方式，将这个对象赋值给一个另一个变量。因为只有字面量才会做格外的属性检查。
+
+\begin{TypeScript}
+let squareOptions = { colour: "red", width: 100 };
+let mySquare = createSquare(squareOptions);
+\end{TypeScript}
+
+最佳的实践是，在传入对象字面量时保证只有接口中规定的属性，否则使用引用传参。
+
+\subsection{接口拓展}
+
+TypeScript 中的接口除了规范对象外，还可以规范函数，类... 毕竟它们本质上都是对象。
+
+\subsubsection*{函数接口}
+
+为了使用接口表示函数类型，我们需要给接口定义一个调用签名。 它就像是一个只有参数列表和返回值类型的函数定义。参数列表里的每个参数都需要名字和类型。
+
+\begin{TypeScript}
+interface SearchFunc {
+    (source: string, subString: string): boolean;
+}
+let mySearch: SearchFunc;
+mySearch = function(source: string, subString: string) {
+    let result = source.search(subString);
+    return result > -1;
+}
+\end{TypeScript}
+
+对于函数类型的类型检查来说，函数的参数名不需要与接口里定义的名字相匹配。 
+
+\begin{TypeScript}
+let mySearch: SearchFunc;
+mySearch = function(src: string, sub: string): boolean {
+    let result = src.search(sub);
+    return result > -1;
+}
+\end{TypeScript}
+
+\subsubsection*{可索引类型}
+
+可索引类型具有一个 索引签名，它描述了对象索引的类型，还有相应的索引返回值类型。 让我们看一个例子：
+
+\begin{TypeScript}
+interface StringArray {
+  [index: number]: string;
+}
+let myArray: StringArray;
+myArray = ["Bob", "Fred"];
+let myStr: string = myArray[0];
+\end{TypeScript}
+
+TypeScript支持两种索引签名：字符串和数字。 可以同时使用两种类型的索引，但是数字索引的返回值必须是字符串索引返回值类型的子类型。 这是因为当使用 \texttt{number}来索引时，JavaScript会将它转换成\texttt{string}然后再去索引对象。 也就是说用 100（一个\texttt{number}）去索引等同于使用"100"（一个\texttt{string}）去索引，因此两者需要保持一致。
+
+可以将索引签名设置为只读，这样就防止了给索引赋值：
+
+\begin{TypeScript}
+interface ReadonlyStringArray {
+    readonly [index: number]: string;
+}
+let myArray: ReadonlyStringArray = ["Alice", "Bob"];
+myArray[2] = "Mallory"; // error!
+\end{TypeScript}
+
+\subsection{类接口}
+
+\subsubsection*{类接口定义与是实现}
+
+TypeScript 的类接口和 Java 类似，仅检查公有部分，需要实现:
+
+\begin{TypeScript}
+interface ClockInterface {
+    currentTime: Date;
+    setTime(d: Date);
+}
+class Clock implements ClockInterface {
+    currentTime: Date;
+    setTime(d: Date) {
+        this.currentTime = d;
+    }
+    constructor(h: number, m: number) { }
+}
+\end{TypeScript}
+
+\subsubsection*{接口继承}
+
+接口是可以相互继承的，并且和 Java 一样支持多继承:
+
+\begin{TypeScript}
+interface Shape {
+    color: string;
+}
+interface PenStroke {
+    penWidth: number;
+}
+interface Square extends Shape, PenStroke {
+    sideLength: number;
+}
+let square = <Square>{};
+square.color = "blue";
+square.sideLength = 10;
+square.penWidth = 5.0;
+\end{TypeScript}
+
+TypeScript 允许接口继承类，当接口继承了一个类类型时，它会继承类的成员但不包括其实现。 
+
+\newpage

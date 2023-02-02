@@ -1,0 +1,152 @@
+\section{DOM 扩展}
+
+尽管 DOM API 已经相当不错，但各个浏览器社区开发出了自己专有的 DOM 扩展。W3C 着手将这些已成为事实标准的专有扩展编制成正式规范。由此诞生了描述DOM扩展的两个标准：Selectors  API与HTML5。另外还有较小的Element Traversal规范，增加了一些DOM属性。
+
+\subsection{Selectors API}
+
+JavaScript库中最流行的一种能力就是根据CSS选择符的模式匹配DOM元素。比如，jQuery就完全以CSS选择符查询DOM获取元素引用，而不是使用\texttt{getElementById()}和\texttt{getElementsByTagName()}。
+
+Selectors API是W3C推荐标准，规定了浏览器原生支持的CSS查询API。支持这一特性的所有JavaScript库都会实现一个基本的CSS解析器，然后使用已有的DOM方法搜索文档并匹配目标节点。虽然库开发者在不断改进其性能，但JavaScript代码能做到的毕竟有限。通过浏览器原生支持这个API，解析和遍历DOM树可以通过底层编译语言实现，性能也有了数量级的提升。
+
+Selectors API Level 1的核心是两个方法：\texttt{querySelector()}和\texttt{querySelectorAll()}。在兼容浏览器中，\texttt{Document}类型和\texttt{Element}类型的实例上都会暴露这两个方法。
+
+Selectors API Level 2规范在Element类型上新增了更多方法，比如\texttt{matches()、find()}和\texttt{findAll()}。不过，目前还没有浏览器实现或宣称实现\texttt{find()}和\texttt{findAll()}。
+
+总而言之，现在通用的有三个 Selectors API: \texttt{querySelector(), querySelectorAll(), matches()}。
+\begin{itemize}
+    \item \texttt{querySelector()}: 接收CSS选择符参数，返回匹配该模式的第一个后代元素，如果没有匹配项则返回null。在\texttt{Document}上使用\texttt{querySelector()}方法时，会从文档元素开始搜索；在\texttt{Element}上使用\texttt{querySelector()}方法时，则只会从当前元素的后代中查询。
+\begin{JavaScript}
+let body = document.querySelector("body"); 
+\end{JavaScript}
+    \item \texttt{querySelectorAll()}: 和 \texttt{querySelector()} 类似，返回的是 \texttt{NodeList} 的静态实例。
+    \item \texttt{matches()}: 接收一个CSS选择符参数，如果元素匹配则该选择符返回\texttt{true}，否则返回\texttt{false}。使用这个方法可以方便地检测某个元素会不会被上面两个方法返回。
+\end{itemize}
+
+\subsection{HTML5}
+
+HTML5代表着与以前的HTML截然不同的方向。在所有以前的HTML规范中，从未出现过描述JavaScript接口的情形，HTML就是一个纯标记语言。JavaScript绑定的事，一概交给DOM规范去定义。然而，HTML5规范却包含了与标记相关的大量JavaScript API定义。其中有的API与DOM重合，定义了浏览器应该提供的DOM扩展。
+
+\subsubsection*{CSS 类扩展}
+
+自HTML4被广泛采用以来，Web开发中一个主要的变化是\texttt{class}属性用得越来越多，其用处是为元素添加样式以及语义信息。自然地，JavaScript与CSS类的交互就增多了，包括动态修改类名，以及根据给定的一个或一组类名查询元素，等等。为了适应开发者和他们对\texttt{class}属性的认可，HTML5增加了一些特性以方便使用CSS类。
+
+\begin{itemize}
+    \item \texttt{getElementsByClassName}: 暴露在\texttt{document}对象和所有HTML元素上。这个方法脱胎于基于原有DOM特性实现该功能的JavaScript库，提供了性能高好的原生实现。
+    \begin{itemize}
+        \item 接收一个参数，即包含一个或多个类名的字符串，返回类名中包含相应类的元素的\texttt{NodeList}。如果提供了多个类名，则顺序无关紧要。
+\begin{JavaScript}
+// 取得所有类名中包含"username"和"current"元素
+// 这两个类名的顺序无关紧要
+let allCurrentUsernames = document.getElementsByClassName("username current"); 
+\end{JavaScript}
+    \end{itemize}
+    \item \texttt{classList} 属性: 用于方便快捷地操作元素地多个 \texttt{class} 属性，可以完全取代 \texttt{className}属性。它包含了以下方法:
+    \begin{itemize}
+        \item \texttt{add(value)}: 向类名列表中添加指定的字符串值\texttt{value}。
+        \item \texttt{contains(value)}: 返回布尔值，表示 \texttt{value} 是否存在。
+        \item \texttt{remove(value)}: 向类名列表中删除指定的字符串值\texttt{value}。
+        \item \texttt{toggle(value)}: 如果类名列表中已经存在指定的\texttt{value}，则删除；如果不存在，则添加。
+    \end{itemize}
+\end{itemize}
+
+\subsubsection*{焦点管理}
+
+HTML5增加了辅助DOM焦点管理的功能。首先是\texttt{document.activeElement}，始终包含当前拥有焦点的DOM元素。页面加载时，可以通过用户输入（按Tab键或代码中使用\texttt{focus()}方法）让某个元素自动获得焦点。例如：
+
+\begin{JavaScript}
+let button = document.getElementById("myButton"); 
+button.focus(); 
+console.log(document.activeElement === button); // true 
+\end{JavaScript}
+
+默认情况下，\texttt{document.activeElement}在页面刚加载完之后会设置为\texttt{document.body}。而在页面完全加载之前，\texttt{document.activeElement}的值为\texttt{null}。
+
+还有一个 \texttt{document.hasFocus()} 方法，返回布尔值表示文档是否有焦点。
+
+第一个方法可以用来查询文档，确定哪个元素拥有焦点，第二个方法可以查询文档是否获得了焦点。
+
+\subsubsection*{\texttt{HTMLDocument} 扩展}
+
+HTML5扩展了\texttt{HTMLDocument}类型，增加了更多功能。与其他HTML5定义的DOM扩展一样，这些变化同样基于所有浏览器事实上都已经支持的专有扩展。
+
+\begin{itemize}
+    \item \texttt{readyState} 属性: 这个属性表示文档加载的状态，有两个值: \texttt{loading} 与 \texttt{complete} 分别表示文档正在加载和加载完成。实际开发中，最好是把\texttt{document.readState}当成一个指示器，以判断文档是否加载完毕。
+    \item \texttt{compatMode} 属性: 指示浏览器当前处于什么渲染模式，一般有两个值: \texttt{CSS1Compat} 和 \texttt{BackCompat} 分别表示标准模式和混杂模式。
+    \item \texttt{head}: 指向 \texttt{<head>} 元素。
+\end{itemize}
+
+此外，还增加了一个 \texttt{characterSet} 属性表示文档实际使用的字符集。默认是 ``UTF-16''。
+
+\subsubsection*{自定义数据属性}
+
+HTML5允许给元素指定非标准的属性，但要使用前缀\texttt{data-}以便告诉浏览器，这些属性既不包含与渲染有关的信息，也不包含元素的语义信息。除了前缀，自定义属性对命名是没有限制的，\texttt{data-}后面跟什么都可以。
+
+定义了自定义数据属性后，可以通过元素的\texttt{dataset}属性来访问。\texttt{dataset}属性是一个\texttt{DOMStringMap}的实例，包含一组键/值对映射。元素的每个\texttt{data-name}属性在\texttt{dataset}中都可以通过data-后面的字符串作为键来访问。
+
+\subsubsection*{插入标记}
+
+DOM虽然已经为操纵节点提供了很多API，但向文档中一次性插入大量HTML时还是比较麻烦。相比先创建一堆节点，再把它们以正确的顺序连接起来，直接插入一个HTML字符串要简单（快速）得多。
+
+\begin{itemize}
+    \item \texttt{innerHTML} 属性: 会返回元素所有后代的HTML字符串，包括元素、注释和文本节点。而在写入innerHTML时，则会根据提供的字符串值以新的DOM子树替代元素中原来包含的所有节点，浏览器会解析字符串。
+    \item \texttt{outerHTML} 属性: 读取\texttt{outerHTML}属性时，会返回调用它的元素（及所有后代元素）的HTML字符串。在写入\texttt{outerHTML}属性时，调用它的元素会被传入的HTML字符串经解释之后生成的DOM子树取代。
+    \item \texttt{insertAdjacentHTML(), insertAdjacentText()}: 接收两个参数, 第二个为要插入标记的位置和要插入的HTML或文本。第一个参数是下列值中的一个(不区分大小写):
+    \begin{itemize}
+        \item \texttt{"beforebegin"}: 插入当前元素前面，作为前一个同胞节点；
+        \item \texttt{"afterbegin"}: 插入当前元素内部，作为新的子节点或放在第一个子节点前面；
+        \item \texttt{"beforeend"}: 插入当前元素内部，作为新的子节点或放在最后一个子节点后面；
+        \item \texttt{"afterend"}: 插入当前元素后面，作为下一个同胞节点。
+    \end{itemize}
+\end{itemize}
+
+一般情况下这样做会带来性能提升，但在不同的浏览器上也不一定；实际开发中更多地会使用 JSX 风格的代码。
+
+\subsubsection*{\texttt{scrollIntoView()}}
+
+DOM规范中没有涉及的一个问题是如何滚动页面中的某个区域。为填充这方面的缺失，不同浏览器实现了不同的控制滚动的方式。在所有这些专有方法中，HTML5选择了标准化\texttt{scrollIntoView()}。\texttt{scrollIntoView()}方法存在于所有HTML元素上，可以滚动浏览器窗口或容器元素以便包含元素进入视口。这个方法的参数如下：
+
+\begin{itemize}
+    \item \texttt{alignToTop}: 布尔值。
+    \begin{itemize}
+        \item \texttt{true}: 窗口滚动后元素的顶部与视口顶部对齐。
+        \item \texttt{false}：窗口滚动后元素的底部与视口底部对齐。
+    \end{itemize}
+    \item \texttt{scrollIntoViewOptions}: 选项对象。
+    \begin{itemize}
+        \item \texttt{behavior}: 定义过渡动画，可取的值为\texttt{"smooth"}和\texttt{"auto"}，默认为\texttt{"auto"}。
+        \item \texttt{block}: 定义垂直方向的对齐，可取的值为\texttt{"start"、"center"、"end"}和\texttt{"nearest"}，默认为\texttt{"start"}。
+        \item \texttt{inline}: 定义水平方向的对齐，可取的值为\texttt{"start"、"center"、"end"}和\texttt{"nearest"}，默认为\texttt{"nearest"}。
+    \end{itemize}
+\end{itemize}
+
+不传参数等同于\texttt{alignToTop}为\texttt{true}。
+
+除此之外，还有一个 \texttt{scrollIntoViewIfNeeded()} 方法，将不在浏览器窗口的可见区域内的元素滚动到浏览器窗口的可见区域。这个方法是非标准的，不建议使用。
+
+\subsection{其他扩展}
+
+\subsubsection*{Element Traversal API}
+
+Element Traversal API为DOM元素添加了5个属性：
+\begin{itemize}
+    \item \texttt{childElementCount}: 返回子元素数量（不包含文本节点和注释）;
+    \item \texttt{firstElementChild}: 指向第一个 \texttt{Element} 类型的子元素;
+    \item \texttt{lastElementChild}: 指向最后第一个 \texttt{Element} 类型的子元素;
+    \item \texttt{previousElementSibling}: 指向前一个\texttt{Element}类型的同胞元素;
+    \item \texttt{nextElementSibling}: 指向后一个\texttt{Element}类型的同胞元素。
+\end{itemize}
+
+在支持的浏览器中，所有DOM元素都会有这些属性，为遍历DOM元素提供便利。这样开发者就不用担心空白文本节点的问题了。
+
+\subsubsection*{专有扩展}
+
+这些扩展大部分是由于历史原因造成的，比如最早由 IR 浏览器提供，后来被所有浏览器支持。
+
+\begin{itemize}
+    \item \texttt{children} 属性: 一个 \texttt{HTMLCollection}，只包含元素的Element类型的子节点。如果元素的子节点类型全部是元素类型，那\texttt{children}和\texttt{childNodes}中包含的节点应该是一样的。
+    \item \texttt{contains()}: 需要确定一个元素是不是另一个元素的后代。
+    \item \texttt{innerText} 属性: 对应元素中包含的所有文本内容，无论文本在子树中哪个层级。在用于读取值时，\texttt{innerText}会按照深度优先的顺序将子树中所有文本节点的值拼接起来。在用于写入值时，\texttt{innerText}会移除元素的所有后代并插入一个包含该值的文本节点。
+    \item \texttt{outerText} 属性: 与\texttt{innerText}类似，只不过作用范围包含调用它的节点。
+\end{itemize}
+
+\newpage

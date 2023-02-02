@@ -1,0 +1,133 @@
+\section{React 运行机制与 JSX 语法}
+
+\subsection{React 运行机制}
+
+在浏览器中\footnote{第一部分所有内容均在浏览器环境中，下文不再说明。}使用 React 需要引入两个核心库: React 和 ReactDOM。前者负责创建视图，后者负责在浏览器中渲染UI。
+
+\subsubsection*{React 与 ReactDOM 库}
+
+我们知道，HTML本质上是一系列指令，让浏览器构建 DOM。浏览器加载 HTML 并渲染用户界面时，构成 HTML 文档的元素变成 DOM 元素。我们通过 JavaScript 调用 DOM API 可以修改 DOM。React 是代我们更新浏览器 DOM 的一个库。有了 React 库，我们不再直接与 DOM API 交互，则是让 React 收到指令后帮助我们渲染和协调元素。
+
+React DOM 由 React 元素组成。React 元素是对真正 DOM 元素的描述，换句话说，React 元素是如何创建浏览器 DOM 的指令。
+
+我们可以通过 \texttt{React.createElement} 创建一个表示 \texttt{h1} 的 React 元素:
+
+\begin{JavaScript}
+React.createElement("h1", {id: "recipe-o"}, "Baked Salmon");
+\end{JavaScript}
+
+渲染时(渲染由 ReactDOM 库负责)，React 把这个元素转换成真正的 DOM 元素:
+
+\begin{HTML}
+<h1 id = "recipe-o">Baked Salmon</h1>
+\end{HTML}
+
+如果在控制台输出这个元素，会看到如下内容:
+
+\begin{JavaScript}
+{
+    $$typeof: Symbol(React.element),    // $$ 对象类型，一般都是 React.element 或者 HTML 元素
+    "type": "h1",   // HTML 或 SVG 元素
+    "key": null,    // 类似索引，用于快速获取元素，提高效率
+    "ref": null,    
+    "props": {id: "recipe-o", children: "Baked Salmon"},    // 元素属性，children 表示嵌套的文本
+    "_owner": null,
+    "_store": {},
+}
+\end{JavaScript}
+
+创建 React 组件后，由 ReactDOM 负责渲染，渲染所需的 \texttt{render} 方法就在 ReactDOM 中。
+
+\begin{JavaScript}
+const dish = React.createElement("h1", null, "Baked Salmon");
+ReactDOM.render(dish, document.getElementById("root"));
+\end{JavaScript}
+
+在 DOM 中与渲染有关的一些共都在 ReactDOM 包中，React16 之后，\texttt{render} 方法可以接受一个数组以渲染多个元素。
+
+比较特殊的，\texttt{props.children} 的值可以是 React 元素对象或元的对象组成的数组:
+
+\begin{JavaScript}
+{
+    "type": "ul"
+    "props": {
+        "children": [
+            {"type": "li", "props":{...} ...}
+            {"type": "li", "props":{...} ...}
+            {"type": "li", "props":{...} ...}
+            {"type": "li", "props":{...} ...}
+        ]
+    }
+}
+\end{JavaScript}
+
+\subsection{JSX 语法}
+
+上一节我们使用了 React 包中的函数直接操作 React DOM，这样做可以清晰地看出 React 是如何运作的，但是实际开发中，这样写比较复杂，可读性不高，因此有了 JSX 语法。
+
+JSX 是一种用于描述UI的JavaScript扩展语法，React使用这种语法描述组件的 UI, JSX 本质上还是返回一个 React 元素。
+
+JSX 的语法和 XML 类似，都是使用成对的标签构成一个树状结构的数据，例如：
+
+\begin{JavaScript}
+const element = (
+    <div>
+        <h1>Hello, World!</h1>
+    </div>
+)
+\end{JavaScript}
+
+JSX 有以下语法规范:
+\begin{itemize}
+    \item 节点树必须仅有一个根标签，通常是 \texttt{<div>} 或用 React 定义的 \texttt{<Wrapper>}。
+    \item Html 原生标签用小写表示，React 定义的标签用大写表示。除此以外，React 定义的标签与原生标签使用上没有区别。
+    \item 在 JSX 中使用 JavaScript 表达式需要用大括号包起来。且至多包括一条语句(可以是箭头函数)。如果是纯字符串则正常使用。
+    \item 格式上，如果只有一个标签可以不写 (), 否则 JSX 需要被包含在 () 中。
+\end{itemize}
+
+由于 js 语法和 Html 语法关键字有重合，例如 \texttt{class}。因此部分属性的名称会有所改变，主要的变化有：HTML 中的 \texttt{class} 要写成 \texttt{className}；事件属性要用小驼峰命名法，例如 \texttt{onclick -> onClick}。此外 JSX 中的注释需要用大括号包起来: \texttt{\{/**/\}}。
+
+\subsubsection*{Fragment}
+
+JSX 语法规定创建的 React 元素必须有且仅有一个根标签，通常情况下我们可以用 \texttt{<div>} 标签作为父标签，再做一些对应的样式调整。但有时候我们不需要多余的父标签，这会创建很多非必要的标签，导致 DOM 层级过深，此时可以使用 \texttt{<React.Fragment>} 标签表示一个 React 片段，且不会创建新标签。更简洁地，我们可以使用 \texttt{<>} 代替 \texttt{<React.Fragment>}:
+
+\begin{JavaScript}
+return (
+    <>
+        <h1> Hello </h1>
+        <h1> World </h1>
+    </>
+)
+\end{JavaScript}
+ 
+
+\subsubsection*{JSX 的本质}
+
+JSX 本质上只是一种语法糖，对于部分编译器，用 .js 文件写 JSX 语法也不会有问题。习惯上，我们将含有 JSX 语法的文件命名为 \texttt{.jsx} 以表示存在 UI 组件，其他脚本逻辑则保留在 \texttt{.jx} 文件中。
+
+下面是 JSX 语法转换后的语句:
+
+\begin{JavaScript}
+// JSX
+const element = <div className= 'foo' >Hello, React</div> 
+// 转换后
+const element = React.createElement('div',{className:'foo'},'Hello, React'); 
+\end{JavaScript}
+
+\subsubsection*{JavaScript 表达式}
+
+在 JSX 语法中可以使用 JavaScript 表达式，一堆花括号之间的 JavaScript 代码会做求值，比如:
+
+\begin{JavaScript}
+<ul>
+    {props.values.map((value, index) => (<li key="{i}">{value}</li>))}
+<ul>
+\end{JavaScript}
+
+
+
+
+
+
+
+\newpage

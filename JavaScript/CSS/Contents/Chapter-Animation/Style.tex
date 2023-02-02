@@ -1,0 +1,89 @@
+\section{样式}
+
+原书这几节有很多设计相关理论的讲解，如有兴趣，请查看原文。本文只记录技术相关的内容。
+
+\subsection{背景，阴影，颜色}
+\subsubsection*{背景}
+与背景相关的属性一共有八个，\texttt{background} 属性是他们的缩写:
+
+\begin{itemize}
+    \item \texttt{background-image}: 指定一个文件或生成的颜色渐变作为背景图片。
+    \item \texttt{background-position}: 设置背景图片的初始位置
+    \item \texttt{background-size}: 指定元素内背景图片的渲染尺寸
+    \item \texttt{background-repeat}: 决定在需要填充整个元素时，是否平铺图片。
+    \item \texttt{background-origin}: 决定背景相对于元素的边框盒，内边距框盒或内容盒子来定位。
+    \item \texttt{background-clip}: 指定背景是否应该填充。
+    \item \texttt{background-attachment}: 指定背景元素是跟着元素上下滚动还是固定。
+    \item \texttt{background-color}: 指定纯色背景，渲染到背景图片下方。
+\end{itemize}
+
+。\texttt{background-image} 属性可以接受一个图片 URL 路径(\texttt{background-image: url(coffee- beans.jpg)}),也可以接受一个渐变函数。
+
+最基础的渐变函数是线性渐变: \texttt{background-image: linear-gradient(to right, white, blue);}，第二三个参数是颜色，可以增加颜色参数。第一个确定渐变角度，单位可以是以下:
+\begin{itemize}
+    \item \texttt{deg}: 角度
+    \item \texttt{rad}: 弧度
+    \item \texttt{turn}: 代表环绕圆周的圈数，0.25\texttt{turn}相当于90\texttt{deg}。
+    \item \texttt{grad}: 百分度。一个完整的圆是400百分度（400\texttt{grad}），100\texttt{grad}相当于90\texttt{deg}。
+\end{itemize}
+
+在颜色参数后可以加上位置，比如:
+
+\begin{HTML}
+background-image: linear-gradient(90deg,red 40\%, white 40\%,white 60\%, blue 60\%);
+\end{HTML}
+
+表示在 40\%, 60\% 处开始渐变，上面代码会生成法国国旗。
+
+还可以生成重复的渐变:
+
+\begin{HTML}
+background-image: repeating-linear-gradient(-45deg,#57b, #57b 10px, #148 10px, #148 20px);
+\end{HTML}
+
+上述渐变会填充满整个容器。
+
+类似的，还有镜像渐变: \texttt{radial-gradient()}，根据参数个数不同产生不同的效果，请自行查阅具体功能。
+
+\subsubsection*{阴影}
+
+CSS 提供了两种阴影:
+\begin{itemize}
+    \item \texttt{text-shadow}: 文字阴影。
+    \item \texttt{box-shadow}: 盒子阴影。
+\end{itemize}
+
+最完整的语法包含六个参数: \texttt{box-shadow: insert, offset-x, offset-y, radius, s pread-radius, color}。\texttt{insert} 表示内阴影, \texttt{radius} 表示扩展半径，\texttt{spread-radius} 表示对扩展半径的缩放，这两个组合对阴影进行扩展。
+
+现在主流的阴影设计方案是扁平化，low-poly 风格。
+
+\subsubsection*{混合模式}
+
+CSS支持15种混合模式，每一种都使用不同的计算原理来控制生成最终的混合结果。这个用的比较少，如果由 PS 等图像处理技术基础，很好理解。
+
+\subsubsection*{颜色}
+
+颜色有多种表示方法，对应 CSS 有多个处理颜色的方法:
+\begin{itemize}
+    \item 名称: CSS 为我们定义了常用的颜色，可以直接通过名称获取，如 \texttt{white, black}。
+    \item 十六进制: \#000000 代表纯黑，\#000 效果相同，后者能现实的颜色精度略低，三个十六进制数依次拆分成三组，对应 rgb 的颜色。六个则是 32 位颜色。
+    \item \texttt{rgba()}: 最常见的 \texttt{rgb(0,0,0)} 代表黑色(等效于: \#000)，\texttt{rgba()} 多出了一个 \texttt{alpha} 通道，表示不透明度。
+    \item \texttt{hsl()}: 同样接受三个值，分别代表色相，饱和度，明度；设计师用的比较多，熟悉颜色关系推荐使用这个。
+\end{itemize}
+
+在实际应用中，更好的方式是全局定义颜色，然后通过变量名获取颜色，这样能保证颜色统一，也利于维护。
+
+\subsection{字体与段落}
+
+字体相关的常用属性有以下几个:
+\begin{itemize}
+    \item \texttt{font-family}: 字体体系，一般是一套字体。
+    \item \texttt{font-style}: 字体类型，斜体，黑体，正文等。
+    \item \texttt{font-weight}: 字体粗细。
+    \item \texttt{font-variant}: 字体异体。
+    \item \texttt{font-size}: 字体大小。
+    \item \texttt{line-height}: 字体行高，默认为 1.2em。
+    \item \texttt{letter-spacing}: 字符间距，一般以 1/100em 调整。
+\end{itemize}
+
+\newpage

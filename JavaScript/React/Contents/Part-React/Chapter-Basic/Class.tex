@@ -1,0 +1,544 @@
+\section{React 类组件}
+
+类组件已经完成了它的使命，自 React16 给出 Hooks 后，React 主流的方向是使用函数组件。不过一些老项目仍在使用类组件，类组件的用法了解即可。如果有一定基础，也可以跳过类组件这一小节。
+
+\subsection{类组件}
+
+\subsubsection{定义组件}
+
+组件是React的核心概念，是React应用程序的基石。组件将应用的U拆分成独立的、可复用的模块，React应用程序正是由一个一个组件搭建而成的。
+
+\subsubsection*{类组件}
+
+使用 \texttt{class} 定义类组件有两个条件:
+\begin{itemize}
+    \item \texttt{class} 继承自 \texttt{React.Component}。
+    \item \texttt{class} 内部定义 \texttt{render} 方法，用于返回该组件的 UI 元素(一般用 JSX 语法)。
+\end{itemize}
+
+\begin{JavaScript}
+import React, { Component } from "react";
+
+class PostList extends Component {
+  render() {
+    return (
+      <div>
+        <span>Learn</span>
+        <ul>
+          <li>JSX</li>
+          <li>React-DOM</li>
+          <li>Redux</li>
+        </ul>
+      </div>
+    );
+  }
+}
+
+export default PostList;
+\end{JavaScript}
+
+这样我们就定义了一个 PostList 组件，只要引入它，就可以使用 \texttt{<PostList>} 标签。 
+
+将其挂载到 DOM 节点上:
+
+\begin{JavaScript}
+import React from "react";
+import ReactDOM from "react-dom";
+import PostList from "./PostList";
+
+ReactDOM.render(<PostList />, document.getElementById("root"));
+\end{JavaScript}
+
+这样，我们可以将一份复杂的 HTML 节点数分解成部分可重用的React组件。
+
+\subsubsection*{函数组件}
+
+由于 JS 定义函数的方法特别多，这里只写最主流的方案:
+
+\begin{JavaScript}
+const PostList = (props) => {
+  return (
+    <div>
+      <span>Learn</span>
+      <ul>
+        <li>JSX</li>
+        <li>React-DOM</li>
+        <li>Redux</li>
+      </ul>
+    </div>
+  );
+}
+\end{JavaScript}
+
+函数组件无法获取 state 和自身的生命周期，需要通过 React v16.8 给出的 Hooks，下文均以类组件为例，后面会单独介绍 Hooks。
+
+\subsubsection*{组件与元素}
+
+React 组件可以看作一个 Html 标签，React 元素则是一个普通的 JavaScript 对象。在 JSX 中可以这样写:
+
+\begin{JavaScript}
+// 组件
+<div>
+  <CustomButton/>
+</div>
+// 元素
+<div>
+  {CustomButton}
+</div>
+\end{JavaScript}
+
+\subsubsection{组件的 \texttt{props}}
+
+就前面的例子而言，如果我们要重用 \texttt{PostList} 组件，需要修改里面的内容怎么办，重新定义一个 \texttt{PostList2} 组件，继续用硬编码的方式写入内容？这显然违背了重用的理念。
+
+React 定义的组件允许我们自定义标签属性(HTML 中标签的属性，为了区分对象属性下文称为标签属性)。组件的\texttt{props}属性用于把父组件中的数据或方法传递给子组件。在类组件和函数组件中 \texttt{props} 调用方式不同:
+\begin{itemize}
+    \item 在类组件中，继承自 \texttt{React.Component} 的组件会有一个 \texttt{this.props} 调用属性。
+    \item 在函数组件中，函数的唯一参数 \texttt{props} 代表了属性。
+\end{itemize}
+
+我们重写上面的代码(有部分改动):
+
+\begin{JavaScript}
+class PostList extends Component {
+  render() {
+    const {title, author, date} = this.props;   // 解构
+    return (
+      <div>
+        <span>{title}</span>
+        <ul>
+          <li>{author}</li>
+          <li>{date}</li>
+        </ul>
+      </div>
+    );
+  }
+}
+\end{JavaScript}
+
+在调用时，我们只需要通过标签属性就可以指定 \texttt{props} 的值，React 会自动将自定义组件的标签属性装入 \texttt{props} 属性中:
+
+\begin{HTML}
+<PostList title="React" author="Pionpill" date="2022-12-21">
+\end{HTML}
+
+不过，无论是函数组件还是方法组件都不能修改 \texttt{props} 的值。
+
+React 提供了 \texttt{PropTypes} 这个对象，用于校验组件属性的类型。\texttt{PropTypes}包含组件属性所有可能的类型，我们通过定义一个映射对象实现组件属性类型的校验。
+
+\begin{JavaScript}
+import PropTypes from 'prop-types';
+
+class PostItem extends React. Component{}
+
+PostItem.propTypes = {
+  post: PropTypes.object,
+  onVote: PropTypes.func
+};
+\end{JavaScript}
+
+如果属性值是对象或者数值，我们仍然无法知道其内部具体的数据，这时可以使用 \texttt{PropTy pes.shape} 或 \texttt{PropTypes.arrayOf} 方法:
+
+\begin{JavaScript}
+style: PropTypes.shape ({
+  color： PropTypes.string,
+  fontSize: PropTypes.number
+}),
+sequence: PropTypes.arrayOf(PropTypes.number) 
+\end{JavaScript}
+
+\subsubsection{组件的 \texttt{state}}
+
+\texttt{props} 代表组件的外部状态，标签属性是外部传输进来的，只能调用不能修改。\texttt{state} 则表示内部状态，可以通过 \texttt{setState()} 方法对其进行修改。
+
+在类组件中使用 \texttt{state} 的唯一方法是在构造方法 \texttt{constructor} 中通过 \texttt{this.state} 定义组件的初始状态并调用。
+
+\begin{JavaScript}
+class PostList extends Component {
+  constructor(props) {
+    super(props);   // 这一句强制要求必须有
+    this.state = {
+      vote: 0
+    };
+  }
+
+  handle() {
+    let vote = this.state.vote; // 无法直接操作 state 值
+    vote++;
+    this.setState({
+      vote: vote,
+    });
+  }
+
+  render() {
+    const {title, author, date} = this.props;   // 解构
+    return (
+      <div>
+        <button onClick={()=>this.handle()}><button>  // 箭头函数
+      </div>
+    );
+  }
+}
+\end{JavaScript}
+
+操作 \texttt{state} 一般可分为以下三个步骤:
+\begin{itemize}
+  \item 在构造函数中，通过 \texttt{this.state} 定义 \texttt{state} 的数据。
+  \item 将对 \texttt{state} 的操作封装在函数中，且在函数中只能通过 \texttt{setState} 方法修改 \texttt{state} 值。
+  \item 在JSX中调用函数，只能用箭头函数方式。
+\end{itemize}
+
+\subsubsection{组件样式}
+
+React 可以将样式表当作一个模块，在组件中导入样式表并且使用:
+
+\begin{JavaScript}
+import '.style.css’;
+function Welcome(props) { 
+  return <h1 className= 'foo' >Hello, {props.name}<hl>;
+} 
+\end{JavaScript}
+
+React 的核心理念之一是: all-in-js 因此，更推荐直接而在组件中定义样式:
+
+\begin{JavaScript}
+function Welcome(props) {
+  const style = {
+    width: "100%",
+    height: "50px",
+    backgroundColor:"blue",
+  };
+  return <h1 style = {style}>Hello World!</h1>
+}
+\end{JavaScript}
+
+React 原生定义内联样式属性必须采用小驼峰法命名。如果采用这种方案更推荐使用支持React 的 CSS框架,比如 \texttt{\texttt{styled-component}}。
+
+\subsubsection{组件的生命周期}
+
+通常，组件的生命周期可以被分为三个阶段：挂载阶段、更新阶段、卸载阶段。
+
+挂载阶段组件被创建，执行初始化，并被挂载到 ODM 中，完成组件的第一次渲染。依次调用的生命周期方法有:
+\begin{itemize}
+  \item \textbf{\texttt{constructor}}
+  
+  \texttt{class} 的构造方法，接收一个\texttt{props}参数，必须在这个方法中首先调用\texttt{super(prop s)} 才能保证\texttt{props}被传入组件中。\texttt{constructor}通常用于初始化组件的\texttt{state}以及绑定事件处理方法等工作。
+
+  \item \textbf{\texttt{componentWillMount}}
+  
+  在组件被挂载到DOM前调用，且只会被调用一次。这个方法在实际项目中很少会用到，因为可以在该方法中执行的工作都可以提前到\texttt{constructor}中。在这个方法中调用\texttt{this.setState}不会引起组件的重新渲染。
+
+  \item \textbf{\texttt{render}}
+  
+  唯一必要的方法(其他方法可以省略)，根据组件的\texttt{props}和\texttt{state}返回一个React元素，用于描述组件的UI。render并不负责组件的实际渲染工作，它只是返回一个UI的描述，真正的渲染出页面DOM的工作由React自身负责。\texttt{render}是一个纯函数，在这个方法中不能执行任何有副作用的操作，所以不能在\texttt{render}中调用\texttt{this.setState}，这会改变组件的状态。
+
+  \item \textbf{\texttt{componentDidMount}}
+  
+  在组件被挂载到DOM后调用，且只会被调用一次。这时候已经可以获取到DOM结构，因此依赖DOM节点的操作可以放到这个方法中。这个方法通常还会用于向服务器端请求数据。在这个方法中调用\texttt{this.setState}会引起组件的重新渲染。
+\end{itemize}
+
+组件被挂载到DOM后，组件的\texttt{props}或\texttt{state}可以引起组件更新。\texttt{props}引起的组件更新，本质上是由渲染该组件的父组件引起的，也就是当父组件的\texttt{render}方法被调用时，组件会发生更新过程；不过无论 \texttt{props} 是否改变，只要调用 \texttt{render} 就会引起组件更新。\texttt{state} 引起的组件更新，是通过调用 \texttt{this.setState} 修改组件 \texttt{state} 触发的。组件更新阶段调用生命周期方法有:
+\begin{itemize}
+  \item \textbf{\texttt{componentWillReceiveProps(nextProps)}}
+  
+  只在\texttt{props}引起的组件更新过程中，才会被调用。方法的参数\texttt{nextProps}是父组件传递给当前组件的新的\texttt{props}。往往需要比较\texttt{nextProps}和\texttt{this.props}来决定是否执行\texttt{props}发生变化后的逻辑，比如根据新的\texttt{props}调用\texttt{this.setState}触发组件的重新渲染。
+
+  组件更新过程中，只有在组件\texttt{render}及其之后的方法中，\texttt{this.state} 指向的才是更新后的 \texttt{state}。在 \texttt{render} 之前的方法，\texttt{this.state} 依然指向更新前的 \texttt{state}。
+
+  \texttt{setState} 方法不会触发该方法，否则可能会进入死循环，毕竟该方法更新机制之一就是调用 \texttt{setState}。
+
+  \item \textbf{\texttt{shouldComponentUpdate(nextProps, nextState)}}
+  
+  该方法通过比较 \texttt{nextProps, nextState} 决定是否要执行更新过程，返回布尔值。当方法返回\texttt{false}时，组件的更新过程停止，后续的方法也不会再被调用。该方法可以减少不必要的渲染，从而优化组件性能。
+
+  \item \textbf{\texttt{componentWillUpdate(nextProps, nextState)}}
+  
+  作为组件更新发生前执行某些工作的地方，一般很少用到。这里不能调用 \texttt{setState}，否则可能引起循环问题，下一个也是。
+
+  \item \textbf{\texttt{Render}}
+  \item \textbf{\texttt{componentDidUpdate(prevProps, prevState)}}
+  
+  组件更新后被调用，可以作为操作更新后的DOM的地方。两个参数代表更新前的 \texttt{props} 和 \texttt{state}。
+
+\end{itemize}
+
+卸载阶段，只有一个生命周期方法:
+\begin{itemize}
+  \item \textbf{\texttt{componentWillUnmount}}
+  
+  在组件被卸载前调用，可以在这里执行一些清理工作，比如清除组件中使用的定时器，清除\texttt{componentDidMount}中手动创建的DOM元素等，以避免引起内存泄漏。
+\end{itemize}
+
+只有类组件才具有生命周期方法，函数组件是没有生命周期方法的。
+
+\subsubsection{React16 新特性}
+
+\subsubsection*{\texttt{render} 新的返回类型}
+
+React 16 之前 \texttt{render} 方法必须返回单个元素，现在 \texttt{render} 方法支持两种新的返回类型: 数组和字符串:
+
+\begin{JavaScript}
+// 返回数组
+class ListComponent extends Component{ 
+  render() {
+    return [ 
+      <li key= ”A” >First item</li>, 
+      <li key=”B”>Second item</li>, 
+      <li key=”C”>Third item</li> 
+    ];
+  }
+}
+// 返回字符串
+class StringComponent extends Component { 
+  render () { 
+    return "Just a strings"; 
+  }
+}
+\end{JavaScript}
+
+\subsubsection*{错误处理}
+
+React 16之前，组件在运行期间如果执行出错，就会阻塞整个应用的渲染，这时候只能刷新页面才能恢复应用。React16引入了新的错误处理机制，默认情况下，当组件中抛出错误时，这个组件会从组件树中卸载，从而避免整个应用的崩溃。
+
+这种方式比起之前的处理方式有所进步，但用户体验依然不够友好。React16还提供了一种更加友好的错误处理方式一一错误边界（ErrorBoundaries）。错误边界是能够捕获子组件的错误井对其做优雅处理的组件。
+
+定义了\texttt{componentDidCatch(error, info)}这个方法的组件将成为一个错误边界:
+
+\begin{JavaScript}
+class ErrorBoundary extends React.Component {
+  // ......
+  componentDidCatch(error, info) { 
+    // 输出错误日志
+    console.log(error, info);
+  }
+}
+\end{JavaScript}
+
+\subsubsection*{Portals}
+
+React 16的Portals特性让我们可以把组件渲染到当前组件树以外的DOM节点上，这个特性典型的应用场景是渲染应用的全局弹框，使用Portals后，任意组件都可以将弹框组件渲染到根节点上，以方便弹框的显示。Portals的实现依赖ReactDOM的一个新的API:
+
+\begin{JavaScript}
+ReactDOM.createPortal(child, container) 
+\end{JavaScript}
+
+第一个参数\texttt{child}是可以被渲染的React节点，例如React元素、由React元素组成的数组、字符串等，\texttt{container}是一个DOM元素，\texttt{child}将被挂载到这个DOM节点。
+
+\subsubsection*{自定义 DOM 属性}
+
+React 16之前会忽略不识别的HTML和SVG属性，现在React会把不识别的属性传递给DOM元素。
+
+\begin{JavaScript}
+// React16 之前
+<div /> 
+// React16 之后
+<div custom-attribute=”something" /> 
+\end{JavaScript}
+
+\subsection{组件技巧}
+
+\subsubsection{列表与 \texttt{Keys}}
+
+看一下 JavaScript 的 \texttt{map()} 方法，它接受三个参数: \texttt{value, index, arr} 分别代表数据值，数据索引，数据所属的列表:
+\begin{JavaScript}
+const numbers = [1, 2, 3, 4, 5];
+const doubled = numbers.map((number) => number * 2);
+// [2, 4, 6, 8, 10]
+\end{JavaScript}
+
+在 React 中把数组转换为元素的过程也是类似的：
+
+\begin{JavaScript}
+function NumberList(props) {
+  const numbers = props.numbers;
+  const listItems = numbers.map((number) =>
+    <li key={number.toString()}>
+      {number}
+    </li>
+  );
+  return (
+    <ul>{listItems}</ul>
+  );
+}
+\end{JavaScript}
+
+为什么要给 \texttt{<li>} 标签添加 \texttt{key} 属性呢? 因为 React 使用 \texttt{key} 属性来标记列表中的每个元素，当列表数据发生变化时，React就可以通过\texttt{key}知道哪些元素发生了变化，从而只重新渲染发生变化的元素来提高渲染效率。
+
+不要将 \texttt{index} 作为 \texttt{key}，这在列表重排时会引起性能问题。此外，\texttt{key} 只有在数组上下文才有含义。
+
+列表可以直接通过 \texttt{map()} 嵌入带 JSX 中，利用前面提到的React元素语法:
+
+\begin{JavaScript}
+function NumberList(props) {
+  const numbers = props.numbers;
+  return (
+    <ul>
+      {numbers.map((number) =>
+        <ListItem key={number.toString()}
+                  value={number} />
+      )}
+    </ul>
+  );
+}
+\end{JavaScript}
+
+\subsubsection{事件处理}
+
+使用 HTML 标签绑定事件这样写:
+
+\begin{HTML}
+<button onclick="handle()"> XXX </button>
+\end{HTML}
+
+使用 React 则需要这样写:
+
+\begin{JavaScript}
+<button onclick={handle}> XXX </button>
+\end{JavaScript}
+
+此外，在 HTML 中绑定的事件可以通过返回 \texttt{false} 阻止事件发生，例如:
+
+\begin{HTML}
+<a href="#" onclick="console.log('The link was clicked.'); return false">
+  Click me
+</a>
+\end{HTML}
+
+而 React 则定义了一个专用的方法:
+
+\begin{JavaScript}
+function handleClick(e) {
+  e.preventDefault();
+  console.log('The link was clicked.');
+}
+\end{JavaScript}
+
+有一个地方需要注意，在 JavaScript 中，class 的方法默认不会绑定 this(注意，只是方法，属性还是会绑定)，因此在 JSX 中不能直接调用函数，但是可以将函数视作属性调用。
+
+针对 JavaScript 复杂的 \texttt{this} 指向问题，React 定义了三种处理函数书写方案:
+
+\begin{itemize}
+  \item \textbf{箭头函数}
+  
+  箭头函数中的\texttt{this}指向的是函数定义时的对象，所以可以保证\texttt{this}总是指向当前组件的实例对象。但如果直接在箭头函数中写逻辑会让代码变得很乱，因此通常利用箭头函数\texttt{this}的特性传递真正的函数:
+
+\begin{JavaScript}
+render (
+  <button onClick={ (event)=>{this.handleClick(event);} }> Button </button>
+)
+\end{JavaScript}
+
+直接在\texttt{render}方法中为元素事件定义事件处理函数，最大的问题是，每次\texttt{render}调用时，都会重新创建一个新的事件处理函数，带来额外的性能开销，组件所处层级越低，这种开销就越大，因为任何一个上层组件的变化都可能会触发这个组件的\texttt{render}方法。一般情况下这种开销不必在意。
+
+  \item \textbf{组件方法}
+  
+  直接将组件的方法赋值给元素的事件属性，同时在类的构造函数中，将这个方法的\texttt{this}绑定到当前对象。
+
+\begin{JavaScript}
+constructor(props) {
+  super(props);
+  this.handleClick = this.handleClick.bind(this);
+}
+\end{JavaScript}
+
+这种方式的好处是每次\texttt{render}不会重新创建一个回调函数，没有额外的性能损失。但在构造函数中，为事件处理函数绑定\texttt{this}，尤其是存在多个事件处理函数需要绑定时，这种模板式的代码坯是会显得烦琐。
+
+  \item \textbf{属性初始化语法}
+  
+使用ES7的\texttt{propertyinitializers}会自动为\texttt{class}中定义的方法绑定\texttt{this}。
+
+\begin{JavaScript}
+handleClick = (event) => {
+  console.log("111");
+}
+
+render {
+  return (
+    <button onClick={this.handleClick}> Button </button>
+  )
+}
+\end{JavaScript}
+
+\end{itemize}
+
+\subsubsection{表单}
+
+在 HTML 中，有些元素如表单元素自身维护着一些状态(输入的内容)，这些状态默认情况下是不受 React 控制的。我们称这类状态不受React控制的表单元素为非受控组件。在React中，状态的修改必须通过组件的\texttt{state}，非受控组件的行为显然有悖于这一原则。为了让表单元素状态的变更也能通过组件的\texttt{state}管理，React采用受控组件的技术达到这一目的。
+
+如果一个表单元素的值是由React来管理的，那么它就是一个受控组件。React组件渲染表单元素，并在用户和表单元素发生交互时控制表单元素的行为，从而保证组件的\texttt{state}成为界面上所有元素状态的唯一来源:
+
+\begin{JavaScript}
+class NameForm extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {value: ''};
+
+    this.handleChange = this.handleChange.bind(this);
+    this.handleSubmit = this.handleSubmit.bind(this);
+  }
+
+  handleChange(event) {
+    this.setState({value: event.target.value});
+  }
+
+  handleSubmit(event) {
+    alert('提交的名字: ' + this.state.value);
+    event.preventDefault();
+  }
+
+  render() {
+    return (
+      <form onSubmit={this.handleSubmit}>
+        <label>
+          名字:
+          <input type="text" value={this.state.value} onChange={this.handleChange} />
+        </label>
+        <input type="submit" value="提交" />
+      </form>
+    );
+  }
+}
+\end{JavaScript}
+
+由于在表单元素上设置了 \texttt{value} 属性，因此显示的值将始终为 \texttt{this.state.value}，这使得 React 的 \texttt{state} 成为唯一数据源。
+
+常见的受控组件包括: \texttt{textarea，select，input}。
+
+使用受控组件虽然保证了表单元素的状态也由React统一管理，但需要为每个表单元素定义\texttt{onChange}事件的处理函数，然后把表单状态的更改同步到React组件的\texttt{state}，这一过程是比较烦琐的，一种可替代的解决方案是使用非受控组件。
+
+使用非受控组件需要有一种方式可以获取到表单元素的值，React中提供了一个特殊的属性ref，用来引用React组件或DOM元素的实例。
+
+\begin{JavaScript}
+class NameForm extends React.Component {
+  constructor(props) {
+    super(props);
+    this.handleSubmit = this.handleSubmit.bind(this);
+    this.input = React.createRef();
+  }
+
+  handleSubmit(event) {
+    alert('A name was submitted: ' + this.input.current.value);
+    event.preventDefault();
+  }
+
+  render() {
+    return (
+      <form onSubmit={this.handleSubmit}>
+        <label>
+          Name:
+          <input type="text" ref={this.input} />
+        </label>
+        <input type="submit" value="Submit" />
+      </form>
+    );
+  }
+}
+\end{JavaScript}
+
+\subsubsection*{状态提升}
+
+在 React 中，将多个组件中需要共享的 \texttt{state} 向上移动到它们的最近共同父组件中，便可实现共享 \texttt{state}。这就是所谓的“状态提升”。
+
+实现状态提升的方案之一是在父组件中 \texttt{state} 存储数据。再将父组件的 \texttt{state} 传递给子组件的 \texttt{props}。很明显由于 \texttt{props} 被改变，子组件会从新 \texttt{render}。
+
+\newpage

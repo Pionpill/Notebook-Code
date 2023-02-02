@@ -1,0 +1,74 @@
+\documentclass{PionpillNote-book}
+
+\title{JavaScript 高级程序设计 笔记}
+\author{
+    Pionpill \footnote{笔名：北岸，电子邮件：673486387@qq.com，Github：\url{https://github.com/Pionpill}} \\
+    本文档为作者学习《JavaScript 高级程序设计》\footnote{《Professional JavaScript for Web Developers》:Matt Frisbie 2020年9月第2版}一书时的笔记。\\
+}
+
+\date{\today}
+
+\begin{document}
+
+\pagestyle{plain}
+\maketitle
+
+\noindent\textbf{前言：}
+
+笔者为软件工程系在校本科生，主要用 JavaScript 做一些前端项目。本文默认读者有一定的编程基础(至少会一门C语言系语言)，基础语法不再说明。
+
+<<JavaScript 高级程序设计>> 是 JavaScript 学习的一本入门及进阶书，原书中文版多达117万字，笔者将其分为如下几个部分：
+\begin{itemize}
+    \item ECMAScript：介绍ECMAScript(JavaScript)的语法。
+    \item TypeScript: 介绍TypeScript的语法。 
+    \item Web API：与 Web 开发相关的内容，即 BOM 与 DOM(主要是 DOM)。
+    \item Other API：处理各类事务文件的接口。
+\end{itemize}
+
+本笔记不能代替原书，仅是对原书的一个总结归纳，笔记上只有知识点的总结，并没有详细的理解性语句，如有需要，还请购买原书。本文引用了一些 CSDN 或其他论讨的文章，有标注来源，如果原作者觉得不合适，请联系本人。
+
+关于 Web 开发，不得不考虑浏览器兼容问题，令人欣慰的是，微软已经弃用 IE 浏览器，改用 chromium 核心的 Edge 浏览器，本文以 Chrome 浏览器为准，不再考虑任何IE(或其他浏览器)适配问题。
+
+本人的编写及开发环境如下：
+\begin{itemize}
+    \item IDE: VSCode 1.72 
+    \item Chrome: 91.0
+    \item Node.js: 18.12
+    \item OS: Window11
+\end{itemize}
+
+此外，JavaScript 是一门语法十分宽松的语言，同一种实现有非常多的写法，笔记中只强调推荐的写法，更多写法请读者用用现代编辑器代码提示功能查询。
+
+\date{\today}
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\setcounter{page}{1} 
+\pagestyle{fancy}
+
+\part{ECMAScript}
+\chapter{基础语法}
+\import{Parts/Part-ECMAScript/Chapter-Syntax}{Introduction.tex}
+\import{Parts/Part-ECMAScript/Chapter-Syntax}{Syntax.tex}
+\import{Parts/Part-ECMAScript/Chapter-Syntax}{Variable.tex}
+\chapter{数据类型}
+\import{Parts/Part-ECMAScript/Chapter-Type}{Simple.tex}
+\import{Parts/Part-ECMAScript/Chapter-Type}{Reference.tex}
+\import{Parts/Part-ECMAScript/Chapter-Type}{Collection.tex}
+\chapter{函数与类}
+\import{Parts/Part-ECMAScript/Chapter-Function}{Function.tex}
+\import{Parts/Part-ECMAScript/Chapter-Function}{Iterator.tex}
+\import{Parts/Part-ECMAScript/Chapter-Function}{Class.tex}
+\part{WEB API}
+\chapter{BOM 与 DOM基础}
+\import{Parts/Part-WebAPI/Chapter-Basic}{BOM.tex}
+\import{Parts/Part-WebAPI/Chapter-Basic}{DOM.tex}
+\import{Parts/Part-WebAPI/Chapter-Basic}{Extension.tex}
+\chapter{DOM 进阶}
+\import{Parts/Part-WebAPI/Chapter-Advance}{Events.tex}
+
+\end{document}
+

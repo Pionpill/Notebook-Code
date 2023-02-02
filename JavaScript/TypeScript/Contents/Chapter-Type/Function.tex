@@ -1,0 +1,61 @@
+\section{函数}
+
+我们知道，JavaScript 对待函数是十分宽裕的，可以有任意个参数，对参数只做匹配不检查。但 TypeScript 不同，TypeScript 要求函数参数必须有类型，且标注返回值类型，即使没有显示指定类型，编译器也会自动推导类型。
+
+\begin{TypeScript}
+function add(x: number, y: number): number {
+    return x + y;
+}
+\end{TypeScript}
+
+TypeScript里的每个函数参数都是必须的。编译器检查用户是否为每个参数都传入了值。编译器还会假设只有这些参数会被传递进函数。 简短地说，传递给一个函数的参数个数必须与函数期望的参数个数一致。
+
+\begin{TypeScript}
+function buildName(firstName: string, lastName: string) {
+    return firstName + " " + lastName;
+}
+let result1 = buildName("Bob");                     // error, too few parameters
+let result2 = buildName("Bob", "Adams", "Sr.");     // error, too many parameters
+let result3 = buildName("Bob", "Adams");            // ah, just right
+\end{TypeScript}
+
+JavaScript 中每个函数参数都是可选的，不传的时候就是 \texttt{undefined}。在 TypeScript 中可选参数需要使用 \texttt{?} 关键字, 同时可选参数必须跟在必选参数后。
+
+\begin{TypeScript}
+function buildName(firstName: string, lastName?: string) {
+    if (lastName)
+        return firstName + " " + lastName;
+    else
+        return firstName;
+}
+let result1 = buildName("Bob");                     // works correctly now
+let result2 = buildName("Bob", "Adams", "Sr.");     // error, too many parameters
+let result3 = buildName("Bob", "Adams");            // ah, just right
+\end{TypeScript}
+
+当然 TypeScript 也支持默认参数值，用法和 JavaScript 一致。
+
+TypeScript 拾取剩余参数的方式和 JavaScript 一致，只不过只要指定类型为 \texttt{string[]}。
+
+\begin{TypeScript}
+function buildName(firstName: string, ...restOfName: string[]) {
+  return firstName + " " + restOfName.join(" ");
+}
+let employeeName = buildName("Joseph", "Samuel", "Lucas", "MacKinzie");
+\end{TypeScript}
+
+\subsubsection*{\texttt{this}}
+
+JavaScript里，\texttt{this}的值在函数(非箭头函数)被调用的时候才会指定，从而确定上下文。在 TypeScript 中，我们可以通过将函数的第一个参数设置为 \texttt{this} 用于表示返回的 \texttt{this} 指代函数本身。
+
+\begin{TypeScript}
+function f(this: void) {
+    // make sure `this` is unusable in this standalone function
+}
+\end{TypeScript}
+
+\subsubsection*{函数重载}
+
+JavaScript本身是个动态语言。 JavaScript里函数根据传入不同的参数而返回不同类型的数据是很常见的。由于 TypeScript 是静态语言，也就失去了动态处理函数参数的能力，但同时，TypeScript 允许函数重载。
+
+\newpage

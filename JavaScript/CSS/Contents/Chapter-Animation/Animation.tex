@@ -1,0 +1,41 @@
+\section{动画}
+
+CSS中的动画包括两部分：用来定义动画的@keyframes规则和为元素添加动画的animation属性。
+
+关键帧定义了某个时间段内，不同时间刻的状态，具体的状态使用变换以及常规属性指定；至于具体的时间以及时间变换函数由调用关键帧的属性给出。关键帧语法如下:
+
+\begin{HTML}
+@keyframes over-and-back {
+    0% {
+      background-color: hsl(0, 50%, 50%);
+      transform: translate(0);
+    }
+
+    50% {
+      transform: translate(50px);
+    }
+
+    100% {
+      background-color: hsl(270, 50%, 90%);
+      transform: translate(0);
+    }
+}
+\end{HTML}
+
+调用关键帧需要 \texttt{animation} 属性，这个属性的具体用法和 \texttt{transition} 类似(毕竟都是动态的)。
+
+\begin{HTML}
+animation: over-and  -back 1.5s linear 
+\end{HTML}
+
+\texttt{animation} 也是一个简写，它的值依次对应如下属性:
+\begin{itemize}
+    \item \texttt{animation-name}: 动画名称，对应关键帧名。
+    \item \texttt{animation-duration}: 动画持续的时间。
+    \item \texttt{animation-timing-function}: 定时函数，前面讲过。
+    \item \texttt{animation-}: 动画重复次数。
+\end{itemize}
+
+主要的动画技术就这些，动画需要实战经验，比较主流的动画框架是 \texttt{tree.js}。
+
+\newpage

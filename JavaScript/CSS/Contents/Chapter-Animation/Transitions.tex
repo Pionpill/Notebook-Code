@@ -1,0 +1,68 @@
+\section{过渡与变换}
+
+\subsection{过渡}
+
+过渡是通过一系列\texttt{transition-*}属性来实现的。如果某个元素设置了过渡，那么当它的属性值发生变化时，并不是直接变成新值，而是使用过渡效果。\texttt{transition} 是该系列属性的简写，包括如下主要属性:
+\begin{itemize}
+    \item \texttt{transition-property}: 过度对象，值为 CSS 属性。
+    \item \texttt{transition-duration}: 过度经历的时间。
+    \item \texttt{transition-timing-function}: 过度速度曲线。
+    \item \texttt{transition-delay}: 过渡动画延迟时间。
+\end{itemize}
+
+使用 \texttt{transition} 比较简单，也是常用做法，比如在 \texttt{:hover} 伪类选择器上写入:
+
+\begin{HTML}
+color: hsl(180,0.5,0.5);
+transition: color .5s;
+\end{HTML}
+
+就会在 0.5s 内改变 \texttt{color} 属性的值。也可以单独设置每个属性，\texttt{transition-property} 可以设置为 \texttt{all}，代表改变所有属性。
+
+\texttt{transition-timing-function} 有以下几个常见值:
+\begin{itemize}
+    \item \texttt{liner}: 线性变化。
+    \item \texttt{ease}: 慢-快-满
+    \item \texttt{ease-in}: 慢-快
+    \item \texttt{ease-out}: 快-满
+    \item \texttt{ease-in-out}: 前两者组合
+\end{itemize}
+
+这个值本质上是调用贝塞尔函数: \texttt{cubic-bezier(n1,n2,n3,n4)}，这四个值依次分为两队，代表了两个坐标 \texttt{(n1,n2)}, \texttt{(n3,n4)}。如果有类似 Illustrator 矢量作图软件经验，就知道这两个坐标决定了曲线控制柄的位置，贝塞尔曲线随之变换。
+
+还有一种离散过度函数: \texttt{steps()}，他会让元素突然过度，没有渐变效果，比如 \texttt{width} 属性从 100 到 200，会在相同时间间隔内经历这几个值变化 100,125,150,175,200。\texttt{step()} 有两个参数，阶跃次数和阶跃位置，次数即变化几次，位置只有两个值 \texttt{start,end}，即什么时候发生节约。这个比较抽象，建议实战看看就知道了。
+
+并非所有的属性都可以过渡，比如 \texttt{display}；也并不是所有属性的任意值都可以过渡，比如只有\texttt{background-color} 仅有一个值时可以过度。一般值为数值，颜色，可以使用 \texttt{calc()}计算的的属性值可以过度，而非连续性属性不可以过度。
+
+有两个属性可以替代 \texttt{display: none} 的效果；一个是 \texttt{opacity}，代表不透明度；另一个是 \texttt{visibility} 有两个值 \texttt{visible, hidden}。不过它们最多做到看不到元素，但其实还存在于 DOM 树中。 
+
+\subsection{变换}
+
+变换通过 \texttt{transform} 属性实现。它的值为变换函数，可以有一个或多个值，常用的如下:
+\begin{itemize}
+    \item \texttt{rotate(deg)}: 顺时针旋转。
+    \item \texttt{translate(x,y)}: 平面位移。 
+    \item \texttt{scale(scale)}: 缩放。
+    \item \texttt{skew(deg)}: 倾斜。
+\end{itemize}
+
+使用 \texttt{transform-origin} 属性可以改变基点，默认自然是盒模型中心。
+
+CSS 还支持以上四类函数的变种: 三维版。三维的三个轴与屏幕的对应关系为: 
+\begin{itemize}
+    \item x轴: 屏幕宽度方向。
+    \item y轴: 屏幕高度方向。
+    \item z轴: 屏幕内方向，即人眼的方向。
+\end{itemize}
+
+三维属性命名也十分简单，例如 \texttt{rotate}的三维版: \texttt{rotateX, rotateY, rotateZ}。此外还有一个 \texttt{perspective()} 函数，表示透视距离，越小效果越明显。视距也可以设置基点，对应属性为 \texttt{perspective-origin}。
+
+此外还有几个常用属性:
+\begin{itemize}
+    \item \texttt{backface-visibility}: 当旋转到一定角度后，我们可能看不到元素正面，如果想穿透显示背面元素，使用该属性。
+    \item \texttt{ transform-style（preserve-3d）}: 看3D？没用过。
+\end{itemize}
+
+过渡与变换的区别在于发生在时间段还是时间刻: 过渡是一个过程，需要一段时间去完成, 而变换只是一个状态，它和常规样式属性没有本质区别。
+
+\newpage
