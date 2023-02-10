@@ -12,15 +12,17 @@ React 的特点可以归结为以下 4 点:
 
 \subsection{React 开发环境}
 
+\subsubsection{默认开发环境(Webpack)}
+
 React 应用开发有两个必要环境:
 \begin{itemize}
     \item \textbf{Node.js}: React 在本地开发调试需要使用到 Node.js 环境中的 NPM，Webpack 等依赖。
     \item \textbf{NPM}: 模块管理工具，用来管理模块之间的依赖关系。也可以用 \textbf{Yarn} 代理，安装 Node。
 \end{itemize}
 
-辅助工具:
+另外还有几个辅助工具:
 \begin{itemize}
-    \item \textbf{Webpack}: 模块打包工具，不仅可以打包JS文件，配合相关插件的使用，它还可以打包图片资源和样式文件，己经具备一站式的JavaScript应用打包能力，是React开发的必要工具。
+    \item \textbf{Webpack}: 模块打包工具，不仅可以打包JS文件，配合相关插件的使用，它还可以打包图片资源和样式文件，己经具备一站式的JavaScript应用打包能力，(过去)是React开发的必要工具，现在可以使用 Vite 替换 Webpack，下文详解。
     \item \textbf{Babel}: Babel是一个JavaScript编译器，为了浏览器兼容性考虑，需要把 ES6 或以后的语法编译成 ES5 及之前的语法达到向前兼容的目的，同时也负责编译 JSX 语法。
     \item \textbf{ESLint}: JavaScript 代码检查工具，由于 JS 的语法非常乱，同一种实现有多种写法，风格不尽相同，为了团队同一管理，会用 ESLint 进行风格检测。
 \end{itemize}
@@ -71,6 +73,43 @@ npx create-react-app my-app --template typescript
 但实际上我们使用改包创建完 React 项目后，\texttt{package} 文件中并没有对应的包信息，这与 \texttt{npx} 命名的执行逻辑有关。使用 \texttt{npx} 命令会自动查找当前依赖包中的可执行文件，如果没有就在 \texttt{PATH} 中寻找，再找不到就会帮助我们安装，且安装的包在使用后会被卸载。
 
 也就是说我们使用上述指令后，\texttt{npx} 帮我们安装了 \texttt{create-react-app} 包，然后构建了项目，最后将 \texttt{create-react-app} 包删除。渣男行为属于是。
+
+非常遗憾的是 create-react-app 项目已经很久没有更新了，社会活力低下。而且由于采用 webpack 打包方式，创建的项目体量一旦上去，热加载时间很慢。
+
+\subsubsection{Vite 开发环境}
+
+Vite 是新一代前端工具链，现在大型项目逐渐由 Webpack 转向 Vite。这两者有如下几点不同:
+
+\begin{table}[H]
+    \centering
+    \caption{Vite 与 Webpack 对比}
+    \label{table:Vite 与 Webpack 对比}
+    \setlength{\tabcolsep}{4mm}
+    \begin{tabular}{c|ccc}
+        \toprule
+        \textbf{} & \textbf{Vite} & \textbf{Webpack} & \textbf{备注} \\
+        \midrule
+        编写语言 & Go & JavaScript & Go是纳秒级响应，理论上速度快 10-100 倍 \\
+        加载模式 & 懒加载 & 勤加载 & Vite 利用 ESModule 按需加载必要模块 \\
+        定位 & 打包+工具 & 纯打包 &  \\
+        使用 & 需下载 & node 集成 &  \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Webpack 项目开始时，ES6 尚未推出，因此 Webpack 并没有引入 ESModule。Webpack 的打包策略是加载所有的文件进行编译，最终转换为原生 js 再让浏览器显示，随着项目体积增加，打包时间也线性增加，一个复杂的项目，使用 Webpack 热加载往往需要几秒钟的时间才能看到界面。
+
+Vite 利用 ESModule 的特性，只加载必要的文件，所编译的组件会自动导入其他模块并完成编译，也即按需加载。因此 Vite 加载时间始终是 O(1)，界面几乎是瞬间加载完成。
+
+Vite 不能完全替代 Webpack，但现在绝大多数新项目都是用 Vite 打包。
+
+继续上文，如果使用 vite 创建项目就不能使用 create-react-app:
+
+\begin{bash}
+npm create vite@latest app --template react-ts
+\end{bash}
+
+Vite 官方地址: \url{https://cn.vitejs.dev/}
 
 \subsection{React 编程风格}
 
