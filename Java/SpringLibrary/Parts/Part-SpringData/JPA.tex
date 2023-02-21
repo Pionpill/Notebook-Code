@@ -62,28 +62,6 @@ public @interface Table {
 public @interface Id {}
 \end{Java}
 
-\subsubsection{@Basic}
-
-@Basic 是实体类与数据库字段映射时最简单的类型。它可以用于持久类属性或实例变量，类型包含基本类型，包装类，枚举类，实现了 Serializable 接口的类型。
-
-\begin{Java}
-@Target({METHOD, FIELD}) 
-@Retention(RUNTIME)
-public @interface Basic {
-    FetchType fetch() default EAGER;
-    boolean optional() default true;
-}
-\end{Java}
-
-两个属性意义如下:
-\begin{itemize}
-    \item fetch: 加载机制：默认 EAGER，即时加载，可以改为 LAZY 懒加载。
-    \item optional: 判断属性是否能为空，默认可以。
-\end{itemize}
-
-
-简言之，与数据库对应的属性都要加上 @Basic，如果你在实体类属性上不加@Basic注解，它也会自动加上@Basic，并使用默认值。一般不需要显示书写，除非要改属性。
-
 \subsubsection{@GeneratedValue}
 
 与@Id一同使用，用于标注主键的生成策略，通过 strategy 属性指定。
@@ -106,6 +84,28 @@ public @interface GeneratedValue {
 \end{itemize}
 
 generator属性的值是一个字符串,默认为"",其声明了主键生成器的名称。使用非 AUTO 的策略需要结合其他注解使用，不是很常用，不讲了。
+
+\subsubsection{@Basic}
+
+@Basic 是实体类与数据库字段映射时最简单的类型。它可以用于持久类属性或实例变量，类型包含基本类型，包装类，枚举类，实现了 Serializable 接口的类型。
+
+\begin{Java}
+@Target({METHOD, FIELD}) 
+@Retention(RUNTIME)
+public @interface Basic {
+    FetchType fetch() default EAGER;
+    boolean optional() default true;
+}
+\end{Java}
+
+两个属性意义如下:
+\begin{itemize}
+    \item fetch: 加载机制：默认 EAGER，即时加载，可以改为 LAZY 懒加载。
+    \item optional: 判断属性是否能为空，默认可以。
+\end{itemize}
+
+
+简言之，与数据库对应的属性都要加上 @Basic，如果你在实体类属性上不加@Basic注解，它也会自动加上@Basic，并使用默认值。一般不需要显示书写，除非要改属性。
 
 \subsubsection{@Transient}
 
@@ -145,5 +145,27 @@ public @interface Embedded { }
 例如：User包括id,name,city,street,zip属性，我们希望city,street,zip属性映射为Address对象，这样，User对象将具有id,name和address这三个属性，Address对象要定义为@Embededable。
 
 参考例子: \url{https://blog.csdn.net/je_ge/article/details/53678238}
+
+\subsection{记录相关}
+
+\subsubsection{@CreatedBy}
+
+自动插入创建人。
+
+\subsubsection{@CreatedDate}
+
+自动插入创建时间
+
+\subsubsection{@LastModifiedBy}
+
+自动修改更新人
+
+\subsubsection{@LastModifiedDate}
+
+自动修改更新时间
+
+\subsubsection{@Version}
+
+自动更新版本号
 
 \newpage
