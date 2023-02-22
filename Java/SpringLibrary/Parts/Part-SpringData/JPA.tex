@@ -9,7 +9,7 @@
 </dependency>
 \end{Java}
 
-\subsection{表相关注解}
+\subsection{字段相关注解}
 
 \subsubsection{@Entity}
 
@@ -146,26 +146,125 @@ public @interface Embedded { }
 
 参考例子: \url{https://blog.csdn.net/je_ge/article/details/53678238}
 
-\subsection{记录相关}
+\subsection{记录相关注解}
 
 \subsubsection{@CreatedBy}
 
 自动插入创建人。
 
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.ANNOTATION_TYPE})
+public @interface CreatedBy {
+}
+\end{Java}
+
 \subsubsection{@CreatedDate}
 
-自动插入创建时间
+自动插入创建时间。
+
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.ANNOTATION_TYPE})
+public @interface CreatedDate {
+}
+\end{Java}
 
 \subsubsection{@LastModifiedBy}
 
-自动修改更新人
+自动修改更新人。
+
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.ANNOTATION_TYPE})
+public @interface LastModifiedBy {
+}
+\end{Java}
 
 \subsubsection{@LastModifiedDate}
 
 自动修改更新时间
 
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.ANNOTATION_TYPE})
+public @interface LastModifiedDate {
+}
+\end{Java}
+
 \subsubsection{@Version}
 
 自动更新版本号
+
+\begin{Java}
+@Target({ElementType.METHOD, ElementType.FIELD})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Version {
+}
+\end{Java}
+
+\subsection{查询相关注解}
+
+\subsubsection{@Param}
+
+该注解用于提供参数别名。
+
+\begin{Java}
+@Target({ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Param {
+    String value();
+}
+\end{Java}
+
+\subsubsection{@Query}
+
+该注解用于实现数据库增删改查操作，默认使用 hql 语法。
+
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE})
+@QueryAnnotation
+@Documented
+public @interface Query {
+    String value() default "";      // hql 或 sql 语句
+    String countQuery() default "";     // 分页时用于查询中数量的sql或者hql
+    String countProjection() default "";    // 用原生的分页
+    boolean nativeQuery() default false;    // 用原生 sql，默认为 hql
+    String name() default "";   // 定义该查询的名字
+    String countName() default "";  // 数量查询返回的别名
+    Class<? extends QueryRewriter> queryRewriter() default QueryRewriter.IdentityQueryRewriter.class;
+}
+\end{Java}
+
+默认有两种传参方式:
+\begin{itemize}
+    \item 占位符: 序号对应参数声明顺序，从1开始。
+    \item 命名参数: @Param中声明传入参数名称, sql 原生语法不能用。
+\end{itemize}
+
+\begin{Java}
+// 占位符
+@Query("select u.id, u.name from User u where u.id=?1")
+List<User> getUserById(Integer id);
+// 命名参数
+@Query("select u.id, u.name from User u where u.name like %:name%")
+List<User> getUserByName(@Param("name") String name);
+\end{Java}
+
+\subsubsection{@Modifying}
+
+该注解加载 @Query 上，表示允许删改操作:
+
+\begin{Java}
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE})
+@Documented
+public @interface Modifying {
+    boolean flushAutomatically() default false;
+    boolean clearAutomatically() default false;
+}
+\end{Java}
 
 \newpage
