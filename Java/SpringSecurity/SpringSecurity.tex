@@ -1,0 +1,72 @@
+\documentclass{PionpillNote-book}
+\usetikzlibrary {intersections,through,arrows.meta,graphs,shapes.misc,positioning,shapes.misc,positioning,calc}
+\usetikzlibrary{animations}
+\usetikzlibrary {shapes.geometric}
+\usetikzlibrary {animations}
+\usetikzlibrary {shapes.multipart}
+\usetikzlibrary {positioning}
+\usetikzlibrary {fit,shapes.geometric}
+\usetikzlibrary {automata}
+\usetikzlibrary {quotes}
+\usetikzlibrary {matrix}
+\usetikzlibrary {backgrounds}
+\usetikzlibrary {scopes}
+\usetikzlibrary {calc}
+\usetikzlibrary {intersections}
+\usetikzlibrary {svg.path}
+\usetikzlibrary {decorations}
+\usetikzlibrary {patterns}
+\usetikzlibrary {decorations.pathmorphing}
+\usetikzlibrary {shadows}
+\usetikzlibrary {bending}
+
+\title{Spring Security Principle}
+\author{
+    Pionpill \footnote{笔名：北岸，电子邮件：673486387@qq.com，Github：\url{https://github.com/Pionpill}} \\
+    本文档为作者学习 SpringSecurity 理论时的笔记。\\
+}
+
+\date{\today}
+
+\begin{document}
+
+\pagestyle{plain}
+\maketitle
+
+\noindent\textbf{前言：}
+
+笔者为软件工程系在校本科生，有计算机学科理论基础，本文前置技术栈:
+\begin{itemize}
+    \item Java: Java 基础
+    \item Spring: SpringBoot 基础
+\end{itemize}
+
+本文重点是 Spring Secruity 原理，入门及实战可以参考网上的一些视频教程。主要参考资料:
+\begin{itemize}
+    \item SpringSecurity框架教程(视频): \url{https://www.bilibili.com/video/BV1mm4y1X7Hc/}
+\end{itemize}
+
+本人的编写及开发环境如下：
+\begin{itemize}
+    \item Java: Java17
+    \item SpringBoot: 3.0.2
+    \item SpringSecurity: 6.0.1
+    \item OS: Windows11
+\end{itemize}
+
+\date{\today}
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\setcounter{page}{1} 
+\pagestyle{fancy}
+
+\chapter{Spring Security 基础}
+\import{Contents}{Tikz.tex}
+\import{Contents/Chapter-Authentication}{Abstract.tex}
+\import{Contents/Chapter-Authentication}{Authentication.tex}
+
+\end{document}

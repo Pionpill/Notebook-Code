@@ -1,0 +1,136 @@
+\section{Spring Security 认证}
+
+\subsection{默认认证}
+\subsubsection{流程分析}
+
+首先我们需要引入 SpringSecurity 依赖:
+
+\begin{xml}
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-security</artifactId>
+</dependency>
+\end{xml}
+
+此后我们请求任意接口，都会被强制跳转到登录界面(/login)，Spring Security 提供了一个简单的账号密码登录验证。默认用户名为 user，密码会在控制台中显示。在这个过程中发生了下图所示请求(假设访问 /hello)。
+
+\begin{figure}[H]
+  \footnotesize
+  \centering
+  \begin{sequencediagram}
+    \newthread{browser}{:Browser}
+    \newinst[1]{app}{:Application}
+    \newinst{login}{:DefaultLoginPageGeneratingFilter}
+    \newinst{security}{:FilterSecurityInterceptor}
+    \newinst{exception}{:ExceptionTranslationFilter}
+    \begin{call}{browser}{请求 /hello 接口}{app}{重定向到 /login}
+      \mess{app}{经过}{login}
+      \mess{login}{经过}{security}
+      \mess{security}{抛出异常: AuthenticationException}{exception}
+      \mess{exception}{调用  LoginUrlAuthenticationEntryPoint, 返回 302}{app};
+    \end{call}
+    \begin{call}{browser}{请求 /login 接口}{app}{获取 login page}
+      \mess{app}{经过}{login}
+      \mess{login}{返回登陆界面}{app}
+    \end{call}
+  \end{sequencediagram}
+  \caption{认证请求流程}
+  \label{fig:认证请求流程}
+\end{figure}
+
+整个流程如下:
+\begin{enumerate}
+  \item \textbf{客户端访问 /hello 接口}
+  \item \textbf{请求走过滤器链}, 在 \texttt{FilterSecurityInterceptor} 过滤器中被拦截，发现用户未认证，抛出 \texttt{AuthenticationException} 异常。
+  \item \textbf{异常被捕获}: \texttt{ExceptionTranslationFilter} 过滤器捕获异常，调用 \texttt{LoginUrlAuthent icationEntryPoint} 方法返回 302 状态码，重定向到 /login 界面。
+  \item \textbf{客户端发送 /login 请求}
+  \item \textbf{/login 请求被拦截}: /login 请求被 \texttt{DefaultLoginPageGeneratingFilter} 拦截，并在过滤器中返回该界面。
+\end{enumerate}
+
+我们只引入了一个依赖，Spring Security 就做了这么多事情，主要包括:
+
+\begin{itemize}
+  \item 开启 Spring Security 自动化配置，创建 \texttt{springSecurityFilterChain} 并注入到 Spring 容器中。
+  \item 创建一个 \texttt{UserDetailService} 实例，负责提供用户数据，默认用户数据是基于内容的。
+  \item 生成一个默认的登陆界面。
+  \item 开启各项攻击防御。
+\end{itemize}
+
+\subsubsection{原理分析}
+
+\subsubsection*{默认用户生成}
+
+Spring Security中定义了UserDetails接口来规范开发者自定义的用户对象，UserDetails接口定义如下：
+
+\begin{Java}
+public interface UserDetails extends Serializable {
+    // 获取账户具备的权限
+    Collection<? extends GrantedAuthority> getAuthorities();
+    String getPassword();
+    String getUsername();
+    // 账户是否未过期
+    boolean isAccountNonExpired();
+    // 账户是否未被锁
+    boolean isAccountNonLocked();
+    // 账户凭证(如密码)是否未过期
+    boolean isCredentialsNonExpired();
+    boolean isEnabled();
+}
+\end{Java}
+
+负责提供用户数据源的接口是: \texttt{UserDetailService}:
+
+\begin{Java}
+public interface UserDetailsService {
+    UserDetails loadUserByUsername(String username) throws UsernameNotFoundException;
+}
+\end{Java}
+
+\texttt{loadUserByUsername} 有一个参数是 \texttt{username}, 这是瀛湖认证时传入的用户名，最常见的就是用户在登陆时输入的用户名，实际上在单点登录等其他情况下，可能是别的用户名参数。开发者在这里拿到 \texttt{username} 之后再去数据库中查询用户，最终返回一个 \texttt{UserDetails} 实例。
+
+在实际项目中，需要开发者自己实现 \texttt{UserDetailsService} 接口，如果没有实现，Spring Security 也提供了默认实现:
+
+\begin{itemize}
+  \item \textbf{UserDetailManager}: 在 \texttt{UserDetailsService} 基础上，增加了添加用户，更新用户，删除用户，修改密码，判断用户是否存在5个方法。
+  \item \textbf{JdbcDaoImpl}: \texttt{UserDetailsService} 基础上，通过 spring-jdbc 实现了从数据库中查询用户的方法。
+  \item \textbf{InMemoryUserDetailsManager}: 实现了 \texttt{UserDetailsService} 中关于用户增删改查的方法，不过都是基于内存的操作，没有持久化。
+  \item ......
+\end{itemize}
+
+如果我们只引入一个 Spring Security 依赖，则默认使用 \texttt{InMemoryUserDetailsManager}。
+
+默认情况下 Spring Security 是怎么处理的呢？可以看一下 \texttt{UserDetailsServiceAutoCon figuration} 源代码(比较长，不贴了)，这里只讲关键的地方:
+\begin{itemize}
+  \item 默认明文密码需要前缀: {noop}
+  \item 加载一个 \texttt{InMemoryUserDetailsManager} 注入到容器中。
+\end{itemize}
+
+同时启用改配置还有一些前置要求:
+\begin{itemize}
+  \item 当前 classPath 下存在 \texttt{AuthenticationManager} 类。
+  \item 项目中，系统没有提供 \texttt{AuthenticationManager, AuthenticationProvider...} 实例。
+\end{itemize}
+
+\subsubsection*{默认页面生成}
+
+在过滤器链中有两个和页面相关的过滤器: \texttt{DefaultLoginPageGeneratingFilter} 和 \texttt{Def aultLogoutPageGeneratingFilter}。分别负责登录，登出。
+
+这两个类实现的主要功能(以Login为例)是: 判断当前请求是否为 登陆出错，注销成功，登录请求。如果是这三者中的任一个就会在 \texttt{DefaultLoginPageGeneratingFilter} 过滤器中生成登录页并返回。否则请求继续往下走，执行下一个过滤器。
+
+\subsection{自定义登陆表}
+
+Spring Security5.4 之后，通过创建 \texttt{SecurityFilterChain} bean 来配置 \texttt{HttpSecurity}。\footnote{后续均以 Spring Security 6 为准，不再讨论之前的写法}:
+
+\begin{Java}
+@Configuration
+public class SecurityConfiguration {
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http.authorizeHttpRequests((authz) -> authz
+                .anyRequest().authenticated()
+            )
+            .httpBasic(withDefaults());
+        return http.build();
+    }
+}
+\end{Java}

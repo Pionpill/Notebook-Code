@@ -1,0 +1,126 @@
+\section{概览}
+
+安全框架(包括 Spring Security)的两个主要功能: 认证，授权。认证否则身份验证，授权负责访问控制。
+
+Spring Security 的优点有很多，比如:
+\begin{itemize}
+  \item Spring 家族成员。
+  \item 良好的微服务配置。
+  \item 自动防止网络攻击。
+\end{itemize} 
+
+同时也有一个主要缺点: 臃肿。和其他 Spring 项目类似，很快入门，极难精通。
+
+\subsection{认证与授权}
+\subsubsection*{认证}
+
+在 Spring Security 架构设计中，认证和授权是分开的，两者互不影响。
+
+用户认证信息主要由 \texttt{Authentication} 实现类来保存:
+
+\begin{Java}
+public interface Authentication extends Principal, Serializable {
+    // 获取用户权限
+    Collection<? extends GrantedAuthority> getAuthorities();
+    // 获取用户凭证，一般是密码
+    Object getCredentials();
+    // 获取用户携带的详细信息，可能是当前请求
+    Object getDetails();
+    // 获取当前用户，用户名或用户对象
+    Object getPrincipal();
+    // 当前用户是否认证成功
+    boolean isAuthenticated();
+    void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException;
+}
+\end{Java}
+
+认证工作主要由 \texttt{AuthenticationManager} 接口来负责:
+
+\begin{Java}
+public interface AuthenticationManager {
+    Authentication authenticate(Authentication authentication) throws AuthenticationException;
+}
+\end{Java}
+
+\texttt{authenticate} 方法用于做认证，有三个不同的返回值:
+\begin{itemize}
+  \item 返回 \texttt{Authentication}，表认证成功。
+  \item 抛出 \texttt{AuthenticationException}，表示输入了无效的凭证。
+  \item 返回 \texttt{null}，表示不能断定。
+\end{itemize}
+
+\texttt{AuthenticationManager} 最主要的实现类是 \texttt{ProviderManager}，它管理了众多 \texttt{Authenti cationProvider} \texttt{实例，AuthenticationProvider} 类似于 \texttt{AuthenticationManager，但多了一个} \texttt{supports} 方法用来判断是否支持给定的 \texttt{Authentication} 类型。
+
+\begin{Java}
+public interface AuthenticationProvider {
+    Authentication authenticate(Authentication authentication) throws AuthenticationException;
+    boolean supports(Class<?> authentication);
+}
+\end{Java}
+
+由于 \texttt{Authentication} 拥有众多不同的实现类，这些不同的实现类又由不同的 \texttt{Authentic ationProvider} 来处理，所以 \texttt{AuthenticationProvider} 会有一个 \texttt{supports} 方法，用来判断
+当前的 \texttt{AuthenticationProvider} 是否支持对应的\texttt{Authentication}。
+
+在一次完整的认证流程中，可能会同时存在多个 \texttt{AuthenticationProvider}(例如账号密码登录，短信验证登录)，多个 \texttt{ProviderManager} 统一由 \texttt{ProviderManager} 管理。同时 \texttt{ProviderManager} 具有一个可选的 \texttt{parent}，如果所有认证都失败，就调用 \texttt{parent} 进行认证(备胎)。
+
+\subsubsection*{授权}
+
+授权体系中，有两个关键接口:
+\begin{itemize}
+  \item \texttt{AccessDecisionManager}: 决策器，判断此次访问是否被允许。
+  \item \texttt{AccessDecisionVoter}: 投票器，检查用户是否具有应有的角色。
+\end{itemize}
+
+\texttt{AccessDecisionManager} 会挨个遍历 \texttt{AccessDecisionVoter} 进而决定是否允许用户访问。
+
+在 Spring Security 中，用户请求一个资源所需要的角色会被封装成一个 \texttt{ConfigAttribute} 对象，\texttt{ConfigAttribute} 只有一个 \texttt{getAttribute} 方法，但会角色的名称。
+
+\subsection{过滤器}
+
+SpringSecurity 中认证授权等功能都是基于过滤器来完成的。过滤器按照既定的优先级排列，最终形成一个过滤器链，开发者可以自定义过滤器链，并通过 \texttt{@Order} 注解去调整过滤器位置。
+
+SpringSecurity 中的过滤器链通过 \texttt{FilterChainProxy} 嵌入到 Web 项目的原生过滤器中，过滤器链可以不止一个，多个过滤器链之间要指定优先级:
+
+\texttt{FilterChainProxy} 作为一个顶层管理者，将统一管理 Security Filter。\texttt{FilterChainProxy} 本身通过 Spring 框架提供的 \texttt{DelegatingFilterProxy} 整合到原生过滤器链中:
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\small]
+    \node(browser) [block, fill=blue!30] at (0,0) {Client(Browser)};
+    \node(filter1) [block, fill=orange!20] at (0,-1.5) {Filter};
+    \node(proxy) [block, fill=orange!20] at (0,-3) {DelegatingFilterProxy \\ \footnotesize{(FilterChainProxy)}};
+    \node(filter2) [block, fill=orange!20] at (0,-4.5) {Filter};
+    \node(servlet) [block, fill=blue!30] at (0,-6) {Servlet};
+    \begin{scope}[xshift=5cm, yshift=-2cm]
+      \draw[dashed] (-0.3,-0.5) rectangle (2.3,1.5);
+      \draw[fill=orange!20, draw=white] (0,0) rectangle (2,0.25);
+      \draw[fill=orange!20, draw=white] (0,0.5) rectangle (2,0.75);
+      \draw[fill=orange!20, draw=white] (0,1) rectangle (2,1.25);
+      \node[font=\footnotesize] at (1,-0.25) {SecurityFilterChain};
+    \end{scope}
+    \begin{scope}[xshift=5cm, yshift=-5cm]
+      \draw[dashed] (-0.3,-0.5) rectangle (2.3,1.5);
+      \draw[fill=orange!20, draw=white] (0,0) rectangle (2,0.25);
+      \draw[fill=orange!20, draw=white] (0,0.5) rectangle (2,0.75);
+      \draw[fill=orange!20, draw=white] (0,1) rectangle (2,1.25);
+      \node[font=\footnotesize] at (1,-0.25) {SecurityFilterChain};
+    \end{scope}
+    \draw[-Stealth] (proxy) -- +(3,0) |- node [pos=0.2,fill=white] {/admin/*} (4.75,-1);
+    \draw[-Stealth] (proxy) -- +(3,0) |- node [pos=0.2, fill=white] {/user/*} (4.75,-5);
+    \draw[Stealth-Stealth] (browser) -- (filter1);
+    \draw[Stealth-Stealth] (filter1) -- (proxy);
+    \draw[Stealth-Stealth] (proxy) -- (filter2);
+    \draw[Stealth-Stealth] (filter2) -- (servlet);
+  \end{tikzpicture}
+  \caption{过滤器链}
+  \label{fig:过滤器链}
+\end{figure}
+
+\subsection{登录数据}
+
+Spring Security 将数据保存在 Session 中，但做了一些调整。
+
+用户成功登陆后，数据会被保存在  \texttt{SecurityContextHolder} 中，\texttt{SecurityContextHolder} 中的数据保存默认通过 \texttt{ThreadLocal} 实现。只允许当前线程获取。当登录请求处理完毕后，Spring Security会将\texttt{SecurityContextHolder}中的数据拿出来保存到Session中，同时将\texttt{Sec urityContextHolder}中的数据清空。以后每当有请求到来时，Spring Security就会先从Session中取出用户登录数据，保存到\texttt{SecurityContextHolder}中，方便在该请求的后续处理过程中使用，同时在请求结束时将\texttt{SecurityContextHolder}中的数据拿出来保存到Session中，然后将\texttt{SecurityContextHolder}中的数据清空。
+
+\newpage
