@@ -1,0 +1,90 @@
+\section{认证流程}
+
+\subsection{登录流程分析}
+
+与登录流程相关的三个基本组件: \texttt{AuthenticationManager}, \texttt{ProviderManager} 和 \texttt{Authen ticationProvider}. 相关过滤器: \texttt{AbstractAuthenticationProcessingFilter}.
+
+\subsubsection{\texttt{AuthenticationManager}}
+
+\texttt{AuthenticationManager} 是一个认证管理器, 定义了 Spring Security 要如何执行认证操作. 认证成功后会返回一个 \texttt{Authentication} 对象,这个对象会被设置到 \texttt{SecurityContextHolder} 中.
+
+\begin{Java}
+public interface AuthenticationManager {
+    Authentication authenticate(Authentication authentication) throws AuthenticationException;
+}
+\end{Java}
+
+\texttt{AuthenticationManager} 对传入的 \texttt{Authentication} 进行身份认证, 此时传入的 \texttt{Authentication} 只有用户名, 密码等简单的数学,如果认证成功,会得到补充.
+
+\texttt{AuthenticationManager} 常用的的实现类是 \texttt{ProviderManager} 也是 Spring Security 默认的实现类.
+
+\subsubsection{\texttt{AuthenticationProvider}}
+
+\texttt{AuthenticationProvider} 针对不同的身份类型执行具体的身份认证. 常见的认证方案及对应实现类如下:
+\begin{itemize}
+  \item \texttt{DaoAuthenticationProvider}: 支持用户名/密码登录认证.
+  \item \texttt{RememberMeAuthenticationProvider}: 支持``记住我''认证.
+\end{itemize}
+
+\begin{Java}
+public interface AuthenticationProvider {
+    Authentication authenticate(Authentication authentication) throws AuthenticationException;
+    // 判断是否支持对应的身份类型
+    boolean supports(Class<?> authentication);
+}
+\end{Java}
+
+大部分实现类都继承自 \texttt{AbstractUserDetailsAuthenticationProvider}, 它的几个主要属性和方法如下:
+
+\begin{itemize}
+  \item \textbf{\texttt{userCache}}: 声明一个用户缓存对象,默认情况下不启用.
+  \item \textbf{\texttt{hideUserNotFoundExceptions}}: 隐藏失败异常,抛出一个模糊的 \texttt{BadCredentialsException} 异常代替查不到用户, 验证错误等异常, 默认开启.
+  \item \textbf{\texttt{forcePrincipalAsString}}: 默认关闭,返回 \texttt{UserDetails} 对象, 开启后仅返回用户名.
+  \item \textbf{\texttt{preAuthenticationChecks}}: 状态检查, 校验前
+  \item \textbf{\texttt{postAuthenticationChecks}}: 状态检测, 校验后
+  \item \textbf{\texttt{additionalAuthentication()}}: 校验密码
+  \item \textbf{\texttt{authenticate()}}: 核心校验方法
+\end{itemize}
+
+\texttt{authenticate()} 方法检验用户名密码登录的逻辑如下:
+\begin{itemize}
+  \item 从登陆数据中获取用户名;
+  \item 查用户获取用户对象;
+  \begin{itemize}
+    \item 根据用户名去缓存中查询用户对象;
+    \item 如果查不到,仅数据库加载用户;
+    \item 如果还是查不到,抛出异常(用户不存在);
+  \end{itemize}
+  \item 获取到用户对象后,调用 \texttt{preAuthenticationChecks.check()} 进行用户状态检查.
+  \item 调用 \texttt{additionalAuthenticationChecks()} 进行密码校验;
+  \item 调用 \texttt{postAuthenticationChecks.check()} 检查密码是否过期,
+  \item 调用 \texttt{createSuccessAuthentication} 方法创建一个认证后的 \texttt{UsernamePasswordA uthenticationToken} 对象并返回.
+\end{itemize}
+
+\subsubsection{\texttt{ProviderManager}}
+
+\texttt{ProviderManager} 是 \texttt{AuthenticationManager} 的一个重要实现类:
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\small]
+    \node[block, fill=blue!20, drop shadow] (pm) at (0,0) {ProviderManager};
+    \node[dashed, draw, minimum width=4cm, minimum height=4cm] (rect) at (5,0) {};
+    \begin{scope}[font=\footnotesize]
+      \node[block, fill=green!20, drop shadow] (p1) at (5,2) {AuthenticationProvider};
+      \node[block, fill = red!10, minimum width=2cm, minimum height=0.25cm] (s1) at (5,0.5) {};
+      \node[block, fill=green!20, drop shadow] (p2) at (5,-2) {AuthenticationProvider};
+      \node[block, fill = red!10, minimum width=2cm, minimum height=0.25cm] (s2) at (5,-0.5) {};
+      \draw[Stealth-Stealth] (p1) -- (s1);
+      \draw[Stealth-Stealth] (p2) -- (s2);
+    \end{scope}
+    \draw[-Stealth] (pm) -- (rect);
+  \end{tikzpicture}
+  \caption{Provider Manager}
+  \label{fig:Provider Manager}
+\end{figure}
+
+多个 \texttt{AuthenticationProvider} 将组成一个列表, 这个列表将由 \texttt{ProviderManager} 代理, 在 \texttt{ProviderManager} 中遍历每一个 \texttt{AuthenticationProvider} 去执行身份认证, 最终得到认证结果.
+
+理论上, 多个 \texttt{ProviderManager} 本身也可以再配置一个 \texttt{AuthenticationManager} 作为 parent. 一直套娃下去.

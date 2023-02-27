@@ -119,18 +119,399 @@ public interface UserDetailsService {
 
 \subsection{自定义登陆表}
 
-Spring Security5.4 之后，通过创建 \texttt{SecurityFilterChain} bean 来配置 \texttt{HttpSecurity}。\footnote{后续均以 Spring Security 6 为准，不再讨论之前的写法}:
+Spring Security5.4 之后，通过创建 \texttt{SecurityFilterChain} bean 来配置 \texttt{HttpSecurity}。\footnote{后续均以 Spring Security 6 为准，均使用注入 bean 的方法实现}，两篇推荐的文献:
+\begin{itemize}
+  \item 注入 \texttt{SecurityFilterChain} Bean 完成配置: \url{https://blog.csdn.net/lazy_LYF/article/details/127284459}
+  \item 基于数据库的配置: \url{https://blog.csdn.net/lazy_LYF/article/details/127284982}
+\end{itemize}
+
+简单地进行自定义配置如下:
 
 \begin{Java}
 @Configuration
-public class SecurityConfiguration {
+public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests((authz) -> authz
-                .anyRequest().authenticated()
-            )
-            .httpBasic(withDefaults());
+        http.authorizeHttpRequests()
+                .anyRequest()     // 针对任意请求
+                .authenticated()  // 进行认证
+                .and()            // 回到 HttpSecurity 实例
+                .formLogin()      // 开启表单登录
+                .loginPage("/login")  // 配置登录页面
+                .loginProcessingUrl("/doLogin") // 配置登录接口地址
+                .defaultSuccessUrl("/index")    // 默认成功登陆后跳转的地址
+                .failureUrl("/login") // 失败后跳转的地址
+                .usernameParameter("username")  // 用户名参数名
+                .passwordParameter("pwd")       // 密码参数名
+                .permitAll();     // 允许所有请求进入该界面
         return http.build();
     }
 }
 \end{Java}
+
+这里我们通过注入自定义过滤器链替代了 Spring Security 默认的过滤连，并做了一些基础配置。大致流程如下:
+\begin{itemize}
+  \item 确定请求类型。
+  \item 配置登录界面及成功与失败处理。
+  \item 返回 \texttt{http.build()} 注入到容器中替代默认配置。
+\end{itemize}
+
+上述代码有几个注意的地方:
+\begin{itemize}
+  \item \texttt{and()}: 表示回到 HttpSecurity 实例，官方提供的链式编程方法，与重新使用 \texttt{http.formLogin()} 等效。
+  \item \texttt{loginPage()} 表示登录界面，\texttt{loginProcessingUrl()} 表示后端处理的接口地址。
+\end{itemize}
+
+\subsubsection{登陆成功}
+
+在配置方法中，与成功登录相关的方法是 \texttt{defaultUrl()}: 表示成功登录之后，会自动重定向到登陆前的地址上。例如访问的是 /hello 接口，302重定向到 /login 接口认证之后会回到之前的 /hello 界面。
+
+这存在一个问题，如果之前访问的是 /login 接口，那么认证成功后会停留在当前界面，这对用户不是很友好。有两种解决方案:
+
+\begin{itemize}
+  \item 使用 \texttt{successForwardUrl}，只要成功登录，强制跳转到指定的界面。
+  \item \texttt{defaultSuccess} 有一个重载方法，第二个参数传入 \texttt{true}，则不考虑用户之前的访问地址，进入 \texttt{defaultSuccess} 页面。
+\end{itemize}
+
+这两者有一个不同之处，\texttt{successForwardUrl} 通过服务器跳转实现，\texttt{defaultSuccess} 则通过让客户端重定向实现。
+
+登陆成功后会由 \texttt{AuthenticationSuccessHandler} 接口处理:
+\begin{Java}
+public interface AuthenticationSuccessHandler {
+    default void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, FilterChain chain, Authentication authentication) throws IOException, ServletException {
+        this.onAuthenticationSuccess(request, response, authentication);
+        chain.doFilter(request, response);
+    }
+
+    void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException;
+}
+\end{Java}
+
+\texttt{AuthenticationSuccessHandler} 有两个直接实现类:
+\begin{itemize}
+  \item \texttt{SimpleUrlAuthenticationSuccessHandler}: 继承自 \texttt{AbstractAuthenticationTarget UrlRequestHandler}，通过它的 \texttt{handle} 方法实现请求重定向。
+  \item \texttt{ForwardAuthenticationSuccessHandler}: 服务端跳转。
+\end{itemize}
+
+比较重要的是 \texttt{SaveRequestAwareAuthenticationSuccessHandler}，继承自 \texttt{SimpleUrl AuthenticationSuccessHandler}，在其基础上添加了请求缓存功能，可以记录之前的地址，进而在登陆成功之后重定向到一开始访问的地址。\texttt{defaultSuccessUrl} 对应的实现类就是它。它的处理逻辑如下:
+\begin{itemize}
+  \item 获取缓存请求，如果没有，说明在访问登录页之前没有访问其他页面，交给父类处理，重定向到 \texttt{defaultSuccessUrl} 地址。
+  \item 如果存在缓存，且存在一个 \texttt{targetUrlParameter} 或者 \texttt{defaultSuccessUrl} 第二个参数为 \texttt{true} 则直接重定向到默认地址。
+  \item 否则，获取重定向地址进行重定向。
+\end{itemize}
+
+
+我们可以自定义对应的逻辑:
+\begin{Java}
+@Bean
+SavedRequestAwareAuthenticationSuccessHandler savedRequestAwareAuthenticationSuccessHandler() {
+    SavedRequestAwareAuthenticationSuccessHandler handler = new SavedRequestAwareAuthenticationSuccessHandler();
+    handler.setDefaultTargetUrl("/index");
+    handler.setTargetUrlParameter("target");
+    return handler;
+}
+\end{Java}
+
+\texttt{successForwardUrl} 对应 \texttt{ForwardAuthenticationSuccessHandler}，其功能特别简单，就是一个服务器转发。
+
+现在流行的前后端分离架构中，一般不需要后端处理这些逻辑，应该返回 json 数据由前端进行判断:
+
+\begin{Java}
+public class MyAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+        response.setContentType("application/json; charset=utf-8");
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("status",200);
+        resp.put("msg","成功登录!");
+        ObjectMapper om = new ObjectMapper();
+        String s = om.writeValueAsString(resp);
+        response.getWriter().write(s);
+    }
+}
+\end{Java}
+
+然后将其写入带 Config 文件中即可:
+
+\begin{Java}
+@Bean
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http.authorizeHttpRequests()
+            ...
+            .successHandler(new MyAuthenticationSuccessHandler())
+            ...
+    return http.build();
+}
+\end{Java}
+
+\subsubsection{登录失败}
+
+登录失败和成功逻辑类似，相关方法是 \texttt{failureUrl}，表示登录失败后重定向的路由。如果希望展示请求失败的异常信息，可以使用这种方式:
+
+\begin{Java}
+@Bean
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http.authorizeHttpRequests()
+        ...
+        .failureForwardUrl("mylogin")
+        ...
+    return http.build();
+}
+\end{Java}
+
+\texttt{failureForwardUrl} 是一种服务器跳转，好处是可以携带登陆异常信息。
+
+这两种方式所配置的都是 \texttt{AuthenticationFailureHandler} 接口:
+
+\begin{Java}
+public interface AuthenticationFailureHandler {
+    void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException;
+}
+\end{Java}
+
+它对应的实现类有很多，这里列出重要的几个:
+\begin{itemize}
+  \item \textbf{\texttt{SimpleUrlAuthenticationFailureHandler}}: 默认处理逻辑，重定向到登陆界面，是 \texttt{failureUrl()} 方法的底层实现。
+  \item \textbf{\texttt{ExceptionMappingAuthenticationFailureHandler}}: 根据异常类型映射到不同路径。
+  \item \textbf{\texttt{ForwardAuthenticationFailureHandler}}: 通过服务端跳转到登陆界面，是 \texttt{failure ForwardUrl} 方法的底层实现。
+\end{itemize}
+
+自定义登陆失败的方法和登陆成功类似，不再赘述。
+
+\subsubsection{注销登录}
+
+Spring Security 提供了默认的注销界面:
+
+\begin{Java}
+@Bean
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http.authorizeHttpRequests()
+        ...
+        .and()
+        .logout()   // 开启注销登录配置
+        .logoutUrl("logout")  // 指定请求地址
+        .invalidateHttpSession(true)  // 是否使 session 失效
+        .clearAuthentication(true)    // 是否清除认证信息
+        .logoutSuccessUrl("/myLogout")  // 注销后跳转的地址
+        ...
+    return http.build();
+}
+\end{Java}
+
+自定义配置方法类似，不再赘述。
+
+\subsection{登录用户数据获取}
+
+登录成功之后，用户信息将默认保存在 HttpSession 中，Spring Security 对齐进行了封装，开发者获取用户数据有两种主流的思路:
+
+\begin{itemize}
+  \item 从 \texttt{SecurityContextHolder} 中获取。
+  \item 从当前请求对象中获取。
+\end{itemize}
+
+无论使用哪种方案都离不开 \texttt{Authentication} 对象:
+
+\begin{Java}
+public interface Authentication extends Principal, Serializable {
+    // 获取用户权限
+    Collection<? extends GrantedAuthority> getAuthorities();
+    // 获取用户凭证，一般是密码
+    Object getCredentials();
+    // 获取用户携带的详细信息，可能是当前请求
+    Object getDetails();
+    // 获取当前用户，用户名或用户对象
+    Object getPrincipal();
+    // 当前用户是否认证成功
+    boolean isAuthenticated();
+    void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException;
+}
+\end{Java}
+
+\texttt{Authentication} 对象主要有两方面的功能:
+\begin{itemize}
+  \item 作为 \texttt{AuthenticationManager} 输入参数，提供用户身份认证的凭证。
+  \item 代表已经经过身份认证的用户，此时的 \texttt{Authentication} 可以从 \texttt{SecurityContext} 中获取。
+\end{itemize}
+
+一个 \texttt{Authentication} 对象主要包括三方面信息:
+\begin{itemize}
+  \item \textbf{\texttt{principal}}: 定义认证的用户，通常是 \texttt{UserDetail} 对象。
+  \item \textbf{\texttt{credentials}}: 登录凭证，比如密码。登陆成功后，登录凭证会被自动擦除。
+  \item \textbf{\texttt{authorities}}: 用户被赋予的权限信息。
+\end{itemize}
+
+Java 本身提供了 \texttt{Principal} 接口来描述认证主体，\texttt{Authentication} 则继承自 \texttt{Principal}。\texttt{Authentication} 有多个实现类，常用的有两个:
+
+\begin{itemize}
+  \item \textbf{\texttt{UsernamePasswordAuthenticationToken}}: 表单登录时封装的用户对象。
+  \item \textbf{\texttt{RememberMeAuthenticationToken}}: 使用 RememberMe 方式时封装的用户对象。
+\end{itemize}
+
+\subsubsection{从 \texttt{SecurityContextHolder} 中获取}
+
+一般的，获取用户信息的代码如下:
+
+\begin{Java}
+@GetMapping("/user")
+public void userInfo() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    String username = authentication.getName();
+    ......
+}
+\end{Java}
+
+其中 \texttt{SecurityContextHolder.getContext()} 是一个静态方法，用于返回一个  \texttt{Security Context} 对象。
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\small]
+    \draw[fill=yellow!20] (0,0) rectangle (7,-3);
+    \node at (3.5,-0.3) {SecurityContextHolder};
+    \draw[fill=orange!20] (0.25,-0.6) rectangle (6.75,-2.75);
+    \node at (3.5,-0.9) {SecurityContext};
+    \draw[fill=red!20] (0.5,-1.2) rectangle (6.5,-2.5);
+    \node at (3.5,-1.5) {Authentication};
+    \begin{scope}[font=\footnotesize]
+      \node[block, fill=red!50] at (1.6,-2) {Principal};
+      \node[block, fill=red!50] at (3.5,-2) {Credentials};
+      \node[block, fill=red!50] at (5.4,-2) {Authorities};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{SecurityContextHolder 关系}
+  \label{fig:SecurityContextHolder 关系}
+\end{figure}
+
+\texttt{SecurityContextHolder} 中存放的是 \texttt{SecurityContext}，共定义了三种不同的数据存储策略:
+\begin{itemize}
+  \item \textbf{MODE\_THREADLOCAL}: 将 \texttt{SecurityContext} 存放到 \texttt{ThreadLocal} 中，是默认的存储策略。如果开启了子线程，则无法获取用户信息。
+  \item \textbf{MODE\_INHERITABLETHREADLOCAL}: 适用于多线程模式。
+  \item \textbf{MODE\_GLOBAL}: 实际上将数据保存在静态变量中，Web 开发中很少使用.
+\end{itemize}
+
+\texttt{SecurityContextHolderStrategy} 用于规范存储策略中的方法:
+
+\begin{Java}
+public interface SecurityContextHolderStrategy {
+    void clearContext();
+    SecurityContext getContext();
+    default Supplier<SecurityContext> getDeferredContext() {
+        return () -> {
+            return this.getContext();
+        };
+    }
+    void setContext(SecurityContext context);
+    default void setDeferredContext(Supplier<SecurityContext> deferredContext) {
+        this.setContext((SecurityContext)deferredContext.get());
+    }
+    SecurityContext createEmptyContext();
+}
+\end{Java}
+
+对应三种存储策略,有三个 \texttt{SecurityContextHolderStrategy}  实现类. 都比较简单,读者有兴趣可以自行查源代码.
+
+\subsubsection*{\texttt{SecurityContextHolderFilter}}
+
+\texttt{SecurityContextHolderFilter} 是专为存储 \texttt{Security Context} 而设计的. 主要做了两件事:
+\begin{itemize}
+  \item 请求到来,从 \texttt{HttpSession} 中获取 \texttt{SecurityContext} 并存入 \texttt{SecurityContextHolder} 中.
+  \item 请求完成, 从 \texttt{SecurityContextHolder} 中获取 \texttt{SecurityContext} 并存入 \texttt{HttpSession} 中.
+\end{itemize}
+
+在此之前,先要了解 \texttt{SecurityContextRepository} 接口:
+
+\begin{Java}
+public interface SecurityContextRepository {
+    /** @deprecated */
+    @Deprecated
+    SecurityContext loadContext(HttpRequestResponseHolder requestResponseHolder);
+    default DeferredSecurityContext loadDeferredContext(HttpServletRequest request) {
+        Supplier<SecurityContext> supplier = () -> {
+            return this.loadContext(new HttpRequestResponseHolder(request, (HttpServletResponse)null));
+        };
+        return new SupplierDeferredSecurityContext(SingletonSupplier.of(supplier), SecurityContextHolder.getContextHolderStrategy());
+    }
+    void saveContext(SecurityContext context, HttpServletRequest request, HttpServletResponse response);
+    boolean containsContext(HttpServletRequest request);
+}
+\end{Java}
+
+它的几个方法很好理解, 主要实现类是 \texttt{HttpSessionSecurityContextRepository}. 实现了将 \texttt{SecurityContext} 存储到 \texttt{HttpSession} 以及从 \texttt{HttpSession} 中加载 \texttt{SecurityContext} 出来. 具体的实现方案比较复杂, 有兴趣请自行查源代码.
+
+\texttt{SecurityContextHolderFilter} 主要通过 \texttt{SecurityContextRepository} 获取用户信息, 主要方法如下:
+
+\begin{Java}
+public class SecurityContextHolderFilter extends GenericFilterBean {
+    private final SecurityContextRepository securityContextRepository;
+    private SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder.getContextHolderStrategy();
+
+    // 获取 SecurityContextRepository 实例
+    public SecurityContextHolderFilter(SecurityContextRepository securityContextRepository) {
+        Assert.notNull(securityContextRepository, "securityContextRepository cannot be null");
+        this.securityContextRepository = securityContextRepository;
+    }
+
+    private void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
+        if (request.getAttribute(FILTER_APPLIED) != null) {
+            chain.doFilter(request, response);
+        } else {
+          request.setAttribute(FILTER_APPLIED, Boolean.TRUE);
+          // 获取信息
+          Supplier<SecurityContext> deferredContext = this.securityContextRepository.loadDeferredContext(request);
+          try {
+              // 写入信息
+              this.securityContextHolderStrategy.setDeferredContext(deferredContext);
+              chain.doFilter(request, response);
+          } finally {
+              this.securityContextHolderStrategy.clearContext();
+              request.removeAttribute(FILTER_APPLIED);
+          }
+
+        }
+    }
+}
+\end{Java}
+
+一言以蔽之，请求在到达过滤器之后，先从HttpSession中读取SecurityContext出来，并存入SecurityContextHolder之中以备后续使用；当请求离开过滤器的时候，获取最新的SecurityContext并存入HttpSession中，同时清空SecurityContextHolder中的登录用户信息。
+
+\subsubsection{从当前请求对象中获取}
+
+开发者可以直接在 Controller 请求参数中放入 \texttt{Authentication} 对象来获取登录用户信息. 
+
+\begin{Java}
+@RequestMapping("/authentication")
+public void authentication(Authentication authentication) {
+    System.out.println(authentication);
+}
+\end{Java}
+
+Controller 中的方法是当前请求 \texttt{HttpServletRequest} 带来的. 那么这些数据(\texttt{Authentication}参数)是如何放入的呢?
+
+如果使用了Spring Security框架，那么我们在Controller参数中拿到的\texttt{HttpServletRequest}实例将是\texttt{Servlet3SecurityContextHolderAwareRequestWrapper},很明显，这是被Spring Security封装过的请求。
+
+我们直接将\texttt{Authentication}或者\texttt{Principal}写到Controller参数中，实际上就是Spring MVC框架从\texttt{Servlet3SecurityContextHolderAwareRequestWrapper}中提取的用户信息。
+
+此外,还有一个 \texttt{SecurityContextHolderAwareRequestFilter} 过滤器,对 \texttt{HttpServlet Request} 请求进行再包装. 
+
+对请求的\texttt{HttpServletRequest}包装之后，接下来在过滤器链中传递的\texttt{HttpServlet Request}对象，它的多个方法就可以直接使用了。\texttt{HttpServletRequest}中\texttt{getUserPrincipal()}方法有了返回值之后，最终在Spring MVC的\texttt{ServletRequestMethodArgumentResolver\#resolve Argument(Class<?>,HttpServletRequest)}进行默认参数解析，自动解析出Principal对象。开发者在Controller中既可以通过\texttt{Principal}来接收参数，也可以通过\texttt{Authentication}对象来接收.
+
+\subsection{用户定义}
+
+自定义用户其实是使用 \texttt{UserDetailService} 的不同实现类来提供用户数据,同时将配置好的 \texttt{UserDetailService} 配置给 \texttt{AuthenticationManagerBuilder}, 系统再将 \texttt{UserDetailService} 提供给 \texttt{AuthenticationProvider} 使用.
+
+一种配置方案如下(部分代码省略):
+
+\begin{Java}
+@Bean
+AuthenticationManager authenticationManager(HttpSecurity httpSecurity) throws Exception {
+    UserDetailsService userServiceImpl;
+    AuthenticationManager authenticationManager = httpSecurity.getSharedObject(AuthenticationManagerBuilder.class)
+            .userDetailsService(userServiceImpl)
+            .passwordEncoder(passwordEncoder())
+            .and()
+            .build();
+    return authenticationManager;
+}
+\end{Java}
+
+\newpage

@@ -87,11 +87,11 @@ SpringSecurity 中的过滤器链通过 \texttt{FilterChainProxy} 嵌入到 Web 
   \small
   \centering
   \begin{tikzpicture}[font=\small]
-    \node(browser) [block, fill=blue!30] at (0,0) {Client(Browser)};
-    \node(filter1) [block, fill=orange!20] at (0,-1.5) {Filter};
-    \node(proxy) [block, fill=orange!20] at (0,-3) {DelegatingFilterProxy \\ \footnotesize{(FilterChainProxy)}};
-    \node(filter2) [block, fill=orange!20] at (0,-4.5) {Filter};
-    \node(servlet) [block, fill=blue!30] at (0,-6) {Servlet};
+    \node(browser) [block,drop shadow, fill=blue!30] at (0,0) {Client(Browser)};
+    \node(filter1) [block,drop shadow, fill=orange!20] at (0,-1.5) {Filter};
+    \node(proxy) [block,drop shadow, fill=orange!20] at (0,-3) {DelegatingFilterProxy \\ \footnotesize{(FilterChainProxy)}};
+    \node(filter2) [block,drop shadow, fill=orange!20] at (0,-4.5) {Filter};
+    \node(servlet) [block,drop shadow, fill=blue!30] at (0,-6) {Servlet};
     \begin{scope}[xshift=5cm, yshift=-2cm]
       \draw[dashed] (-0.3,-0.5) rectangle (2.3,1.5);
       \draw[fill=orange!20, draw=white] (0,0) rectangle (2,0.25);
