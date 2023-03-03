@@ -1,0 +1,105 @@
+\section{过滤器链}
+\subsection{初始化流程分析}
+
+Spring Security 初始化流程设计很多零碎的知识点,这里先介绍一些常见的关键组件.
+
+\subsubsection*{\texttt{ObjectPostProcessor}}
+
+\texttt{ObjectPostProcessor} 听名字就知道, 是用于做后处理的.
+
+\begin{Java}
+public interface ObjectPostProcessor<T> {
+    <O extends T> O postProcess(O object);
+}
+\end{Java}
+
+它有两个默认的继承类:
+
+\begin{itemize}
+  \item \texttt{AutowireBeanFactoryObjectPostProcessor}: 用于注入容器的. 和框架相关, 无需过多了解.
+  \item \texttt{CompositeObjectPostProcessor}: 是一个组合的对象后处理器, 了吗维护一个 \texttt{List} 集合, 集合中存放了某个对象的所有后置处理器, 遍历调用. 默认情况下只有一个后处理器 \texttt{AutowireBeanFactoryObjectPostProcessor}.
+\end{itemize}
+
+在Spring Security中，开发者可以灵活地配置项目中需要哪些Spring Security过滤器，
+一旦选定过滤器之后，每一个过滤器都会有一个对应的配置器，叫作\texttt{xxxConfigurer}过滤器都是在\texttt{xxxConfigurer}中\texttt{new}出来的，然后在 \texttt{postProcess}方法中处理一遍，就将这些过滤器注入到Spring容器中了。
+
+这是对象后置处理器ObjectPostProcessor的主要作用。
+
+\subsubsection*{\texttt{SecurityFilterChain}}
+
+\texttt{SecurityFilterChain} 即过滤器链对象:
+
+\begin{Java}
+public interface SecurityFilterChain {
+    // 判断当前 request 请求是否被当前过滤器链处理
+    boolean matches(HttpServletRequest request);
+    // 存放过滤器,如果 matches 判断为 true,则进行处理
+    List<Filter> getFilters();
+}
+\end{Java}
+
+\texttt{SecurityFilterChain} 只有一个默认实现类 \texttt{DefaultSecurityFilterChain}. 
+
+\subsubsection*{\texttt{SecurityBuilder}}
+
+Spring Security 中所有需要构建的对象都可以通过 \texttt{SecurityBuilder} 实现:
+
+\begin{Java}
+public interface SecurityBuilder<O> {
+    O build() throws Exception;
+}
+\end{Java}
+
+\texttt{SecurityBuilder} 的子类较多, 我们只需要知道它最终会返回过滤器链(\texttt{FilterChainProxy})给我们就行.
+
+\subsubsection*{\texttt{FilterChainProxy}}
+
+\texttt{FilterChainProxy} 通过 \texttt{DelegatingFilterProxy} 代理过滤器被集成到 Web Filter 中. Spring Security 中的过滤器链最终执行就是在 \texttt{FilterChainProxy} 中.
+
+\subsubsection*{\texttt{SecurityConfigurer}}
+
+\texttt{SecurityConfigurer} 有两个核心方法, 一个是 \texttt{init} 方法, 用来完成配置类的初始化操作, 另一个是 \texttt{configure} 方法, 进行配置类的配置:
+
+\begin{Java}
+public interface SecurityConfigurer<O, B extends SecurityBuilder<O>> {
+    void init(B builder) throws Exception;
+    void configure(B builder) throws Exception;
+}
+\end{Java}
+
+\subsubsection*{初始化流程}
+
+Spring Security 的默认自动化配置类是 \texttt{SecurityAutoConfiguration}:
+
+\begin{Java}
+@AutoConfiguration
+@ConditionalOnClass({DefaultAuthenticationEventPublisher.class})
+@EnableConfigurationProperties({SecurityProperties.class})
+@Import({SpringBootWebSecurityConfiguration.class, SecurityDataConfiguration.class})
+public class SecurityAutoConfiguration {
+    public SecurityAutoConfiguration() {
+    }
+
+    @Bean
+    @ConditionalOnMissingBean({AuthenticationEventPublisher.class})
+    public DefaultAuthenticationEventPublisher authenticationEventPublisher(ApplicationEventPublisher publisher) {
+        return new DefaultAuthenticationEventPublisher(publisher);
+    }
+}
+\end{Java}
+
+主要作用是导入了两个配置类, 并定义了一个默认的事件发布器, 配置类的作用如下:
+\begin{itemize}
+  \item \texttt{SpringBootWebSecurityConfiguration}: 如果开发者没有提供 \texttt{WebSecurityConfigu rerAdapter} 则提供一个默认的实例.
+  \item \texttt{SecurityDataConfiguration}: 提供一个 \texttt{SecurityEvaluationContextExtension} 实例, 以便通过 SpEL 为经过身份验证的用户提供数据查询.
+\end{itemize}
+
+\subsection{多种用户定义方式}
+
+前面我共用到了两种用户定义方式:
+\begin{itemize}
+  \item \textbf{重写 \texttt{configure} 方法}: 对应全局 \texttt{AuthenticationManager}.
+  \item \textbf{直接注入 \texttt{UserDetailsService}}: 对应局部 \texttt{AuthenticationManager}.
+\end{itemize}
+
+当用户进行身份验证时, 会首先通过局部身份验证,如果不通过再进行全局身份验证. 两者互不影响.

@@ -58,7 +58,7 @@ public interface AuthenticationProvider {
   \item 获取到用户对象后,调用 \texttt{preAuthenticationChecks.check()} 进行用户状态检查.
   \item 调用 \texttt{additionalAuthenticationChecks()} 进行密码校验;
   \item 调用 \texttt{postAuthenticationChecks.check()} 检查密码是否过期,
-  \item 调用 \texttt{createSuccessAuthentication} 方法创建一个认证后的 \texttt{UsernamePasswordA uthenticationToken} 对象并返回.
+  \item 调用 \texttt{createSuccessAuthentication} 方法创建一个认证后的 \texttt{UsernamePasswordAu thenticationToken} 对象并返回.
 \end{itemize}
 
 \subsubsection{\texttt{ProviderManager}}
@@ -72,10 +72,10 @@ public interface AuthenticationProvider {
     \node[block, fill=blue!20, drop shadow] (pm) at (0,0) {ProviderManager};
     \node[dashed, draw, minimum width=4cm, minimum height=4cm] (rect) at (5,0) {};
     \begin{scope}[font=\footnotesize]
-      \node[block, fill=green!20, drop shadow] (p1) at (5,2) {AuthenticationProvider};
-      \node[block, fill = red!10, minimum width=2cm, minimum height=0.25cm] (s1) at (5,0.5) {};
-      \node[block, fill=green!20, drop shadow] (p2) at (5,-2) {AuthenticationProvider};
-      \node[block, fill = red!10, minimum width=2cm, minimum height=0.25cm] (s2) at (5,-0.5) {};
+      \node[block, fill=green!20, drop shadow] (p1) at (5,1.5) {AuthenticationProvider};
+      \node[block, fill = red!20, minimum width=2cm, minimum height=0.25cm] (s1) at (5,0.25) {};
+      \node[block, fill=green!20, drop shadow] (p2) at (5,-1.5) {AuthenticationProvider};
+      \node[block, fill = red!20, minimum width=2cm, minimum height=0.25cm] (s2) at (5,-0.25) {};
       \draw[Stealth-Stealth] (p1) -- (s1);
       \draw[Stealth-Stealth] (p2) -- (s2);
     \end{scope}
@@ -87,4 +87,166 @@ public interface AuthenticationProvider {
 
 多个 \texttt{AuthenticationProvider} 将组成一个列表, 这个列表将由 \texttt{ProviderManager} 代理, 在 \texttt{ProviderManager} 中遍历每一个 \texttt{AuthenticationProvider} 去执行身份认证, 最终得到认证结果.
 
-理论上, 多个 \texttt{ProviderManager} 本身也可以再配置一个 \texttt{AuthenticationManager} 作为 parent. 一直套娃下去.
+理论上, 多个 \texttt{ProviderManager} 本身也可以再配置一个 \texttt{AuthenticationManager} 作为 parent, 一直套娃下去. 
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\footnotesize]
+    \begin{scope}
+      \node[block, fill=blue!20, minimum width=4cm, minimum height=1.6cm] (manager) at (0,0) {};
+      \node[block] at (0,0.3) {AuthenticationManager};
+      \node[block, drop shadow, fill=blue!40] at (0,-0.25) {ProviderManager};
+    \end{scope}
+    \begin{scope}[xshift=7cm, yshift=2cm]
+      \node[block, fill=green!20, minimum width=4cm, minimum height=1.6cm] (pm1) at (0,0) {};
+      \node[block] at (0,0.3) {ProviderManager};
+      \node[block, drop shadow, fill=green!40] at (0,-0.25) {AuthenticationManagers};
+    \end{scope}
+    \begin{scope}[xshift=7cm, yshift=0cm]
+      \node[block, fill=green!20, minimum width=4cm, minimum height=1.6cm] (pm2) at (0,0) {};
+      \node[block] at (0,0.3) {ProviderManager};
+      \node[block, drop shadow, fill=green!40] at (0,-0.25) {AuthenticationManagers};
+    \end{scope}
+    \begin{scope}[xshift=7cm, yshift=-2cm]
+      \node[block, fill=green!20, minimum width=4cm, minimum height=1.6cm] (pm3) at (0,0) {};
+      \node[block] at (0,0.3) {ProviderManager};
+      \node[block, drop shadow, fill=green!40] at (0,-0.25) {AuthenticationManagers};
+    \end{scope}
+    \draw [-Stealth] (manager) -- +(4,0) |- (pm1);
+    \draw [-Stealth] (manager) -- +(4,0) |- (pm2);
+    \draw [-Stealth] (manager) -- node[fill=white, midway] {parent} +(4,0) |- (pm3);
+  \end{tikzpicture}
+  \caption{\texttt{ProviderManager} 包含多个 \texttt{AuthenticationProvider}}
+  \label{fig:ProviderManager 包含多个 AuthenticationProvider}
+\end{figure}
+
+
+\texttt{ProviderManager} 的方法 \texttt{authenticate()} 主要执行逻辑如下:
+\begin{itemize}
+  \item 遍历 \texttt{ProviderManager} 所代理的所有 \texttt{AuthenticationProvider} 对象进行身份验证.
+  \item 判断当前 \texttt{AuthenticationProvider} 是否支持当前 \texttt{Authentication} 对象,不支持则使用下一个 \texttt{AuthenticationProvider} 对象.
+  \item 调用 \texttt{provider.authenticate} 方法进行身份认证, 如果认证成功, 返回 \texttt{Authentication} 对象, 同时做一些后处理.
+  \item 如果遍历完后, 所有认证均失败, 此时如果 \texttt{parent} 不为空, 则继续调用 \texttt{parent} 的 \texttt{authenticate} 进行认证.
+  \item 如果认证成功, 则擦除凭证, 将 \texttt{result} 返回, 停止执行后续代码.
+  \item 如果认证失败,则派出异常.
+\end{itemize}
+
+\subsubsection{\texttt{AbstractAuthenticationProcessingFilter}}
+
+\texttt{AbstractAuthenticationProcessingFilter} 负责将前面的几个类串联起来, 用于处理任何提交给它的身份认证:
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\footnotesize]
+    \begin{scope}
+      \node[draw, minimum width=6cm, minimum height=4cm] (chain) at (0,0) {};
+      \node[fill=white] at (-1.5,2) {SecurityFilterChain};
+      \node[block,drop shadow, fill=red!40] (filter) at (0,0) {AbstractAuthenticationProcessingFilter};
+      \node[block,fill=black!20, minimum width=1cm, minimum height=0.25cm] (filter1) at (0,1) {};
+      \node[block,fill=black!20, minimum width=1cm, minimum height=0.25cm] (filter2) at (0,-1) {};
+      \draw[Stealth-Stealth] (filter1) -- (filter);
+      \draw[Stealth-Stealth] (filter2) -- (filter);
+    \end{scope}
+    \begin{scope}[xshift=6cm]
+      \node[block, fill=green!20, drop shadow] (authentication) at (0,2) {Authentication};
+      \node[block, fill=green!20, drop shadow] (manager) at (0,0.5) {AuthenticationManager};
+      \node[checkpoint, drop shadow] (if) at (0,-1) {};
+      \node[block, fill=green!20, drop shadow] (success) at (0,-2.5) {AuthenticationSuccessHandler};
+      \node[block, fill=green!20, drop shadow] (fail) at (5,-2.5) {AuthenticationFailureHandler};
+    \end{scope}
+    \draw[-Stealth] (chain) -- +(4,0) |- (authentication);
+    \draw[-Stealth] (authentication) -- (manager);
+    \draw[-Stealth] (manager) -- (if) node [midway, note] {isAuthenticated?};
+    \draw[-Stealth] (if) -- (success) node [midway, note] {success};
+    \draw[-Stealth] (if) -| node [pos=0.25, note] {fail} (fail);
+  \end{tikzpicture}
+  \caption{AbstractAuthenticationProcessingFilter 处理流程}
+  \label{fig:AbstractAuthenticationProcessingFilter 处理流程}
+\end{figure}
+
+如果是使用账户密码登录, 对应的实际类如下:
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\footnotesize]
+    \begin{scope}
+      \node[draw, minimum width=6cm, minimum height=4cm] (chain) at (0,0) {};
+      \node[fill=white] at (-1.5,2) {SecurityFilterChain};
+      \node[block,drop shadow, fill=red!40] (filter) at (0,0) {UsernamePasswordAuthenticationFilter};
+      \node[block,fill=black!20, minimum width=1cm, minimum height=0.25cm] (filter1) at (0,1) {};
+      \node[block,fill=black!20, minimum width=1cm, minimum height=0.25cm] (filter2) at (0,-1) {};
+      \draw[Stealth-Stealth] (filter1) -- (filter);
+      \draw[Stealth-Stealth] (filter2) -- (filter);
+    \end{scope}
+    \begin{scope}[xshift=6cm]
+      \node[block, fill=green!20, drop shadow] (authentication) at (2.5,2) {UsernamePasswordAuthenticationToken};
+      \node[block, fill=green!20, drop shadow] (manager) at (2.5,0.5) {ProviderManager};
+      \node[checkpoint, drop shadow] (if) at (2.5,-1) {};
+      \node[block, fill=green!20, drop shadow] (success) at (0,-2.5) {AuthenticationSuccessHandler};
+      \node[block, fill=green!20, drop shadow] (fail) at (5,-2.5) {AuthenticationFailureHandler};
+    \end{scope}
+    \draw[-Stealth] (chain) -- +(4,0) |- (authentication);
+    \draw[-Stealth] (authentication) -- (manager);
+    \draw[-Stealth] (manager) -- (if) node [midway, note] {isAuthenticated?};
+    \draw[-Stealth] (if) -| (success) node [pos=0.25, note] {success};
+    \draw[-Stealth] (if) -| node [pos=0.25, note] {fail} (fail);
+  \end{tikzpicture}
+  \caption{用户名密码登录处理流程}
+  \label{fig:用户名密码登录处理流程}
+\end{figure}
+
+上图的大致处理流程如下:
+
+\begin{itemize}
+  \item 用户提交登录请求, \texttt{UsernamePasswordAuthenticationFilter} 从 \texttt{HttpServletRequest} 中获取用户名/密码, 然后创建一个 \texttt{UsernamePasswordAuthenticationToken} 对象.
+  \item \texttt{UsernamePasswordAuthenticationToken} 对象被传入 \texttt{ProviderManager} 进行认证.
+  \item 认证失败, 则 \texttt{SecurityContextHolder} 中相关信息被清除,并进行失败回调.
+  \item 认证成功,则进行登录信息存储, Session 并发处理,登陆成功时间发布以及登陆方法回调等操作.
+\end{itemize}
+
+\texttt{AbstractAuthenticationProcessingFilter} 的具体实现逻辑还是比较简单的, 有兴趣可以自行查阅源码.
+
+\subsection{配置多个数据源}
+
+配置多个数据源,即认证时,如果第一张表没有查找到用户,就去第二张表中查,以此类推.
+
+实现这个很简单, 如前文所述, 一个 \texttt{AuthenticationProvider} 配置了一个 \texttt{UserDetailService} 不同的  \texttt{UserDetailService} 代表不同的数据源, 所以只需要配置多个 \texttt{AuthenticationProvider} 并提供不同的 \texttt{UserDetailService} 即可.
+
+\begin{Java}
+@Bean
+@Primary
+UserDetailsService us1() {
+    return new InMemoryUserDetailsManager(User.builder()
+      .username("pionpill").password("{noop}123456").roles("admin").build());
+}
+@Bean
+UserDetailsService us2() {
+    return new InMemoryUserDetailsManager(User.builder()
+      .username("beian").password("{noop}123456").roles("user").build());
+}
+
+@Bean
+public AuthenticationManager authenticationManagerBean() throws  Exception {
+    DaoAuthenticationProvider dao1 = new DaoAuthenticationProvider();
+    dao1.setUserDetailsService(us1());        
+    DaoAuthenticationProvider dao2 = new DaoAuthenticationProvider();
+    dao2.setUserDetailsService(us2());
+    ProviderManager manager = new ProviderManager(dao1, dao2);
+    return manager;
+}
+\end{Java}
+
+\subsection{添加登录验证码}
+
+Spring Security 没有给出自动配置登录验证码的方案, 有两种实现登录验证码的思路:
+\begin{itemize}
+  \item 自定义过滤器.
+  \item 自定义认证逻辑.
+\end{itemize}
+
+原书这里使用自定义认证逻辑来实现. 逻辑上就是重写 \texttt{AuthenticationProvider} 的 \texttt{authenticate()} 方法, 先进行验证码判断, 再调用 \texttt{super.authenticate()}. 由于不涉及新的技能点 ,这里不再赘述, 可以参考这篇文章 \url{https://blog.csdn.net/zhouzhiwengang/article/details/96155447}.
+
+\newpage
