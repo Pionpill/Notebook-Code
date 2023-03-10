@@ -1,0 +1,420 @@
+\section{Axios}
+
+\subsection{Http 与 Restful API}
+
+\subsubsection*{Http}
+
+HTTP(HyperText Transfer Protocol)，即超文本传输协议，基于 TCP/IP 通信协议来传递数据。HTTPS(HyperText Transfer Protocol Secure)，即超文本传输安全协议。HTTPS 经由 HTTP 进行通信，但用 SSL/TLS 加密数据包。
+
+默认情况下，http 使用 80 端口，https 使用 443 端口。
+
+HTTP 有以下三个注意点:
+\begin{itemize}
+  \item 无连接: 限制每次连接只处理一个请求，处理完即断开。
+  \item 媒体独立: 任何类型的数据都可以通过HTTP发送。
+  \item 无状态: 协议对于事务处理没有记忆能力。
+\end{itemize}
+
+一个 Http 请求报文有以下主要部分:
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\scriptsize]
+    \tikzstyle{httpBlock} = [draw, minimum height=0.5cm]
+    \begin{scope}
+      \node[httpBlock, minimum width=2cm, fill=red!20] at (0,0) {请求方法};
+      \node[httpBlock, minimum width=1cm] at (1.5,0) {空格};
+      \node[httpBlock, minimum width=2cm, fill=red!20] at (3,0) {URL};
+      \node[httpBlock, minimum width=1cm] at (4.5,0) {空格};
+      \node[httpBlock, minimum width=2cm, fill=red!20] at (6,0) {协议版本};
+      \node[httpBlock, minimum width=1cm] at (7.5,0) {回车};
+      \node[httpBlock, minimum width=1cm] at (8.5,0) {换行};
+      \node at (10,0) {请求行};
+    \end{scope}
+    \begin{scope}[yshift=-.5cm]
+      \node[httpBlock, minimum width=2cm, fill=red!40] at (0,0) {头部字段名};
+      \node[httpBlock, minimum width=1cm] at (1.5,0) {:};
+      \node[httpBlock, minimum width=2cm, fill=red!40] at (3,0) {值};
+      \node[httpBlock, minimum width=1cm] at (4.5,0) {回车};
+      \node[httpBlock, minimum width=1cm] at (5.5,0) {换行};
+    \end{scope}
+    \begin{scope}[yshift=-1cm]
+      \node[httpBlock, minimum width=7cm] at (2.5,0) {...};
+      \node at (7,0) {请求头部};
+    \end{scope}
+    \begin{scope}[yshift=-1.5cm]
+      \node[httpBlock, minimum width=2cm, fill=red!40] at (0,0) {头部字段名};
+      \node[httpBlock, minimum width=1cm] at (1.5,0) {:};
+      \node[httpBlock, minimum width=2cm, fill=red!40] at (3,0) {值};
+      \node[httpBlock, minimum width=1cm] at (4.5,0) {回车};
+      \node[httpBlock, minimum width=1cm] at (5.5,0) {换行};
+    \end{scope}
+    \begin{scope}[yshift=-2cm]
+      \node[httpBlock, minimum width=1cm] at (-0.5,0) {回车};
+      \node[httpBlock, minimum width=1cm] at (.5,0) {换行};
+    \end{scope}
+    \begin{scope}[yshift=-2.5cm]
+      \node[httpBlock, minimum width=7cm, fill=red!20] at (2.5,0) {};
+      \node at (7,0) {请求数据};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{HTTP 请求报文}
+  \label{fig:HTTP 请求报文}
+\end{figure}
+
+\begin{itemize}
+  \item 请求行 : 请求方法字段，URL，字段，HTTP 协议版本。
+  \begin{itemize}
+    \item 方法字段: 即 GET, HEAD, POST 等。
+    \item URL: 常见形式是网址(当不限于此)。
+    \item 协议版本: 如 HTTP/1.1。
+  \end{itemize}
+  \item 请求头部: 由关键字/值对组成，每行一对，关键字和值用英文冒号“:”分隔。
+  \item 空行: 用于分开请求头与请求数据。
+  \item 请求数据: GET 方法中没有，一般在 POST 方法中使用。
+\end{itemize}
+
+例如一个报文如下:
+\begin{HTML}
+// 请求首行
+POST /hello/index.jsp HTTP/1.1
+//请求头信息
+Host: localhost
+User-Agent: Mozilla/5.0 (Windows NT 5.1; rv:5.0) Gecko/20100101 Firefox/5.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: zh-cn,zh;q=0.5
+Accept-Encoding: gzip, deflate
+Accept-Charset: GB2312,utf-8;q=0.7,*;q=0.7
+Connection: keep-alive
+Referer: http://localhost/hello/index.jsp
+Cookie: JSESSIONID=369766FDF6220F7803433C0B2DE36D98
+Content-Type: application/x-www-form-urlencoded 
+Content-Length: 14 
+// 这里是空行
+//POST有请求正文 （Get没有，为空）
+username=hello
+\end{HTML}
+
+响应报文的结构类似，包含状态行，消息报头，空行，正文。其中状态行包括: HTTP 协议版本，状态码，状态信息。
+
+常见的状态码如下:
+\begin{table}[H]
+  \small
+  \centering
+  \caption{Http 常见状态码}
+  \label{table:Http 常见状态码}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{c|ccc}
+    \toprule
+    \textbf{状态类型} & \textbf{状态码} & \textbf{说明} \\
+    \midrule
+    \multirow{1}{*}{信息} & 100 & 正在处理 \\
+    \midrule
+    \multirow{1}{*}{成功} & 200 & 成功处理 \\
+    \midrule
+    \multirow{4}{*}{重定向} & 301 & 永久重定向 \\
+     & 302 & 临时重定向 \\
+     & 303 & 资源在另一个 URL，通过 GET 方法获取 \\
+     & 304 & 自从上次请求后，请求网页未修改过。不返回新的内容 \\
+    \midrule
+    \multirow{4}{*}{重定向} & 400 & 语法错误，服务器无法理解 \\
+     & 401 & 需要携带认证信息 \\
+     & 403 & 权限等拒绝请求 \\
+     & 404 & 资源不存在 \\
+    \midrule
+    \multirow{2}{*}{重定向} & 500 & 服务器错误 \\
+     & 503 & 服务器停机或维护或超载 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{Restful API}
+
+现代 URL 基本都用的 Restful API。Restful API 提供了四种请求类型:
+\begin{itemize}
+  \item \textbf{GET}: 对应数据库查询操作，参数写在 URL 中。
+  \item \textbf{POST}: 对应数据库更新操作，请求不会覆盖。参数放在 body 中，分段发送数据。
+  \item \textbf{PUT}: 对应数据库更新操作，后来的请求会替换前一个请求。
+  \item \textbf{DELETE}: 对应数据库删除操作。
+\end{itemize}
+
+\subsection{AJAX 与 Promise}
+
+axios 是使用 promise 对 ajax 的封装。
+
+\subsubsection*{AJAX}
+
+ajax(async javascript and XML) 指异步 JavaScript 和 XML。是一种使用现有标准的新方法。允许服务器部分更新网页内容。
+
+ajax 工作步骤:
+\begin{itemize}
+  \item 客户端发送请求，创建 ajax 对象，并将请求交给 ajax。
+  \item ajax 将请求交给服务器。
+  \item 服务器进行业务处理，返回数据给 ajax。
+  \item ajax 对象接受数据。
+  \item javascript 写入新的数据。
+\end{itemize}
+
+\subsubsection*{Promise}
+
+Promise是JS中进行异步编程的新的解决方案。\texttt{Promise} 是一个构造函数，接收一个函数为参数，该参数包含两个函数: \texttt{resolve}, \texttt{reject}。分别代表异步执行成功和失败后的回调函数。\texttt{Promise} 对象只会改变一次，返回一个结果，即要么成功，要么失败。
+
+Promise 有两大优点:
+\begin{itemize}
+  \item 指定回调函数方法更灵活。
+  \item 支持链式编程。
+\end{itemize}
+
+Promise 有三种状态: pending(等待), fulfilled(成功), rejected(失败)。
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\footnotesize]
+    \node(promise) [block, fill=orange!40] at (0,0) {Promise 对象};
+    \node(pending) [block, fill=orange!40] at (2.5,0) {pending};
+    \node(fulfilled) [block, fill=blue!40] at (5,1) {fulfilled};
+    \node(rejected) [block, fill=red!40] at (5,-1) {rejected};
+    \node(resolve) [block, fill=blue!40] at (8,1) {\texttt{resolve()}};
+    \node(resolve-after) [block, fill=white] at (10,1) {\texttt{then()}};
+    \node(reject) [block, fill=red!40] at (8,-1) {\texttt{reject()}};
+    \node(reject-after) [block, fill=white] at (11,-1) {\texttt{then() / catch()}};
+    \draw (promise) -- (pending);
+    \draw (pending) -- (fulfilled) -- (resolve) -- (resolve-after);
+    \draw (pending) -- (rejected) -- (reject) -- (reject-after);
+  \end{tikzpicture}
+  \caption{Promise 执行过程}
+  \label{fig:Promise 执行过程}
+\end{figure}
+
+Promise 的构造函数如下:
+\begin{itemize}
+  \item \texttt{Promise} 构造函数: \texttt{Promise(excutor) {}}。
+  \item \texttt{excutor} 函数: \texttt{(resolve, reject) => \{\}}。
+  \item \texttt{resolve} 函数: \texttt{value => \{\}}。
+  \item \texttt{reject} 函数: \texttt{reason => \{\}}。
+\end{itemize}
+
+Promise 的常用方法(回调函数签名和前面一致), 这些方法返回值都是 \texttt{Promise} 对象本身(链式编程):
+\begin{itemize}
+  \item 原型方法
+  \begin{itemize}
+    \item \textbf{\texttt{Promise.prototype.then(onResolved, onRejected)}}
+  
+    用来预指定成功和失败的回调函数，成功回调函数是必选的，失败回调函数可选。
+    \item \textbf{\texttt{Promise.prototype.catch(onRejected)}}
+    
+    用来捕获与处理错误 ，相当于 \texttt{then(undefined, onRejected)}
+    \item \textbf{\texttt{Promise.prototype.finally(onFinally)}}
+    
+    无论成功失败都会执行的方法。
+  \end{itemize}
+  \item{状态改变}
+  \begin{itemize}
+    \item \textbf{\texttt{Promise.resolve(value)}}
+    
+    \texttt{value} 为成功的数据或 \texttt{promise} 对象。返回一个 成功/失败 的 \texttt{promise} 对象。作用上会将本身状态由 \texttt{pending} 改为 \texttt{resolved}。
+    \item \textbf{\texttt{Promise.reject(reason)}}
+    
+    \texttt{reason} 为失败的原因。返回一个 失败 的 \texttt{promise} 对象。作用上会将本身状态由 \texttt{pending} 改为 \texttt{rejected}。
+  \end{itemize}
+  \item{组合方法}
+  \begin{itemize}
+    \item \textbf{\texttt{Promise.all(iterable[Promise])}}
+
+    将多个 \texttt{Promise} 包装为一个，如果其中一个 \texttt{rejected} 则转换为失败态，如果全部 \texttt{fulfilled} 则转化为成功态。
+    \item \textbf{\texttt{Promise.race(iterable[Promise])}}
+  
+    将多个 \texttt{Promise} 包装为一个，状态取决于最先改变状态的实例。
+    \item \textbf{\texttt{Promise.any(iterable[Promise])}}
+  
+    将多个 \texttt{Promise} 包装为一个，如果其中一个 \texttt{fulfilled} 则转换为成功态，如果全部 \texttt{rejected} 则转化为失败态。
+    \item \textbf{\texttt{Promise.allSettled(iterable[Promise])}}
+  
+    将多个 \texttt{Promise} 包装为一个，等全部执行完成后，转换为 \texttt{fulfilled} 态。
+  \end{itemize}
+\end{itemize}
+
+常见的单个 \texttt{promise} 对象调用形式:
+
+\begin{JavaScript}
+promise
+.then(result => {···})
+.then(result => {···})
+.catch(error => {···})
+.finally(() => {···});
+\end{JavaScript}
+
+\subsection{Axios}
+
+Axios 是一个基于 promise 网络请求库，作用于node.js 和浏览器中。在服务端它使用原生 node.js http 模块, 而在客户端 (浏览端) 则使用 XMLHttpRequests。
+
+\begin{bash}
+npm install axios
+\end{bash}
+
+\subsubsection{Axios API}
+
+Axios 方法返回值不做说明都是 \texttt{Promise} 对象。
+
+\subsubsection*{\texttt{axios()}}
+
+直接通过构造函数创建请求有两种方式:
+\begin{itemize}
+  \item \textbf{\texttt{axios(config)}}
+  \item \textbf{\texttt{axios(url [,config])}}
+\end{itemize}
+
+例如:
+\begin{JavaScript}
+axios({
+  method: 'post',
+  url: '/user/12345',
+  data: {
+    firstName: 'Fred',
+    lastName: 'Flintstone'
+  }
+}).then(response => {...});
+\end{JavaScript}
+
+\subsubsection*{请求方式别名}
+
+为了方便，给出了几个别名方法，主要用于省略常用配置项:
+
+\begin{itemize}
+  \item \textbf{\texttt{axios.request(config)}}
+  \item \textbf{\texttt{axios.get(url, [,config])}}
+  \item \textbf{\texttt{axios.post(url, [, data [,config]])}}
+  \item ......
+\end{itemize}
+
+\subsubsection*{\texttt{axios.create([config])}}
+
+创建一个 axios 实例可以用于省略通过用的配置项:
+
+\begin{JavaScript}
+const instance = axios.create({
+  baseURL: 'https://some-domain.com/api/',
+  timeout: 1000,
+  headers: {'X-Custom-Header': 'foobar'}
+});
+\end{JavaScript}
+
+同时 axios 实例也提供了 \texttt{get,post} 等方法。
+
+\subsubsection{参数说明}
+
+\subsubsection*{请求配置}
+
+请求配置包含以下常用参数，它只有一个必须项: \texttt{url}, 如果不指定方法，默认为 \texttt{get}。
+
+\begin{table}[H]
+  \small
+  \centering
+  \caption{请求配置选项}
+  \label{table:请求配置选项}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{c|ccc}
+    \toprule
+    \textbf{键} & \textbf{一般类型} & \textbf{说明} \\
+    \midrule
+    url & string & URL, 必填 \\
+    method & string & http 请求方法，默认为 'get' \\
+    baseUrl & string & 加在 url 前面，起简化作用 \\
+    header & Object & 头，键都是小写 \\
+    params & Object & 参数，加在 URL 后 \\
+    data & Object & 请求数据 \\
+    data & string & 发送请求体数据的可选语法 \\
+    timeout & number & 超时毫秒数 \\
+    auth & Object & 放 token 等凭证信息 \\
+    \midrule
+    withCredentials & boolean & 跨域请求是否需要凭证 \\
+    responseType & string & 返回信息类型 \\
+    validateStatus & Function(status) & 根据状态码决定接收还是拒绝 \\
+    responseEncoding & string & 解码方式 \\
+    maxRedirects & number & 最大重定向次数 \\
+    transformRequest & Array[Function] & 用于处理请求数据 \\
+    transformResponse & Array[Function] & 用于处理返回数据 \\
+    proxy & Object & 代理数据 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{响应结构}
+
+响应结构即请求的返回信息\texttt{response}:
+
+\begin{table}[H]
+  \small
+  \centering
+  \caption{响应结构}
+  \label{table:响应结构}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{c|cc}
+    \toprule
+    \textbf{键} & \textbf{一般类型} & \textbf{说明} \\
+    \midrule
+    status & number & 响应码 \\
+    statusText & string & 响应状态信息 \\
+    data & Object & 服务器提供的数据 \\
+    headers & Object & 响应头 \\
+    config & Object & 配置信息 \\
+    request & Object & 此响应的请求 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{全局配置}
+
+\subsubsection*{默认配置}
+
+默认配置将作用于每个请求，使用 \texttt{axios.default} 进行配置:
+\begin{JavaScript}
+axios.defaults.baseURL = 'https://api.example.com';
+axios.defaults.headers.common['Authorization'] = AUTH_TOKEN;
+\end{JavaScript}
+
+axios 配置的优先级如下:
+\begin{itemize}
+  \item 具体请求的 \texttt{config} 参数。
+  \item 实例的 \texttt{config} 配置。
+  \item 全局 \texttt{default} 配置。
+  \item \texttt{lib/default.js} 库的默认配置。
+\end{itemize}
+
+\subsubsection*{拦截器}
+
+拦截器用于在请求或响应被 \texttt{then, catch} 处理前拦截:
+
+\begin{JavaScript}
+// 添加请求拦截器
+axios.interceptors.request.use(function (config) {
+  // 在发送请求之前做些什么
+  return config;
+}, function (error) {
+  // 对请求错误做些什么
+  return Promise.reject(error);
+});
+
+// 添加响应拦截器
+axios.interceptors.response.use(function (response) {
+  // 2xx 范围内的状态码都会触发该函数。
+  // 对响应数据做点什么
+  return response;
+}, function (error) {
+  // 超出 2xx 范围的状态码都会触发该函数。
+  // 对响应错误做点什么
+  return Promise.reject(error);
+});
+\end{JavaScript}
+
+可以移除拦截器:
+
+\begin{JavaScript}
+const myInterceptor = axios.interceptors.request.use(function () {/*...*/});
+axios.interceptors.request.eject(myInterceptor);
+\end{JavaScript}
+
+
+\newpage
