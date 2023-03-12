@@ -1,0 +1,73 @@
+\section{NodeFetch}
+
+node-fetch 即在 node.js 上使用 fetch api(http 基础请看 Axios 第一节):
+
+\begin{bash}
+npm i node-fetch
+\end{bash}
+
+前端用 fetch 作请求响应是现在的主要趋势，xhr 正在被淘汰的路上。
+
+\subsection{Fetch API}
+
+\subsubsection{Fetch 基础}
+
+fetch 是被浏览器原生支持的，这是他流行的主要原因。fetch 使用上和 axios 类似，但是 fetch 没有使用 XHR(使用 XHR 被成为传统 ajax)，而是另辟新道，但它仍然遵守 ajax 规则。
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\small]
+    \node[block, fill=red!20, minimum height=3cm, minimum width=6cm] at (0,0.25) {};
+    \node at (0, 1.25) {Ajax};
+    \node[block, fill=blue!20, minimum height=2cm, minimum width=2cm] at (-1.5,0) {Fetch};
+    \node[block, fill=orange!20, minimum height=2cm, minimum width=2cm] at (1.5,0) {};
+    \node at (1.5, 0.6) {XHR};
+    \node[block, fill=orange!40, minimum height=1cm, minimum width=1cm] at (1.5,-0.25) {Axios};
+  \end{tikzpicture}
+  \caption{fetch 与 ajax}
+  \label{fig:fetch 与 ajax}
+\end{figure}
+
+fetch 规范与 传统 ajax 有几下主要不同:
+\begin{itemize}
+  \item 非 2XX 响应码不会被标记为 \texttt{reject}, 仅设置 \texttt{resolve} 返回值的 \texttt{ok} 属性为 \texttt{false}。只有网路故障，CORS 配置错误或请求被阻止时，才会被标记为 \texttt{reject}。
+  \item \texttt{fetch} 默认不会发送跨域 cookie。
+\end{itemize}
+
+与 axios 相同的是，fetch 也采用了 Promise 对象，关于 Promise 的部分不再说明。
+
+\subsubsection*{\texttt{fetch()}}
+
+\begin{JavaScript}
+Promise<Response> fetch(input[, init]);
+\end{JavaScript}
+
+\texttt{input} 可以是 \texttt{USVString} 字符串(常用形式为 URL) 或者是一个 \texttt{Request} 对象。 \texttt{init} 为配置项，常见配置项如下:
+
+\begin{table}[H]
+  \small
+  \centering
+  \caption{fetch init 配置项}
+  \label{table:fetch init 配置项}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{c|ccc}
+    \toprule
+    \textbf{键} & \textbf{一般类型} & \textbf{说明} \\
+    \midrule
+    method & string & GET, POST... \\
+    headers & Headers/ByteString & 请求头 \\
+    body & Blob/URLSearchParams...  & 请求体 \\
+    \midrule
+    mode & string & 跨域类型，cors, no-cors, same-origin \\
+    credentials & string & 凭据配置, omit, same-origin...\\
+    cache & string & 缓存配置 \\
+    redirect & string & 重定向模式 \\
+    referrer & USVString & client/"URL"/no-referrer \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+为了方便开发，还提供了三个便捷对象: \texttt{Headers}, \texttt{Request}, \texttt{Response}。
+
+\newpage

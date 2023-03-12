@@ -1,0 +1,262 @@
+
+\section{Redux 介绍}
+
+\subsection{简介与安装}
+
+Redux 是一款 JS 应用的状态容器，提供可预测的状态管理，也是 React 使用最多的状态管理容器(基本上是标配)。Redux 官方团队维护了 React 框架版的 React-Redux(但我们一般用 Redux Toolkit)。React Redux 8.x 需要 React 16.8.3 或更高的版本 / React Native 0.59 或更高的版本，否则无法使用 hooks。
+
+\subsubsection*{Redux Toolkit}
+
+Redux Toolkit 是 Redux 官方提供的构建包，可以简化大多数 Redux 任务，也是目前主流的 Redux 使用方案\footnote{在本文前几章会用到原生 Redux，实际开发中 Redux Toolkit 使用较多}。NPM 安装如下:
+
+\begin{bash}
+npm install @reduxjs/toolkit
+\end{bash}
+
+\subsubsection*{构建 Redux 应用}
+
+从头开始构建 redux 应用指令如下:
+
+\begin{bash}
+npx create-react-app my-app --template redux-typescript
+\end{bash}
+
+对已有的项目添加 React Redux 指令如下， 这三个包具体使用哪个视需求而定:
+
+\begin{bash}
+npm install @reduxjs/toolkit react-redux redux
+\end{bash}
+
+\subsubsection*{Redux 理念}
+
+就像 React 的 all-in-js, 声明式式编程一样，Redux 主要作用以及理念如下:
+\begin{itemize}
+  \item \textbf{集中式}状态管理: 所有的状态会被独立整合在一起，就像 DOM 结构一样，Redux 有自己唯一的状态管理容器。
+  \item \textbf{可预测}函数式编程: Redux 中的所有状态处理函数都是可预测的，不存在随机数，当前时间等不可预测的内容。有什么样的输入就必定有相同的输出。
+\end{itemize}
+
+React 的状态管理存在一定的缺陷，React 组件的状态改变由 props/state 负责，父子组件之间的状态传递只能通过这两类数据的改变传递，如果组件深度过高，组件之间的状态传递会显得十分繁琐且难以管控。React 推出的 \texttt{useContext} 在一定程度上解决了这个痛点，但是对于大规模应用，单单引入 \texttt{useContext} 显得乏力，Redux 则推出了一套完备的理念来进行单独的状态管理。
+
+Redux 有着丰富的社区资源，最主流的几个工具如下:
+
+\begin{itemize}
+  \item \textbf{React-Redux}: Redux 的官方 React 版，可以让 React 组件访问 \texttt{state} 片段和 \texttt{dispatch actions} 更新 \texttt{store}，从而同 Redux 集成起来。
+  \item \textbf{React-Toolkit}: 官方推荐的编写 Redux 逻辑的方法，提供了更简单的使用方式。
+  \item \textbf{React-DevaTools}: 显示 Redux 存储中状态随时间变化的历史记录。
+\end{itemize}
+
+\subsection{Redux 术语与概念}
+
+\subsubsection{单向数据流}
+
+首先来看一段 React 代码:
+
+\begin{JavaScript}
+function Counter() {
+  // State: counter 值
+  const [counter, setCounter] = useState(0)
+
+  // Action: 当事件发生后，触发状态更新的代码
+  const increment = () => {
+    setCounter(prevCounter => prevCounter + 1)
+  }
+
+  // View: 视图定义
+  return (
+    <div>
+      Value: {counter} <button onClick={increment}>Increment</button>
+    </div>
+  )
+}
+\end{JavaScript}
+
+这一个小组件包含以下三部分:
+\begin{itemize}
+  \item \textbf{state}: 状态，即组件中的变化数据，具体为 \texttt{useState} 内容。
+  \item \textbf{view}: 视图，即显示的内容。
+  \item \textbf{action}: 动作，即点击这一交互事件。
+\end{itemize}
+
+这三者的关系可以简单描述为: 用户通过 view 触发 action，action 改变 state 继而触发绘制新的 view。
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\small]
+    \node (action) [color=white, fill=red!80, circle] at (0,0) {action};
+    \node (view) [color=white, fill=green!60!black, circle] at (-1.5,-2) {view};
+    \node (state) [color=white, fill=blue!80, circle] at (1.5,-2) {state};
+    \draw[-Stealth] (view) -- (action);
+    \draw[-Stealth] (action) -- (state);
+    \draw[-Stealth] (state) -- (view);
+  \end{tikzpicture}
+  \caption{单向数据流}
+  \label{fig:单向数据流}
+\end{figure}
+
+前面我们说过，如果 state 比较简单，传递深度不超过三层组件，用改变 props/state 的方法是十分简单的。但如果多个不同位置的组件需要共享，获取，改变相同的 state 时，就会变得十分复杂。Redux 提供的方案是提取共享的 state，单独抽象出来管理。这样一来 state 和部分 action(至于如何触发 action，一些前置处理仍由 React 负责) 将由 Redux 管理。
+
+用过 \texttt{useState} 钩子都知道，只有 state 改变，才会触发组件重绘。这里的改变是指基本类型值变化或者新对象代替旧对象。例如下面数据改变不会触发重绘:
+
+\begin{JavaScript}
+const arr = [1,2];
+arr[1] = 3;
+return arr;
+\end{JavaScript}
+
+如果要触发重绘，应该这样做:
+
+\begin{JavaScript}
+const arr = [1,2];
+const arr2 = arr.concat(3);
+return arr2;
+\end{JavaScript}
+
+使用 Redux 时，务必使所有数据都是不可改变的(即对象类型返回新的对象，而不是改变其属性)。
+
+\subsubsection{Redux 关键术语}
+
+\subsubsection*{Action}
+
+\texttt{action} 是一个具有 \texttt{type} 字段的对象。表示为程序中发生的事件，其中 \texttt{type} 是字符串类型，起标识作用。\texttt{action} 可以有其他字段，标识附加信息。
+
+\begin{JavaScript}
+const addTodoAction = {
+  type: "todos/todoAdded",
+  payload: "buy milk"
+}
+\end{JavaScript}
+
+对应的有一个 Action Creator，用于创建并返回一个 \texttt{action} 对象:
+
+\begin{JavaScript}
+const addTodo = text => {
+  return {
+    type: "todos/todoAdded",
+    payload: text
+  }
+}
+\end{JavaScript}
+
+\subsubsection*{Reducer}
+
+\texttt{reducer} 是一个函数，接受当前的 \texttt{state} 和一个 \texttt{action} 对象，必要时决定如何更新，并返回更新状态。函数签名: \texttt{(state, action) => newState}。作用类似于监听器，接受事件并进行处理，他必须遵守如下规则:
+
+\begin{itemize}
+  \item 仅使用 \texttt{state} 和 \texttt{action} 计算新的状态值。
+  \item 禁止修改 \texttt{state}，应该返回新的 \texttt{state}。
+  \item 禁止异步逻辑，依赖随机值或其他副作用代码。
+\end{itemize}
+
+所有的 \texttt{reducer} 处理逻辑如下:
+\begin{itemize}
+  \item 检查 \texttt{reducer} 是否关心这个 \texttt{action}，如果是，更新\texttt{state} 并返回。
+  \item 如果不是，返回原来的 \texttt{state}。
+\end{itemize}
+
+\begin{JavaScript}
+const initialState = { value: 0 }
+
+function counterReducer(state = initialState, action) {
+  // 检查 reducer 是否关心这个 action
+  if (action.type === 'counter/increment') {
+    // 如果是，复制 `state`
+    return {
+      ...state,
+      // 使用新值更新 state 副本
+      value: state.value + 1
+    }
+  }
+  // 返回原来的 state 不变
+  return state
+}
+\end{JavaScript}
+
+\subsubsection*{Store}
+
+\texttt{store} 用于存储应用的 \texttt{state}。\texttt{store} 是通过传入一个 \texttt{reducer} 来创建的，并且有一个名为 \texttt{getState} 的方法，它返回当前状态值：
+
+\begin{JavaScript}
+import { configureStore } from '@reduxjs/toolkit'
+
+const store = configureStore({ reducer: counterReducer })
+console.log(store.getState())
+// {value: 0}
+\end{JavaScript}
+
+\texttt{store} 有一个方法叫 \texttt{dispatch}。更新 \texttt{state} 的唯一方法是调用 \texttt{store.dispatch()} 并传入一个 \texttt{action} 对象。 \texttt{store} 将执行所有 \texttt{reducer} 函数并计算出更新后的 \texttt{state}，调用 \texttt{getState()} 可以获取新 \texttt{state}。
+
+\begin{JavaScript}
+store.dispatch({ type: 'counter/increment' })
+console.log(store.getState())
+\end{JavaScript}
+
+\texttt{dispatch} 看名字就知道，采用了分发器设计模式。一个事件传入 Redux，最先由 \texttt{dispatch} 捕获，继而有它传递给各个 \texttt{reducer} 继续处理。
+
+\begin{JavaScript}
+const increment = () => {
+  return {
+    type: 'counter/increment'
+  }
+}
+
+store.dispatch(increment())
+\end{JavaScript}
+
+\texttt{Selector} 函数可以从 \texttt{store} 状态树中提取指定的片段。随着应用变得越来越大，会遇到应用程序的不同部分需要读取相同的数据，\texttt{selector} 可以避免重复这样的读取逻辑：
+
+\begin{JavaScript}
+const selectCounterValue = state => state.value
+const currentValue = selectCounterValue(store.getState())
+console.log(currentValue)
+\end{JavaScript}
+
+
+\subsubsection{Redux 数据流}
+
+Redux 的数据流结构如下:
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\footnotesize]
+    \node(ui) [block, fill=blue!30, minimum height=1cm, minimum width=2cm] at (0,0) {UI}; 
+    \node(handler) [block, fill=red!30, minimum height=1cm, minimum width=2cm] at (-2,2) {Event Handler};
+    \node(dispatch) [block, fill=red!40] at (-2,2.5) {Dispatch};
+    \node(store) [block, fill=orange!30, minimum height=2.5cm, minimum width=2.25cm] at (2,2) {};
+    \begin{scope}[xshift=2cm, yshift=2cm]
+      \node at (0.5,1) {Store};
+      \node(reducer) [block, fill=green!60] at (0,0.25) {Reducer};
+      \node(state) [block, fill=orange!60] at (0,-1.125) {State};
+    \end{scope}
+    \draw[-Stealth, thick] (ui) -| (handler) node [midway, note, below] {{click, event}};
+    \draw[-Stealth, thick] (dispatch) -- ++(0,1.5) -| (store) node [pos=0.25, note, above] {action};
+    \draw[-Stealth, thick] (state) |- (ui) node [midway, note, below] {\texttt{selector}};
+    \draw[-Stealth] (store.north) -- (reducer);
+    \draw[-Stealth] (reducer) -- (state) node [midway, note, right] {new state};
+    \draw[-Stealth] (state) -- ++(-1,0) |- (reducer) node [pos=0.25, note, left] {old state};
+  \end{tikzpicture}
+  \caption{Redux 数据流}
+  \label{fig:Redux 数据流}
+\end{figure}
+
+具体来说，对于 Redux，我们可以将这些步骤分解为更详细的内容：
+\begin{itemize}
+  \item 初始启动
+  \begin{itemize}
+    \item 使用最顶层的 root reducer 函数创建 Redux store
+    \item store 调用一次 root reducer，并将返回值保存为它的初始 state
+    \item 当视图 首次渲染时，视图组件访问 Redux store 的当前 state，并使用该数据来决定要呈现的内容。同时监听store 的更新，以便他们可以知道 state 是否已更改。
+  \end{itemize}
+  \item 更新环节
+  \begin{itemize}
+    \item 应用程序中发生了某些事情，例如用户单击按钮
+    \item dispatch 一个 action 到 Redux store，例如 \texttt{dispatch({type: 'counter/increment'})}
+    \item store 用之前的 \texttt{state} 和当前的 \texttt{action} 再次运行 reducer 函数，并将返回值保存为新的 \texttt{state}
+    \item store 通知所有订阅过的视图，通知它们 store 发生更新
+    \item 每个订阅过 store 数据的视图 组件都会检查它们需要的 \texttt{state} 部分是否被更新。
+    \item 发现数据被更新的每个组件都强制使用新数据重新渲染，紧接着更新网页
+  \end{itemize}
+\end{itemize}
+
+\newpage
