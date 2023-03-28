@@ -1,0 +1,22 @@
+\section{\texttt{setTimeout()}}
+
+\texttt{setInterval()} 的运行机制如下: 
+\begin{itemize}
+  \item 在执行栈里面执行该方法.
+  \item 回调函数进入执行队列。
+  \item 回到函数执行完毕，执行栈重复上述过程。
+\end{itemize}
+
+如果我们的回调函数执行时间很短，在间隔时间内可以执行完成，那么没什么问题。但如果执行时间超过了间隔时间。回调函数不会在规定时间重新进入执行队列，而是会延迟执行。所以 \texttt{setInterval} 是有缺陷的。
+
+因此我们可以用 \texttt{setInterval} 代替 \texttt{setTimeout}:
+
+\begin{JavaScript}
+const newInterval = (func, ms) => {
+  const inside = () => {
+    func()
+    setTimeout(inside, ms);
+  }
+  setTimeout(inside, ms);
+}
+\end{JavaScript}

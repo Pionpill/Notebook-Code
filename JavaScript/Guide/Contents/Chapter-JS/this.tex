@@ -1,0 +1,208 @@
+\section{\texttt{this}}
+
+\subsection{普通函数的中的 \texttt{this}}
+
+JavaScript 中非箭头函数的 \texttt{this} 有四种绑定规则:
+\begin{itemize}
+  \item 默认绑定: 即默认绑定到全局作用域。
+\begin{JavaScript}
+// 浏览器环境
+(function() {
+  console.log(this === window); // true
+})()
+\end{JavaScript}
+  \item 隐式绑定: 函数作为对象的方法被调用时，\texttt{this} 指向方法运行时所在的当前对象。
+\begin{JavaScript}
+const obj = {
+  a: 1,
+  foo: function () {
+    console.log(this);  // {a: 1, foo: ƒ}
+  }
+}
+\end{JavaScript}
+隐式绑定存在优先级和隐式丢失的问题:
+\begin{JavaScript}
+const obj1 = {
+  a: "a1",
+  b: "b",
+  obj2: {
+    a: "a2",
+    foo: function () {
+      console.log(this.a);  // a2
+      console.log(this.b);  // undefined
+    }
+  }
+}
+\end{JavaScript}
+这里调用 \texttt{foo()}，\texttt{this} 只会绑定到上一级对象上，获取不到更外层的变量。
+
+  \item 显示绑定: 使用 \texttt{call, apply, bind} 改变函数的调用对象。
+\begin{JavaScript}
+  var name = "window";
+  var outer = "outer";
+  
+  const foo = function () {
+    var mark = "mark";
+    console.log(this.name);
+    console.log(this.outer);
+    console.log(this.mark);
+  }
+  const obj = {
+    name: "obj",
+    mark: "mark",
+  }
+  
+  foo();
+  foo.call(obj);
+// window outer, undefined
+// obj, undefined, mark
+\end{JavaScript}
+这里第一次调用时，\texttt{this} 默认绑定到 \texttt{window} 上，第二次调用时，显示绑定到 \texttt{obj} 对象上。
+\item \texttt{new} 绑定: 函数通过 \texttt{new} 调用后，会返回一个新对象，并将新对象绑定到函数调用的 \texttt{this} 上。
+\end{itemize}
+
+总的来说，普通函数的 \texttt{this} 指向会出现以下几种情况:
+\begin{itemize}
+  \item 以函数形式调用: 永远指向 \texttt{window}。
+  \item 以对象方法形式调用: 指向调用的那个对象。
+  \item 以构造函数形式调用: 指向构造函数创建的实例对象。
+  \item 以事件绑定函数形式调用: 指向绑定事件的对象。
+  \item 显示绑定: 指向绑定的对象。
+\end{itemize}
+
+此外，显示绑定有例外，对于基本类型，浏览器会自动转化为引用类型进行绑定，但如果是 \texttt{undefined，null}，使用默认绑定规则。
+
+绑定优先级: \texttt{new}/显示绑定 > 隐式绑定 > 默认绑定。
+
+\subsection{箭头函数中的 \texttt{this}}
+
+箭头函数自身没有 \texttt{this}。箭头函数中的 \texttt{this} 拿的是定义函数是外部环境的 \texttt{this}。
+
+\begin{JavaScript}
+var obj = {
+  data: [],
+  getData: function() {
+    return (function() {
+      var result = ["abc","cba","nba"]
+      this.data = result
+    })()
+  }
+}
+ 
+obj.getData()
+console.log(obj.data);  // Array(0)
+\end{JavaScript}
+
+上面调用方法时，该方法本身的 \texttt{this} 指向 \texttt{obj}。但是方法内 回调的方法在执行时 \texttt{this} 指向的是 \texttt{window}。此时 \texttt{this} 没有 \texttt{data} 属性，因此没有任何影响。
+
+如果要达到给数组赋值的效果，可以这样改进:
+
+\begin{JavaScript}
+var obj = {
+  data: [],
+  getData: function () {
+    let self = this;
+    return (function() {
+      var result = ["abc","cba","nba"]
+      self.data = result
+    })()
+  }
+}
+ 
+obj.getData()
+console.log(obj.data);  // Array(0)
+\end{JavaScript}
+
+这样用的是闭包思想，在函数指向上下文中创建变量，这个变量会被加入到内部函数的作用域链中。
+
+或者用箭头函数:
+
+\begin{JavaScript}
+var obj = {
+  data: [],
+  getData: function () {
+    return (() => {
+      var result = ["abc","cba","nba"]
+      this.data = result
+    })()
+  }
+}
+ 
+obj.getData()
+console.log(obj.data);  // Array(0)
+\end{JavaScript}
+
+箭头函数中的 \texttt{this} 是外部函数的 \texttt{this}，外部函数的 \texttt{this} 被隐式绑定到了 \texttt{obj} 对象上。
+
+\subsection{手写显式绑定}
+
+\subsubsection*{手写 \texttt{call, apply}}
+
+我们知道绑定 \texttt{this} 只有四种方法，如果需要手写显式绑定，自然需要借助其他三种方法中的某一种，默认绑定和\texttt{new}绑定自然不行，三个显式绑定都需要传入一个对象作为参数，因此自然是使用隐式绑定。
+
+我们需要将函数放到对象中。这样就可以通过隐式绑定改变 \texttt{this} 指向。有几点需要注意:
+\begin{itemize}
+  \item \texttt{call} 是原型上的方法，所以我们也需要写在原型上。
+  \item 调用 \texttt{newCall} 时，是使用函数调用的，函数本身也是对象，因此调用时的 \texttt{this} 指向我们要绑定的函数本身。
+  \item 传入参数为 \texttt{undefined，null} 时，需要默认绑定到 \texttt{window} 对象上。
+\end{itemize}
+
+\begin{JavaScript}
+Function.prototype.newApply = function (obj, ...args) {
+  const realObj = obj || window;
+  realObj.p = this;
+  let result = realObj.p(...args);
+  delete realObj.p;
+  return result;
+}
+\end{JavaScript}
+
+有了 \texttt{call}，\texttt{apply} 思路也类似:
+
+\begin{JavaScript}
+Function.prototype.newApply = function (obj, ...args) {
+  const realObj = obj || window;
+  realObj.p = this;
+  let result = realObj.p(...args[0]);
+  delete realObj.p;
+  return result;
+}
+\end{JavaScript}
+
+\subsubsection*{手写 \texttt{bind}}
+
+首先最基础的，返回的一个函数:
+
+\begin{JavaScript}
+Function.prototype.newBind = function (obj) {
+  const self = this;
+  return function () {
+    return self.apply(obj || window);
+  }
+}
+\end{JavaScript}
+
+其次，我们知道，原生 \texttt{bind} 方法可以接受多个参数作为函数参数，且需要柯里化:
+
+\begin{JavaScript}
+Function.prototype.newBind = function (obj, ...params1) {
+  const self = this;
+  return function (...params2) {
+    return self.apply(obj || window, [...params1, ...params2]);
+  }
+}
+\end{JavaScript}
+
+另外，原生 \texttt{bind} 方法可以 \texttt{new} 对象，因此需要绑定原型:
+
+\begin{JavaScript}
+Function.prototype.newBind = function (obj, ...params1) {
+  const self = this;
+  const Func =  function (...params2) {
+    return self.apply(obj || window, [...params1, ...params2]);
+  }
+  Func.prototype = Object.create(self.prototype);
+  Func.prototype.constructor = self;
+  return Func;
+}
+\end{JavaScript}

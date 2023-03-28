@@ -1,0 +1,62 @@
+\section{水平居中}
+
+\subsubsection*{文档流}
+
+HTML 的元素类型大致可以分为三类:
+\begin{itemize}
+  \item 块级元素: 元素创建独立的块，宽度为容器(父元素)的整个宽度。常见的块级元素有 \texttt{h1,h2...,p,div,ul...}
+  \item 行内元素: 元素不会创建新行，只会在文本中嵌入并与文本同行显示元素。它们只会占据内容所需的宽度，常见的有 \texttt{span, img, input, button, strong}
+  \item 行内块级元素: 像行内元素一样显示在同一行上，但可以设置宽度高度属性。行内快元素也经常被归为行内元素。如 \texttt{button, input, img}。
+\end{itemize}
+
+\subsubsection*{简单居中}
+
+关于居中要分多种情况讨论:
+\begin{itemize}
+  \item 行内元素: 行内元素由于没有宽高，因此需要改变父级属性达到居中效果。
+  \begin{itemize}
+    \item 水平居中(父属性): \texttt{text-align: center}。
+    \item 垂直居中(父属性): \texttt{line-height: xxx}。
+  \end{itemize}
+  \item 块级元素: 块级元素本身可以调整位置:
+  \begin{itemize}
+    \item 水平居中: \texttt{margin: 0 auto}。
+    \item 垂直居中: 看下文。
+  \end{itemize}
+\end{itemize}
+
+水平居中我们解决了，垂直居中就比较难搞了。一种方案是硬编码:
+\begin{itemize}
+  \item \texttt{margin-left: xxx}: 优点是实现简单，缺点是硬编码，适用性不高。
+  \item 改为 \texttt{absolute} 布局，硬编码调整位置(容器改为 \texttt{relative} 布局): 没什么优点，需要看需求。缺点是硬编码，另外会导致元素脱离文档流。
+\end{itemize}
+
+\subsubsection*{Flex 布局}
+
+Flex 布局现在已经推广开来，且有良好的浏览器兼容性。使用 Flex 布局居中非常简单:
+
+\begin{HTML}
+.flex {
+  justify-content: center;
+  align-items: center;
+}
+\end{HTML}
+
+这样就可以达到主轴和副轴居中的效果。
+
+\subsubsection*{\texttt{translate}}
+
+\texttt{translate} 方法可以调整元素位置，注意这里使用 \% 调整是指元素本身宽高的百分比。该方法常常用在绝对布局，SVG 标签中。
+
+\begin{HTML}
+  .translate {
+    position: absolute;
+    left: 50\%;
+    top: 50\%;
+    transform: translate(-50\%, -50\%);
+    }
+  \end{HTML}
+  
+\subsubsection*{\texttt{vertical-align}}
+
+这个方法用的非常少，用来表示普通流垂直方向的基线，即对齐线，Flex 布局也有对应的属性，这里不做过多介绍。

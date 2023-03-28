@@ -1,0 +1,59 @@
+\section{类型判断}
+
+\subsection{类型判断的方法}
+
+JS 有两个通用的类型判断运算符: \texttt{typeof, instanceof}。
+\begin{itemize}
+  \item \texttt{typeof}: 单目运算符: 返回数据类型，返回值为字符串型。可以接受任意类型的参数。
+  \begin{itemize}
+    \item 基本类型: \texttt{null} 返回 `object', 其他返回对应类型。
+    \item 引用类型: \texttt{Function} 返回 `function', 其他返回 `object'。
+  \end{itemize}
+  \item \texttt{instanceof}: 双目运算符: 返回布尔值，左边为引用类型对象，右边为构造函数。
+\end{itemize}
+
+这两个方法都有各自的缺陷，\texttt{typeof} 无法判断明确的类型，除了函数。\texttt{instanceof} 需要两个运算符，无法判断基本类型。
+
+JS 还提供了几种函数用于判断一些常见类型: \texttt{Array.isArray()} 用于判断是否为数组。\texttt{isNaN()} 用于判断是否为 \texttt{NaN}。
+
+此外有一个究极方法: \texttt{Object.prototype.toString.call()}。这个方法会将基本类型转换为对应的包装类，并输出对应的包装类类型对应的字符串。例如 \texttt{[object Number]}。
+
+\subsection{手写类型判断方法}
+
+\subsubsection*{手写 \texttt{typeof}}
+
+用 \texttt{Object.prototype.toString.call()} 获取类型，然后规定仅输出指定类型就可以了。
+
+\begin{JavaScript}
+const customTypeof = (param) => {
+  const limitArray = ['undefined', 'number', 'boolean', 'string', 'symbol', 'bigint', 'object', 'function'];
+  const oriOut = Object.prototype.toString.call(param).slice(8, -1).toLowerCase();
+  if (limitArray.includes(oriOut)) {
+    return oriOut;
+  } else {
+    return "object"
+  }
+}
+\end{JavaScript}
+
+\subsubsection*{手写 \texttt{instanceof}}
+
+首先要判断两个参数是不是对应的类型，其次查构造函数的原型链，查到了即返回 \texttt{true}，否则一直查到 \texttt{null} 返回 \texttt{false}。
+
+\begin{JavaScript}
+const customInstanceOf = (object, func) => {
+  if (object === null || (typeof object !== 'object' && typeof object !== 'function'))
+    return false;
+  if (typeof func !== 'function')
+    return false;
+  let objProto = Object.getPrototypeOf(object);
+  const funcProto = func.prototype;
+  while (true) {
+    if (objProto === null)
+      return false;
+    if (objProto === funcProto)
+      return true;
+    objProto = Object.getPrototypeOf(objProto);
+  }
+}
+\end{JavaScript}

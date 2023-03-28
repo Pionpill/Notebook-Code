@@ -1,0 +1,71 @@
+\section{防抖与节流}
+
+\subsection{防抖}
+
+防抖是指事件触发时，相应的函数不会立即执行，而是会被推迟执行。多数情况下，触发的多个任务仅执行一次。
+
+防抖最常见的应用场景是搜索框输入内容，只在最后等待一会后做响应。
+
+\begin{JavaScript}
+const debounce = (func, ms) => {
+  let process = null;
+  return function() {
+    clearTimeout(process);
+    process = setTimeout(func, ms);
+  }
+}
+\end{JavaScript}
+
+这是最简单的防抖写法，还有两个问题没有解决:
+\begin{itemize}
+  \item \texttt{this} 应该指向事件对应的元素本身。
+  \item 函数应该具备传参功能。
+\end{itemize}
+
+在上述代码中，我们会直接返回函数本身，这个函数的 \texttt{this} 会动态绑定指向 \texttt{元素}，但是\texttt{setTimeout} 回调函数不会(这里回调的 \texttt{func} 不能是箭头函数，否则无法动态绑定到元素上)。
+
+\begin{JavaScript}
+const debounce = (func, ms) => {
+  let process = null;
+  return function (...args) {
+    clearTimeout(process);
+    process = setTimeout(() => {
+      func.call(this, ...args);
+    }, ms);
+  }
+}
+\end{JavaScript}
+
+\subsection{节流}
+
+节流是指当事件触发时，会执行这个事件的响应函数，但如果事件被频繁触发，则间隔一段频率执行函数。
+
+节流和防抖实现差不多:
+\begin{JavaScript}
+const throttle = (func, delay) => {
+  let process = null;
+  return function (...args) {
+    if (process)
+    return;
+    process = setTimeout(() => {
+      func.call(this, ...args);
+      process = null;
+    }, delay);
+  }
+}
+\end{JavaScript}
+
+也可以不用 \texttt{setTimeout} 直接判断时间间隔。
+
+\begin{JavaScript}
+const throttle = (func, delay) => {
+  let pre = new Date();
+  return function (...args) {
+    let now = new Date();
+    if (now - pre > delay) {
+      func.call(this, args);
+      pre = now;
+    }
+  }
+}
+\end{JavaScript}

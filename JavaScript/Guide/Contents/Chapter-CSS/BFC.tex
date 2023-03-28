@@ -1,0 +1,20 @@
+\section{BFC}
+
+BFC, 块级作用域上下文。主要有两个功能:
+\begin{itemize}
+  \item 对外，去除外边距折叠。
+  \item 对内，形成独立的内部区域，所有元素均在 BFC 内。
+\end{itemize}
+
+BFC 创建后由于对内会将内部所有元素包含进来，因此可以清除浮动，清除高度塌陷效果。
+
+建立一个 BFC 区域的方法有:
+\begin{itemize}
+  \item 根元素：根元素即 HTML 元素，它默认就是一个 BFC。
+  \item 浮动元素：如果一个元素被设置为浮动（float），那么它会形成一个 BFC。
+  \item 绝对定位元素：如果一个元素被设置为绝对定位（position: absolute/fixed），那么它会形成一个 BFC。
+  \item display 属性值为 inline-block、table-cell、table-caption 的元素：这些元素会形成一个 BFC。
+  \item overflow 属性值不为 visible 的元素：如果一个元素的 overflow 属性值设置为 auto、scroll 或 hidden，那么它会形成一个 BFC。
+\end{itemize}
+
+主动建立 BFC 常常用 \texttt{overflow: auto}。因为这样没什么实际影响(影响很小)。或者使用 Flex 布局。

@@ -1,0 +1,79 @@
+\section{ellipsis}
+
+\subsection{单行省略号}
+
+这个比较简单，直接上代码:
+
+\begin{HTML}
+.ellipsis {
+  white-space: nowrap;
+  width: 100px;       <!--设置一个宽度-->
+  overflow: hidden;   <!--超出隐藏-->
+  text-overflow: ellipsis;  <!--隐藏部分使用省略号-->
+}
+\end{HTML}
+
+\subsection{多行省略号}
+
+有两种方案，一是采用 webkit 提供的扩展属性:
+
+\begin{HTML}
+.ellipse {
+  width: 50px;
+  height: 65px;
+  word-break: break-all;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+\end{HTML}
+
+这种方案有两个缺陷: 一是并非所有浏览器支持 webkit(虽然绝大部分支持)。而是后续内容其实并没有被隐藏，如果设置足够高，会发现后续内容依然存在，我们只是让第3行末尾添加了省略号，仅此而已。
+
+除此以外，我们可以创建为元素:
+
+\begin{HTML}
+.ellipse {
+  width: 50px;
+  height: 65px;
+  position: relative;
+  word-break: break-all;
+  overflow: hidden;
+  background-color: beige;
+}
+
+.ellipse::before {
+  content: "...";
+  position: absolute;
+  bottom: 0;
+  right:0;
+}
+\end{HTML}
+
+但这样存在一个问题，适用性差，如果文本没有超出范围，省略号依然存在。一个解决方案是再添加一个遮蔽块伪元素放在文档后面，背景颜色与容器颜色相同:
+
+\begin{HTML}
+.ellipse::before {
+  content: "...";
+  position: absolute;
+  bottom: 0;
+  right:0;
+}
+
+.ellipse::after {
+  content: "";
+  background-color: blue;
+  width: 1em;
+  height: 1em;
+  position: absolute;
+  right: 0;
+  margin-top: 5px;
+}
+\end{HTML}
+
+但这样还是存在问题，我们设置的遮蔽块会跟在文本后面，但如果文本只有两行，遮蔽块会出现在第二行末尾，而省略号出现在第三行末尾，并没有起到遮蔽效果。
+
+此外，如果背景颜色不是固定的，比如是图片，或者渐变。那么遮蔽块就无效了。
+
+终极解决方案是：用 js 控制。不过这就不是这里要讨论的内容了。

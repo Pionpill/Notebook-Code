@@ -1,0 +1,54 @@
+\section{懒加载}
+
+HTML 中的很多静态文件，在我们没有滚动到对应位置的时候也会进行加载，我们可以让这些资源在看不到的时候先不进行加载，比如图片:
+
+最简单的方法是监听 \texttt{window} 的 \texttt{scroll} 事件:
+
+\begin{JavaScript}
+const imgs = document.querySelectorAll("img");
+
+window.addEventListener("scroll", (e) => {
+  imgs.forEach(image => {
+    const imgInfo = image.getBoundingClientRect().top;
+    if (imgInfo < window.innerHeight) {
+      image.setAttribute("src", image.getAttribute("data-src"));
+    }
+  })
+})
+\end{JavaScript}
+
+但这样存在诸多缺陷:
+\begin{itemize}
+  \item 滚动才触发，如果图片本身在最上面，需要额外监听 \texttt{load} 事件。
+  \item 每次滚动就会判断，性能开销比较大。
+  \item 引入了没必要的 \texttt{data-src} 属性。
+\end{itemize}
+
+JavaScript 为我们提供了一个好用的 API: \texttt{IntersectionObserver}。这个接口提供了一种异步观察元素与祖先元素或顶级文档\texttt{viewport}交集中变化的方法，这个方法接收两个参数:
+
+\begin{JavaScript}
+new IntersectionObserver(callback, options)
+\end{JavaScript}
+
+其中，\texttt{callback} 为回调函数，\texttt{options} 为一些配置项。
+\begin{itemize}
+  \item 回调函数接收一个参数 \texttt{entries} 是 \texttt{IntersectionObserverEntry} 实例数组，包含所有监听的元素，描述了目标元素与 \texttt{root} 的交叉状态。比较重要的有:
+  \begin{itemize}
+    \item \texttt{intersectionRadio}: 返回目标元素出现在可视区的比例。
+    \item \texttt{isIntersecting}: 返回一个布尔值，目标元素出现在区域，返回 \texttt{true}，否则\texttt{false}。
+  \end{itemize}
+  \item \texttt{options} 是一个对象，用于配置参数，有三个属性如下:
+  \begin{itemize}
+    \item \texttt{root}: 所监听的具体祖先元素，如果不传或为 \texttt{null}，表示顶级文档视窗。
+    \item \texttt{rootMargin}: 计算交叉时添加到 \texttt{bounding box}的矩形偏移量。
+    \item \texttt{threshold}: 包含阈值的列表，按升序排列。
+  \end{itemize}
+\end{itemize}
+
+IntersectionObserver 的主要方法如下:
+\begin{itemize}
+  \item \texttt{observe()}: 开始监听一个目标元素。
+  \item \texttt{unobserve()}: 停止监听特定目标元素。
+  \item \texttt{takeRecords()}: 返回所有观察目标的 \texttt{IntersectionObserverEntry} 对象数组。
+  \item \texttt{discount()}: 停止全部监听工作。
+\end{itemize}

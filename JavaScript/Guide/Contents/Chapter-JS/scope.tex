@@ -1,0 +1,113 @@
+\section{作用域相关}
+
+\subsection{\texttt{var}}
+
+\texttt{var} 几乎不用，\texttt{var} 有两个特点:
+\begin{itemize}
+  \item 声明提升: 在当前函数作用域的任意地方用 \texttt{var} 定义变量都会造成变量的声明提升，赋值不会提升。
+\begin{JavaScript}
+// 声明提升
+console.log(a)  // undefined
+var a = 1;
+// 等价写法
+var a;
+console.log(a)  // undefined
+a = 1;
+\end{JavaScript}
+  \item 函数作用域: \texttt{var} 与常规变量声明不同，\texttt{var} 的作用域是函数作用域，不是块作用域。
+\begin{JavaScript}
+// 直接报错
+(() => {
+  var a = 1;
+})()
+console.log(a);
+// 不报错
+var a = 1;
+(() => {
+  var a = 2;
+  console.log(a); // 2
+})()
+console.log(a); // 1
+\end{JavaScript}
+\end{itemize}
+
+还有一种特别的，去掉 \texttt{var}。这时候无论是在哪里声明，都是创建一个全局对象的属性。
+
+注意，通过 \texttt{var} 声明的全局作用域的变量会自动成为全局对象(浏览器是 \texttt{window}, node 是 \texttt{global})的属性。但是，全局作用域的变量不等于全局对象的属性。有以下几个区别:
+
+\begin{itemize}
+  \item 全局变量不能通过 \texttt{delete} 关键字删除，全局对象的属性可以。
+  \item 访问未声明的变量会报错，访问未声明的对象属性会返回 \texttt{undefined}。
+\end{itemize}
+
+这是由历史原因造成的，ES6 之前，JS 都是没有块作用域这个概念的。
+
+\begin{JavaScript}
+{
+  var a = 1;
+}
+console.log(a); // 1
+\end{JavaScript}
+
+此外，如果函数作用域中通过 \texttt{var} 声明了局部变量，那么外部的同名变量不会影响到内部的同名变量:
+
+\begin{JavaScript}
+var a = "a";
+(() => {
+  console.log(a);   // undefined
+  var a = "b";
+  console.log(a);   // b
+})()
+\end{JavaScript}
+
+\subsection{函数声明}
+
+我们知道，js 主要有三种创建函数的方法: 函数声明，函数表达式，箭头函数。函数声明会带来一个整体提升的问题。而其他两种定义函数的方法不会:
+
+\begin{JavaScript}
+a();  // 111
+b();  // 报错
+c();  // 报错
+
+function a () {
+  console.log("111")
+}
+const b = function () {
+  console.log("222")
+}
+const c = () => {
+  console.log("333")
+}
+\end{JavaScript}
+
+\subsection{作用域链}
+
+JS 的执行上下文主要分为两类: 全局环境，函数环境。(还有一个非常冷门的 \texttt{eval()} 环境，几乎不会用)。进入任意一个函数相当于在上下文栈中压入一个新的函数执行上下文，这个栈的栈底永远是全局执行上下文。
+
+当我们的程序进入一个执行上下文的时候会有两个阶段:
+\begin{itemize}
+  \item 创建阶段:
+  \begin{itemize}
+    \item 创建作用域链(当前变量对象 + 所有父级变量对象)。
+    \item 变量对象(参数，变量，函数声明)。
+    \item this
+  \end{itemize}
+  \item 执行阶段: 变量赋值，函数引用。
+\end{itemize}
+
+利用作用域链产生闭包:
+
+\begin{JavaScript}
+const a = "a";
+const func1 = () => {
+  const b = "b";
+  return () => {
+    const c = "c";
+    console.log(a)  // a
+    console.log(b)  // b
+    console.log(c)  // c
+  }
+}
+\end{JavaScript}
+
+此时我们调用 \texttt{func1()} 并执行，内部函数的作用域链就包括: 全局变量(a) + 外部函数变量(b) + 内部函数变量(c)。因此三个变量都能被访问到。且在对对象进行访问时，会优先查找内部变量，再依次向外查询。根据这个原理，我们可以创建闭包来对作用域链上的其他变量进行访问。

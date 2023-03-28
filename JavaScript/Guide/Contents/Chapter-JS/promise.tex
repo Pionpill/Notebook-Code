@@ -1,0 +1,86 @@
+\section{\texttt{Promise}}
+
+手写 \texttt{Promise}, 比较复杂，自行理解，几个关键点如下:
+\begin{itemize}
+  \item 为了防止在 \texttt{new} 时，异步确认状态，导致 \texttt{then} 等方法调用时无法确认状态，需要保存一个回调函数执行队列。
+\end{itemize}
+
+\begin{JavaScript}
+class MyPromise {
+  static PENDING = "pending";
+  static FULFILLED = "fulfilled";
+  static REJECTED = "reject";
+  constructor(func) {
+    this.resolveCallbacks = [];
+    this.rejectCallbacks = [];
+    this.status = MyPromise.PENDING;
+    this.result = null;
+    try {
+      return func(this.resolve.bind(this), this.reject.bind(this));
+    } catch {
+      this.reject(this.result);
+    }
+  }
+
+  resolve(result) {
+    setTimeout(() => {
+      if (this.status === MyPromise.PENDING) {
+        this.status = MyPromise.FULFILLED;
+        this.result = result;
+        this.resolveCallbacks.forEach((func) => func(result));
+      }
+    });
+  }
+
+  reject(result) {
+    setTimeout(() => {
+      if (this.status === MyPromise.PENDING) {
+        this.status = MyPromise.REJECTED;
+        this.result = result;
+        this.resolveCallbacks.forEach((func) => func(result));
+      }
+    });
+  }
+
+  then(onFulfilled, onRejected) {
+    return new MyPromise((resolve, reject) => {
+      onFulfilled = typeof onFulfilled === "function" ? onFulfilled : () => {};
+      onRejected = typeof onRejected === "function" ? onRejected : () => {};
+      // 待定状态判断
+      if (this.status === MyPromise.PENDING) {
+        this.resolveCallbacks.push(onFulfilled);
+        this.rejectCallbacks.push(onRejected);
+      }
+      if (this.status === MyPromise.FULFILLED) {
+        setTimeout(() => onFulfilled(this.result));
+      }
+      if (this.status === MyPromise.REJECTED) {
+        setTimeout(() => onRejected(this.result));
+      }
+    });
+  }
+
+  catch(onRejected) {
+    return new MyPromise((resolve, reject) => {
+      onRejected = typeof onRejected === "function" ? onRejected : () => {};
+      if (this.status === MyPromise.PENDING) {
+        this.rejectCallbacks.push(onRejected);
+      }
+      if (this.status === MyPromise.REJECTED) {
+        setTimeout(() => onRejected(this.result));
+      }
+    });
+  }
+
+  finally(onFinally) {
+    onFinally = typeof onFinally === "function" ? onFinally : () => {};
+    if (this.status === MyPromise.PENDING) {
+      this.resolveCallbacks.push(onFinally);
+      this.rejectCallbacks.push(onFinally);
+    }
+    if (this.status !== MyPromise.PENDING) {
+      setTimeout(() => onFinally(this.result));
+    }
+  }
+}
+\end{JavaScript}
