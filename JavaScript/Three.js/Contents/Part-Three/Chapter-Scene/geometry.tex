@@ -1,0 +1,191 @@
+\section{几何体}
+
+\subsection{二维几何体}
+
+Three.js 提供了两个几何体基类，分别是旧版的 \texttt{Geometry} 与新版的 \texttt{BufferGeometry}。旧版基类易用性强，便于开发。新版基类内部数据组织形式与 GPU 期待的数据结构一致，效率更高，但易用性差一点。现在基本只用新版 \texttt{BufferGeometry}。
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{\texttt{BufferGeometry} 重要属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    attributes & Object & {} & 直接被 GPU 处理的分量数据 \\
+    index & BufferAttribute & null & 允许顶点在多个三角面片间可以重用 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+二维集合体的源码都非常简单，这里只介绍一下构造函数:
+
+\subsubsection*{\texttt{PlaneGeometry}}
+
+\texttt{PlaneGeometry} 用于构建平面:
+
+\begin{JavaScript}
+class PlaneGeometry extends BufferGeometry {
+	constructor( width = 1, height = 1, widthSegments = 1, heightSegments = 1 )
+  ...
+}
+\end{JavaScript}
+
+其中 \texttt{widthSegments} 和 \texttt{heightSegments} 表示长宽方向上的分段数。
+
+\subsubsection*{\texttt{CircleGeometry}}
+
+\texttt{CircleGeometry} 用于构建圆形:
+
+\begin{JavaScript}
+class CircleGeometry extends BufferGeometry {
+	constructor( radius = 1, segments = 32, thetaStart = 0, thetaLength = Math.PI * 2 )
+  ...
+}
+\end{JavaScript}
+
+其中 \texttt{thetaStart} 和 \texttt{thetaLength} 分别表示圆开始的角度与结束角度。
+
+\subsubsection*{\texttt{RingGeometry}}
+
+\texttt{RingGeometry} 用于构建圆环。
+
+\begin{JavaScript}
+class RingGeometry extends BufferGeometry {
+  constructor( innerRadius = 0.5, outerRadius = 1, thetaSegments = 32, phiSegments = 1, thetaStart = 0, thetaLength = Math.PI * 2 )
+  ... 
+}
+\end{JavaScript}
+
+其中 \texttt{phiSegments} 表示沿着圆环长度的切分数。
+
+\subsection{三维几何体}
+
+\subsubsection*{\texttt{BoxGeometry}}
+
+\texttt{BoxGeometry} 用于构建长方体:
+
+\begin{JavaScript}
+class BoxGeometry extends BufferGeometry {
+  constructor( width = 1, height = 1, depth = 1, widthSegments = 1, heightSegments = 1, depthSegments = 1 )
+  ... 
+}
+\end{JavaScript}
+
+\subsubsection*{\texttt{SphereGeometry}}
+
+\texttt{SphereGeometry} 用于构建圆球:
+
+\begin{JavaScript}
+class SphereGeometry extends BufferGeometry {
+  constructor( radius = 1, widthSegments = 32, heightSegments = 16, phiStart = 0, phiLength = Math.PI * 2, thetaStart = 0, thetaLength = Math.PI )
+  ... 
+} 
+\end{JavaScript}
+
+其中 \texttt{phi} 和 \texttt{theta} 分别代表 x 轴和 y 轴。
+
+\subsubsection*{\texttt{CylinderGeometry}}
+
+\texttt{CylinderGeometry} 用于创建圆柱体。
+
+\begin{JavaScript}
+class CylinderGeometry extends BufferGeometry {
+	constructor( radiusTop = 1, radiusBottom = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2 )
+  ... 
+}
+\end{JavaScript}
+
+\subsubsection*{\texttt{ConeGeometry}}
+
+\texttt{ConeGeometry} 用于创建圆锥体。
+
+\begin{JavaScript}
+class ConeGeometry extends CylinderGeometry {
+	constructor( radius = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2 )
+  ... 
+}
+\end{JavaScript}
+
+\subsubsection*{\texttt{TorusGeometry}}
+
+\texttt{TorusGeometry} 用于创建圆环:
+
+\begin{JavaScript}
+class TorusGeometry extends BufferGeometry {
+	constructor( radius = 1, tube = 0.4, radialSegments = 12, tubularSegments = 48, arc = Math.PI * 2 )
+  ... 
+}
+\end{JavaScript}
+
+除此以外，Three.js 还提供了很多三维几何体，例如正n面体，钻石等，这里不一一介绍。
+
+\subsection{高级几何体}
+
+所谓高级几何体，就是在 Blender 等三维软件中，通过旋转，挤压获取到的几何体。自这节开始，内容非常抽象，建议先在 Blender 中试试类似的效果。
+
+\subsubsection*{\texttt{ConvexGeometry}}
+
+\texttt{ConvexGeometry} 通过一组点创建一组凸包，即包围这组点的最小图形。因此它的构造函数需要接收点坐标组成的数组:
+
+\begin{JavaScript}
+class ConvexGeometry extends BufferGeometry {
+	constructor( points = [] )
+  ... 
+}
+\end{JavaScript}
+
+\subsubsection*{\texttt{LatheGeometry}}
+
+\texttt{LatheGeometry} 通过一条光滑的曲线创建图形。绕 z 轴旋转获取类似花瓶的几何体。
+
+\begin{JavaScript}
+class LatheGeometry extends BufferGeometry {
+	constructor( points = [ new Vector2( 0, - 0.5 ), new Vector2( 0.5, 0 ), new Vector2( 0, 0.5 ) ], segments = 12, phiStart = 0, phiLength = Math.PI * 2 )
+  ... 
+}
+\end{JavaScript}
+
+\subsubsection*{\texttt{ExtrudeGeometry}}
+
+\texttt{ExtrudeGeometry} 允许我们通过挤压获取三维几何体。
+
+\begin{JavaScript}
+class ExtrudeGeometry extends BufferGeometry {
+  constructor( shapes = new Shape( [ new Vector2( 0.5, 0.5 ), new Vector2( - 0.5, 0.5 ), new Vector2( - 0.5, - 0.5 ), new Vector2( 0.5, - 0.5 ) ] ), options = {} )
+  ...
+} 
+\end{JavaScript}
+
+\subsubsection*{\texttt{TubeGeometry}}
+
+\texttt{ExtrudeGeometry} 创建一个沿着三维曲线延伸的管道。
+
+\begin{JavaScript}
+class TubeGeometry extends BufferGeometry {
+  constructor( path = new Curves[ 'QuadraticBezierCurve3' ]( new Vector3( - 1, - 1, 0 ), new Vector3( - 1, 1, 0 ), new Vector3( 1, 1, 0 ) ), tubularSegments = 64, radius = 1, radialSegments = 8, closed = false )
+  ... 
+} 
+\end{JavaScript}
+
+\subsubsection*{\texttt{TextGeometry}}
+
+\texttt{TextGeometry} 用于将文本生成为单一的几何体的类。他必须接获取两个关键数据: 字体，传入值。此外，\texttt{TextGeometry} 是一个附加组件，必须显式导入。参考以下方式创建 3D 字体:
+\begin{itemize}
+  \item \link{https://threejs.org/docs/index.html\#examples/zh/geometries/TextGeometry}{官方文档}
+\end{itemize}
+
+\subsection{二元操作}
+
+在 Three.js 中使用几何体的二元操作需要引入一种新的技术: 构造实时几何体技术(Constructive Solid Geometry，CSG)。对应的库是 ThreeBSP。ThreeBSP 提供了三个二元函数: 相交，联合，相减。
+
+这三个函数在计算时使用的是网络的绝对位置，因此尽量不要在使用这些函数之前使用多种材质，这会导致非常奇怪的结果。
+
+\begin{itemize}
+  \item \texttt{intersect}: 相交，重叠部分定义为新的几何体。
+  \item \texttt{union}: 联合, 将两个结合体联合起来创建新的几何体。
+  \item \texttt{subtract}: 相减，与 \texttt{intersect} 相反。
+\end{itemize}
+
+\newpage

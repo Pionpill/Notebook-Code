@@ -1,0 +1,220 @@
+\section{材质}
+\subsection{基础材质}
+
+three.js 的材质基类是 \texttt{Material}:
+
+\begin{JavaScript}
+class Material extends EventDispatcher
+\end{JavaScript}
+
+\texttt{Material} 继承自 \texttt{EventDispatch}，实现了基本的事件发布模式。
+
+\texttt{Material} 及其子类的属性比较多，除了通用的 \texttt{uuid} 属性，可以分为以下几类:
+\begin{itemize}
+  \item 基础属性: 最常用的，控制材质不透明度等显示方式。
+  \item 融合属性: 决定物体与背景如何融合。
+  \item 高级属性: 控制底层 WebGL 上下文对象渲染物体的方式。
+\end{itemize}
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{材质属性}
+  \label{table:材质属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l|l}
+    \toprule
+    \textbf{类别} & \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    \multirow{9}{*}{基础} & opacity & Float & 1 & 不透明度，影响颜色或材质本身 \\
+     & transparent & Boolean & false & 材质是否透明 \\
+     & visible & Boolean & false & 是否可见 \\
+     & override & Boolean & false & 是否渲染得大一些 \\
+     & side & Integer & THREE.FrontSide & 指定渲染哪一面 \\
+     & colorWrite & Boolean & true & 如果 false, 则不渲染 \\
+     & flatShading & Boolean & false & 是否开启平滑作色 \\
+     & lights & Boolean & true & 是否接收光照 \\
+     & dithering & Boolean & false & 是否开启颜色抖动 \\
+    \midrule
+    \multirow{2}{*}{融合} & blending & Blending & NormalBlending &  材质如何进行融合 \\
+     & blendSrc & Integer & SrcAlphaFactor & 融合源 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+融合属性还有很多，这里不一一列举。
+
+\texttt{Material} 有一个重要的方法 \texttt{setValues}，接受一个对象作为参数，该方法会遍历该对象并将可用的属性加载到自身。
+
+\subsubsection*{\texttt{MeshBasicMaterial}}
+
+\texttt{MeshBasicMaterial} 不考虑场景中光照的影响。使用该材质的网格会被渲染成简单的平面多边形，或者几何体线框。
+
+\begin{JavaScript}
+class MeshBasicMaterial extends Material {
+	constructor( parameters )
+  ... 
+}
+\end{JavaScript}
+
+其中 \texttt{parameters} 是一个对象，传入可用的参数。
+
+除了公有属性，\texttt{MeshBasicMaterial} 还有以下特殊属性:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{\texttt{MeshBasicMaterial} 属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    color & Color & 0xffffff & 颜色 \\
+    wireframe & Boolean & false & 渲染成线框 \\
+    wireframeLinewidth & Float & 1 & 线框宽度 \\
+    wireframeLinecap & String & "round" & 线两端样式, 可选 "butt", "square" \\
+    wireframeLinejoin & String & "round" & 线连接点样式，可选 "bevel", "miter" \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{\texttt{MeshDepthMaterial}}
+
+\texttt{MeshDepthMaterial} 的外观不是由光照或某个材质属性决定，而是由物体到摄像机的距离决定。
+
+\texttt{MeshDepthMaterial} 构造函数和 \texttt{MeshBasicMaterial} 相同。存在两个特殊属性: \texttt{wireframe}, \texttt{wireframeLinewidth}。
+
+在场景中，相机的 \texttt{near} 和 \texttt{far} 属性决定了使用该材质物体的显示效果。
+
+\texttt{MeshDepthMaterial} 没有属性来设置方块颜色，这时候可以使用联合材质创建新效果。
+
+\begin{JavaScript}
+const cubeMaterial = new THREE.MeshDepthMaterial();
+const colorMaterial = new THREE.MeshBasicMaterial({color: 0x00ff00, transparent: true, bleeding: THREE.MultiplyBlending});
+const cube = new THREE.SceneUtils.createMultiMaterialObject(cubeGeometry, [colorMaterial, cubeMaterial]);
+\end{JavaScript}
+
+联合材质对 \texttt{MeshDepthMaterial} 没什么要求，对于 \texttt{MeshBasicMaterial} 则需要将 \texttt{transparent} 属性设置为 \texttt{true} 来促使 three.js 检查 \texttt{blending} 属性。这样才能让材质融合。
+
+\subsubsection*{\texttt{MeshNormalMaterial}}
+
+构造方法和上面两个类似，每个面显示的颜色与面法向量相关。
+
+\subsection{高级材质}
+
+\subsubsection*{\texttt{MeshLambertMaterial}}
+
+用来创建暗淡的并不光亮的表面。该材质非常易用，而且会对场景中的光源产生反应。该材质有一个属性 \texttt{emissive : Color} 表示材质自发光的颜色。
+
+\subsubsection*{\texttt{MeshPhongMaterial}}
+
+用来创建具有镜面高光效果的材质。该材质有以下几个特殊属性:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{\texttt{MeshPhongMaterial} 属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    emissive & Color & 0x000000 & 自发光颜色 \\
+    specular & Color & 0x111111 & 高光颜色 \\
+    shininess & Float & 30 & 高光程度 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{\texttt{MeshStandardMaterial}}
+
+这是新版 three.js 提供的材质，用于更加正确地计算物体表面与光源的互动。这种材质不但能够更好地表现塑料质感和金属质感，而且提供了两个全新的属性:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{\texttt{MeshStandardMaterial} 属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    metalness & Float & 0 & 金属感程度，默认非金属使用0，金属使用1。中间值模拟生锈金属。 \\
+    roughness & Float & 1 & 粗糙程度，0 表示完全镜面反射，1表示完全漫反射 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{\texttt{MeshPhysicalMaterial}}
+
+该材质继承自 \texttt{MeshStandardMaterial}:
+
+\begin{JavaScript}
+class MeshPhysicalMaterial extends MeshStandardMaterial
+\end{JavaScript}
+
+在 \texttt{MeshStandardMaterial} 基础上增添了如下属性:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{\texttt{MeshPhysicalMaterial} 属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    clearCoat & Float & 0 & 控制表面涂层明显程度 \\
+    clearCoatRoughness & Float & 0 & 表面涂层粗糙程度 \\
+    reflectivity & Float & 0.5 & 表面材质反射率 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{线性几何体材质}
+
+线性几何体材质只能适用于特比的几何体: \texttt{THREE.Line}。顾名思义，这只是一条线，没有面。three.js 提供了两种可用于线段的不同材质。
+
+\subsubsection*{\texttt{LineBasicMaterial}}
+
+\texttt{LineBasicMaterial} 提供了以下可用的材质属性:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{\texttt{MeshPhysicalMaterial} 属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    color & Color & 0xffffff & 材质颜色 \\
+    linewidth & Float & 1 & 线宽 \\
+    linecap & String & `round' & 线两端的样式 \\
+    linejoin & String & `round' & 线连接点的样式 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{\texttt{LineDashedMaterial}}
+
+\texttt{LineDashedMaterial} 继承自 \texttt{LineBasicMaterial}，增添了如下属性:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{\texttt{LineDashedMaterial} 新增属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{c|ccc}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    scale & number & 1 & 虚线占比 \\
+    dashSize & number & 3 & 虚线大小 \\
+    gapSize & number & 1 & 虚线间隙大小 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\newpage

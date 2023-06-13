@@ -1,0 +1,226 @@
+\section{@react-three/fiber}
+
+@react-three/fiber(本章简称 fiber) 是目前最主流的在 React 框架上使用 Three.js 的方案。同时也是 @react-three 生态最重要的项目。
+\begin{itemize}
+  \item \link{https://docs.pmnd.rs/react-three-fiber}{官方文档}
+\end{itemize}
+
+本节开始需要具备 React 基础知识。
+
+\begin{bash}
+npm install three @types/three @react-three/fiber
+\end{bash}
+
+\subsection{入门项目}
+
+\subsubsection*{\texttt{<Canvas>} 标签}
+
+fiber 创建的组件需要用 \texttt{<Canvas>} 标签包裹，该标签有以下两个作用:
+\begin{itemize}
+  \item 设置一个默认的 Scene 和 Camera。
+  \item 自动每帧渲染，无需手动书写渲染循环。
+\end{itemize}
+
+\begin{JavaScript}
+<div>
+  <Canvas/>
+</div>
+\end{JavaScript}
+
+此外，\texttt{<Canvas>} 标签有如下效果:
+\begin{itemize}
+  \item 创建的 Three 组件长宽由父元素决定。
+  \item 动画由 canvas 技术支持。
+\end{itemize}
+
+\subsubsection*{\texttt{<mesh>} 标签}
+
+\texttt{<mesh>} 标签是一个原生标签(所有的 three.js 对象会被自动转换为原生 JSX 标签)，它就相当于使用 \texttt{Three.Mesh()} 创建对象。
+
+\begin{JavaScript}
+<Canvas>
+  <mesh/>
+</Canvas>
+\end{JavaScript}
+
+我们可以用 React 风格的代码为 \texttt{<mesh/>} 标签设置一些属性:
+
+\begin{JavaScript}
+<Canvas>
+  <mesh position={[0,0,0]}/>
+</Canvas>
+\end{JavaScript}
+
+此外，单独的 \texttt{<mesh/>} 标签并不会显示什么，我们需要传入几何体和材质。以子组件的方式传入:
+
+\begin{JavaScript}
+<Canvas>
+  <mesh>
+    <boxGeometry />
+    <meshStandardMaterial />
+  </mesh>
+</Canvas>
+\end{JavaScript}
+
+这段代码就相当于:
+
+\begin{JavaScript}
+const scene = new THREE.Scene()
+const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
+
+const renderer = new THREE.WebGLRenderer()
+renderer.setSize(width, height)
+document.querySelector('#canvas-container').appendChild(renderer.domElement)
+
+const mesh = new THREE.Mesh()
+mesh.geometry = new THREE.BoxGeometry()
+mesh.material = new THREE.MeshStandardMaterial()
+
+scene.add(mesh)
+
+function animate() {
+  requestAnimationFrame(animate)
+  renderer.render(scene, camera)
+}
+
+animate()
+\end{JavaScript}
+
+此外，我们知道有些对象的构造函数必须传入一些参数，使用标签的 \texttt{args} 属性即可:
+
+\begin{JavaScript}
+// 原生 JS 写法
+new THREE.BoxGeometry(2, 2, 2)
+// React 组件写法
+<boxGeometry args={[2, 2, 2]} />
+\end{JavaScript}
+
+此外，我们还需要加入光照:
+
+\begin{JavaScript}
+// 原生 JS 写法
+const light = new THREE.AmbientLight()
+light.intensity = 0.1
+// React 组件写法
+<ambientLight intensity={0.1} />
+\end{JavaScript}
+
+或者加入聚光灯:
+
+\begin{JavaScript}
+// 原生 JS 写法
+const light = new THREE.DirectionalLight()
+light.position.set(0, 0, 5)
+light.color.set('red')
+// React 组件写法
+<directionalLight position={[0, 0, 5]} color="red" />
+\end{JavaScript}
+
+\subsection{基础 API}
+
+\subsubsection*{\texttt{<Canvas>}}
+
+\texttt{<Canvas>} 是 fiber 最基础最核心的标签，几乎所有的 fiber 组件都需要在 \texttt{<Canvas>} 标签(包括 hooks)内书写。
+
+\texttt{<Canvas>} 有几个重要属性这里说明一下:
+\begin{itemize}
+  \item \texttt{camera}: 传入一个 \texttt{Three.Camera} 替代原本的相机或者传入相机构造函数参数对象。默认为 \texttt{{fov:75, near:0.1, far:1000, position:[0,0,5]}}。
+  \item \texttt{orthographic}: 布尔值，如果为 \texttt{true} 则使用平视摄像机，默认使用透视。
+  \item \texttt{scene}: 可以传入一个自定义 \texttt{Scene} 对象。
+  \item \texttt{shadows}: 布尔值，决定是否渲染阴影。
+\end{itemize}
+
+\texttt{<Canvas>} 采用 \texttt{createRoot} 创建一个 \texttt{THREE.WebGLRenderer} 对象。同时创建摄像机，场景。如果 \texttt{shadows} 为 \texttt{true} 同时创建阴影。
+
+\subsubsection*{创建对象}
+
+原生 JSX 创建对象的过程为: 构造函数 \texttt{new} 对象，为对象设置属性，将对象加入到场景。
+
+这三个步骤在 fiber 中被简化为:
+\begin{itemize}
+  \item 构造函数: 使用 \texttt{args} 传入一个数组即可。
+  \item 设置属性: 利用现有的标签属性设置，例如 \texttt{position}。
+  \item 加入场景: 作为父标签 \texttt{children} 属性即可。
+\end{itemize}
+
+对于构造函数，并不是所有对象都一定要传入 \texttt{args}，如果构造函数没有参数或者参数都有默认值，可以不传入 \texttt{args}。
+
+对于属性，所有存在 \texttt{.set()} 方法的属性均可以直接用过标签传入参数。
+
+如果子标签是父标签的参数，可以通过 \texttt{attach} 属性传入，属性值即为副标签对象的属性名:
+
+\begin{JavaScript}
+<mesh>
+  <meshBasicMaterial attach="material">
+  <boxGeometry attach="geometry">
+</mesh>
+\end{JavaScript}
+
+所有继承自 \texttt{THREE.Material} 的标签，\texttt{attach} 都默认为 \texttt{material}。同样，继承自 \texttt{THREE.BufferGeometry} 的标签 \texttt{attach} 默认为 \texttt{geometry}。因此，多数情况下我们没必要显式指定 \texttt{attach} 值。
+
+\subsection{Hooks}
+
+Hooks 仅能用在 \texttt{<Canvas>} 标签内部，下面写法是错误的:
+
+\begin{JavaScript}
+import { useThree } from '@react-three/fiber'
+
+function App() {
+  const { size } = useThree() // This will just crash
+  return (
+    <Canvas>
+      <mesh>
+\end{JavaScript}
+
+正确的写法是:
+
+\begin{JavaScript}
+function Foo() {
+  const { size } = useThree()
+  ...
+}
+
+function App() {
+  return (
+    <Canvas>
+      <Foo />
+\end{JavaScript}
+
+\subsubsection*{\texttt{useThree}}
+
+\texttt{useThree} 允许我们获取当前 three.js 组件的状态，包括场景，相机等。
+
+\begin{JavaScript}
+// 获取相机
+const camera = useThree((state) => state.camera)
+// 获取视口
+const viewport = useThree((state) => state.viewport)
+\end{JavaScript}
+
+我们只能获取 \texttt{state} 的属性，例如 camera，get，set。无法获取 \texttt{state} 属性的属性，例如 camera.zoom。
+
+\subsubsection*{\texttt{useFrame}}
+
+\texttt{useFrame} 用于在每次渲染帧内调用，该钩子声明如下:
+
+\begin{JavaScript}
+useFrame(callback: RenderCallback, renderPriority?: number): null
+\end{JavaScript}
+
+\texttt{renderPriority} 表示渲染优先级，如果为负值，表示不会再渲染循环中执行，只执行一次，此时数值越小，执行优先级越高。
+
+回调函数 \texttt{callback} 声明如下:
+
+\begin{JavaScript}
+(state: RootState, delta: number, frame?: THREE.XRFrame) => void
+\end{JavaScript}
+
+其中，\texttt{delta} 表示子渲染其到现在的时间(单位: 毫秒)。
+
+\subsubsection*{\texttt{useLoader}}
+
+\texttt{useLoader} 用于加载外部资源，该钩子接收三个参数: 加载器，资源对应 URL，回调函数(用于自定义加载器)。
+
+\subsubsection*{\texttt{useGraph}}
+
+该钩子用于获取 \texttt{Object3D} 对象的几何形状，材质等。

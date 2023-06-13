@@ -1,0 +1,239 @@
+\section{灯光}
+\subsection{前置知识}
+\subsubsection*{\texttt{Light}}
+
+\texttt{Light} 类是所有光源的基类，其他所有光源都继承了该类的属性和方法。
+\begin{itemize}
+  \item \link{https://threejs.org/docs/index.html\#api/zh/lights/Light}{查看文档}
+  \item \link{https://github.com/mrdoob/three.js/blob/master/src/lights/Light.js}{查看源码}
+\end{itemize}
+
+\begin{JavaScript}
+class Light extends Object3D
+\end{JavaScript}
+
+\texttt{Light} 实现非常简单，作为抽象基类，他几乎不会被直接使用:
+
+\begin{JavaScript}
+constructor( color, intensity = 1 )
+\end{JavaScript}
+
+构造函数包含两个参数:
+\begin{itemize}
+  \item \texttt{color: Integer}: 16 进制颜色，默认为 0xffffff(白色)。
+  \item \texttt{intensity: Float}: 关照强度，默认为 1。
+\end{itemize}
+
+增加了一个方法 \texttt{dispose()}，不过并没有提供任何实现，由子类负责实现。
+
+three.js 中其他的光源大都继承自 \texttt{light}:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{three.js 中的光源}
+  \label{table:three.js 中的光源}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l}
+    \toprule
+    \textbf{名字} & \textbf{描述} & \textbf{备注} \\
+    \midrule
+    AmbientLight & 环境光 & 无法创建阴影，颜色会叠加到物体上 \\
+    PointLight & 点光源 & 向空间各方向发射光 \\
+    SpotLight & 聚光源 & 向空间指定范围发射光 \\
+    DirectionalLight & 平行光 & 类似于太阳光，没有源头，向某个方向发射光 \\
+    \midrule
+    HemisphereLight & 半球光 & 模拟自然光，无法创建阴影 \\
+    RectAreaLight & 区域光 & 指定发射光的平面，无法创建阴影 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{\texttt{Color}}
+
+\texttt{Color} 是 three.js 为我们提供的颜色工具类。一共可以通过以下几种构造方式创建颜色对象:
+\begin{itemize}
+  \item 传入 rgb: \texttt{new THREE.Color( 1, 0, 0 )}
+  \item 传入数字: \texttt{new THREE.Color( 0xff0000 )}
+  \item 传入 rgb 字符串: \texttt{new THREE.Color("rgb(255, 0, 0)"), new THREE.Color("rgb(100\%, 0\%, 0\%)")}
+  \item 传入 hsl 字符串: \texttt{new THREE.Color("hsl(0, 100\%, 50\%)")}
+  \item 传入颜色名: \texttt{new THREE.Color( 'skyblue' )}
+  \item 传入 \texttt{Color} 对象。
+\end{itemize}
+
+此外也可以传入 alpha 值。\texttt{Color} 对象对颜色进行了封装，我们可以通过该对象快速获取 r,g,b 等值，也可以使用 \texttt{addColor} 等方法混合颜色。
+
+\subsection{光源}
+
+\subsubsection*{\texttt{AmbientLight}}
+
+\texttt{AmbientLight} 指环境光，无法创建投影，因为它没有方向，一般用于给场景增添颜色，或者弱化阴影。
+
+\texttt{AmbientLight} 源码非常简单:
+
+\begin{JavaScript}
+class AmbientLight extends Light {
+	constructor( color, intensity ) {
+		super( color, intensity );
+		this.isAmbientLight = true;
+		this.type = 'AmbientLight';
+	}
+}
+\end{JavaScript}
+
+由于没有方向，\texttt{AmbientLight} 只需要创建然后加入场景即可。
+
+\subsubsection*{\texttt{PointLight}}
+
+点光源，即对空间各个方向均发射的光源，对应现实生活中的灯泡。
+
+\begin{JavaScript}
+class PointLight extends Light {
+  constructor( color, intensity, distance = 0, decay = 2 )
+  ...
+}
+\end{JavaScript}
+
+这里有两个新的参数:
+\begin{itemize}
+  \item \texttt{distance}: 表示从光源到光照强度为0的位置, 当设置为0时，光永远不会消失。
+  \item \texttt{decay}: 沿着光照距离的衰退量。
+\end{itemize}
+
+\texttt{PointLight} 引入了一个新的可读写的属性 \texttt{power}。\texttt{power} 与 \texttt{intensity} 之间存在如下关系: \texttt{this.intensity = power / ( 4 * Math.PI )}。
+
+旧版的 \texttt{PointLight} 是无法产生阴影的，新版中可以。
+
+\subsubsection*{\texttt{SpotLight}}
+
+聚光灯是最常用的光源之一, 特别用于创建阴影。
+
+\begin{JavaScript}
+class SpotLight extends Light {
+  constructor( color, intensity, distance = 0, angle = Math.PI / 3, penumbra = 0, decay = 2 ) 
+  ...
+}
+\end{JavaScript}
+
+有两个新的属性:
+\begin{itemize}
+  \item \texttt{angle}: 管线的散射角度，最大为 $\pi/2$。
+  \item \texttt{penumbra}: 聚光灯从中间到四周光线缩减比，默认为0(不缩减)。
+\end{itemize}
+
+聚光灯默认 \texttt{target} 为新的 \texttt{Object} 对象，即 (0,0,0) 原点。
+
+在构造聚光灯对象时，会创建 \texttt{this.shadow = new SpotLightShadow()}。
+
+\subsubsection*{\texttt{DirectionalLight}}
+
+平行光是沿着特定方向发射的光。
+
+\begin{JavaScript}
+class DirectionalLight extends Light {
+	constructor( color, intensity )
+}
+\end{JavaScript}
+
+平行光也可以创建投影，具体方法和聚光灯类似。
+
+\subsubsection*{\texttt{HemisphereLight}}
+
+HemisphereLight 是指半球光，光照颜色从天空光线颜色渐变到地面光线颜色。可以将其简单理解为线性变化的光。
+
+\begin{JavaScript}
+class HemisphereLight extends Light {
+	constructor( skyColor, groundColor, intensity )
+  ...
+}
+\end{JavaScript}
+
+\subsubsection*{\texttt{RectAreaLight}}
+
+平面光光源从一个矩形平面上均匀地发射光线。
+
+\begin{JavaScript}
+class RectAreaLight extends Light {
+  constructor( color, intensity, width = 10, height = 10 )
+}
+\end{JavaScript}
+
+它包含两个特殊属性: 宽高，用于设置平面光的大小。
+
+\subsection{阴影}
+
+\subsubsection*{\texttt{LightShadow}}
+
+three.js 中的阴影都继承自抽象基类: \texttt{LightShadow}:
+
+\begin{JavaScript}
+class LightShadow {
+  constructor(camera)
+  ...
+}
+\end{JavaScript}
+
+\texttt{LightShadow} 并不继承自 \texttt{Object}，它的构造函数需要传入一个 \texttt{camera} 对象。
+
+\texttt{LightShadow} 有以下重要属性:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{\texttt{LightShadow} 重要属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    autoUpdate & Boolean & true & 是否动态更新阴影 \\
+    needsUpdate & Boolean & false & 通过设置该值更新阴影 \\
+    camera & Camera & 传入 &  \\
+    bias & Float & 0 & 阴影贴图的偏差 \\
+    blurSamples & Integer & 8 & 模糊采样值 \\
+    mapSize & Vector2 & new Vector2( 512, 512 ) & 阴影贴图精度 \\
+    radius & Float & 1 & 模糊阴影边缘 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{\texttt{PointLightShadow}}
+
+点光源阴影，构造函数传入透视相机:
+
+\begin{JavaScript}
+class PointLightShadow extends LightShadow {
+	constructor() {
+    super( new PerspectiveCamera( 90, 1, 0.5, 500 ) );
+    ...
+  }
+  ...
+}
+\end{JavaScript}
+
+\subsubsection*{\texttt{DirectionalLightShadow}}
+
+平行光阴影，构造函数传入平视相机:
+
+\begin{JavaScript}
+class DirectionalLightShadow extends LightShadow {
+	constructor() {
+		super( new OrthographicCamera( -5,5,5,-5,0.5,500 ) );
+    ...
+	}
+}
+\end{JavaScript}
+
+\subsubsection*{\texttt{SpotLightShadow}}
+
+聚光灯光源，构造函数传入透视相机:
+
+\begin{JavaScript}
+class SpotLightShadow extends LightShadow {
+  constructor() {
+    super( new PerspectiveCamera( 50, 1, 0.5, 500 ) );
+    ...
+  }
+  ...
+}
+\end{JavaScript}

@@ -1,0 +1,255 @@
+\section{基础对象}
+
+\subsection{\texttt{Object3D}}
+
+在 three.js 中，绝大部分对象都继承自 \texttt{THREE.Object3D} 对象。\texttt{THREE.Object3D} 对象十分复杂，这里只讲常用的。
+\begin{itemize}
+  \item \link{https://threejs.org/docs/index.html\#api/zh/core/Object3D}{查看文档}。
+  \item \link{https://github.com/mrdoob/three.js/blob/master/src/core/Object3D.js}{查看 \texttt{Object3D} 源码}。
+\end{itemize}
+
+\subsubsection*{构造函数}
+
+\texttt{Object3D} 的构造函数无需传入任何参数，在对象被构造时，会生成自己独特的的 uuid，为属性赋默认值。
+
+\subsubsection*{属性}
+
+\texttt{Object3D} 的属性非常多，常用的实例属性有:
+
+\begin{table}[H]
+  \small
+  \centering
+  \caption{\texttt{Object} 属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    castShadow & Boolean & false & 是否被渲染到阴影贴图中 \\
+    receiveShadow & Boolean & false & 材质是否接收阴影 \\
+    renderOrder & Number & 0 & 渲染顺序 \\
+    parent & Object3D & 父对象 & 只能有一个 \\
+    children & Array & 子对象数组 & 很少用，一般用 Group 代替 \\
+    id & Integer & - & 唯一标识，具体实现看源码 \\
+    uuid & String & - & 自生成的 uuid \\
+    isObject3D  & Boolean & true & 只读，用于判断类型 \\
+    layers & Layers & new Layers() & 层级关系 \\
+    matrix & Matrix4 & new Matrix4() & 局部变化矩阵 \\
+    matrixWorld  & Matrix4 & new Matrix4() & 世界变化矩阵 \\
+    name & String & ``'' & 自行设置，默认为空 \\
+    onAfterRender & Function & 空 & 可选的回调函数 \\
+    onBeforeRender & Function & 空 & 可选的回调函数 \\
+    position & Vector3 & (0,0,0) & 默认位置 \\
+    rotation & Euler & new Euler() & 物体局部旋转 \\
+    scale & Vector3 & (1,1,1) & 物体局部缩放 \\
+    up & Vector3 & (0,1,0) & 物体朝向 \\
+    userData & Object & \{\} & 物体自身携带的数据 \\
+    visible & Boolean & true & 是否被渲染 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+在 three.js 对象中有一些通用的属性方法。例如: \texttt{type}, \texttt{isXXX}，\texttt{name} 用于判断对象类型。再例如 \texttt{copy} 进行深拷贝，\texttt{set/getXXX} 进行属性设置。下文不再提及这些通用属性。
+
+此外有三个静态属性:
+
+\begin{table}[H]
+  \small
+  \centering
+  \caption{\texttt{Object3D} 静态属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    DEFAULT\_UP & Vector3 & (0,1,0) & 默认朝向 \\
+    DEFAULT\_MATRIX\_AUTO\_UPDATE & Boolean & false & 是否进行相关更新 \\
+    DEFAULT\_MATRIX\_WORLD\_AUTO\_UPDATE   & Boolean & false & 是否进行相关更新 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{方法}
+
+\begin{itemize}
+  \item \texttt{.add ( object : Object3D, ... ) : this}: 添加对象到这个对象的子级，可以添加任意个。如果被添加的对象已有父对象，则该父对象被删除。
+  \item \texttt{.attach ( object : Object3D ) : this}: 将object作为子级来添加到该对象中，同时保持该object的世界变换。
+  \item \texttt{.clone ( recursive : Boolean ) : Object3D}: 如果传入的值为 \texttt{true}，则该对象的子对象也会被克隆，默认为 \texttt{true}。
+  \item \texttt{.copy ( object : Object3D, recursive : Boolean ) : this}: 复制给定的对象到这个对象中。 事件监听器和用户定义的回调函数不会被复制。
+  \item \texttt{.remove ( object : Object3D, ... ) : this}: 从当前对象的子级中移除对象。可以移除任意数量的对象。
+  \item \texttt{.rotateOnAxis ( axis : Vector3, angle : Float ) : this}: 在局部空间中绕着该物体的轴来旋转一个物体。
+  \item \texttt{.rotateOnWorldAxis ( axis : Vector3, angle : Float ) : this}: 在全局空间中旋转。
+  \item \texttt{.rotateX/Y/Z ( rad : Float ) : this}: 绕局部空间的轴旋转。
+  \item \texttt{.translateX ( distance : Float ) : this}: 绕局部空间的轴平移。
+  \item \texttt{.toJSON ( meta : Object ) : Object}: 转换为 three.js 特有的 JSON 格式。
+\end{itemize}
+
+此外，还有一个常规的 \texttt{get,set} 方法用于操作属性。
+
+three.js 还提供了一个专门用于管理对象结构的类: \texttt{Group}, 实现非常简单:
+
+\begin{JavaScript}
+class Group extends Object3D {
+	constructor() {
+		super();
+		this.isGroup = true;
+		this.type = 'Group';
+	}
+}
+\end{JavaScript}
+
+\subsection{\texttt{Scene} 相关}
+
+\begin{JavaScript}
+class Scene extends Object3D
+\end{JavaScript}
+
+\texttt{THREE.Scene} 对象是所有不同对象的容器。它用来保存所有图形场景的必要信息。
+
+\begin{itemize}
+  \item \link{https://threejs.org/docs/index.html\#api/zh/scenes/Scene}{查看文档}。
+  \item \link{https://github.com/mrdoob/three.js/blob/master/src/scenes/Scene.js}{查看 \texttt{Object3D} 源码}。
+\end{itemize}
+
+\texttt{Scene} 的构造函数也无需传入参数，场景添加了几个重要属性:
+
+\begin{table}[H]
+  \small
+  \centering
+  \caption{\texttt{Scene} 属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|p{8cm}}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    background & Object & null & 可以是 \texttt{Color}， \texttt{Texture}，\texttt{CubeTexture} \\
+    backgroundBlurriness & Float & 0 & 背景模糊程度 \\
+    environment & Texture & null & 该纹理贴图将会被设为场景中所有物理材质的环境贴图。 \\
+    fog & Fog & null & 影响场景中的每个物体的雾的类型。 \\
+    overrideMaterial & Material & null & 若不为空，强制使用该材质进行渲染 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+同属于场景对象的类还有两个: \texttt{Fog}, \texttt{FogExp2}。
+
+\subsubsection*{\texttt{Fog}}
+
+\begin{JavaScript}
+class Fog
+\end{JavaScript}
+
+\texttt{Fog} 表示线性变换的雾效，它的构造函数函数需要传入三个参数:
+
+\begin{JavaScript}
+constructor( color, near = 1, far = 1000 )
+\end{JavaScript}
+
+这些属性的作用如下:
+
+\begin{table}[H]
+  \centering
+  \caption{\texttt{Fog} 属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|p{8cm}}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    color & Color & 构造函数赋值 & 雾的颜色 \\
+    near & Float & 1 & 应用雾的最小距离 \\
+    far & Float & 1000 & 应用雾的最大距离 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{\texttt{FogExp2}}
+
+\begin{JavaScript}
+class FogExp2
+\end{JavaScript}
+
+\texttt{FogExp} 表示指数变换的雾效，它的构造函数函数需要传入两个参数:
+
+\begin{JavaScript}
+constructor( color, density = 0.00025 )
+\end{JavaScript}
+
+其中 \texttt{density} 表示雾密度增长速度。
+
+\subsection{\texttt{Camera} 相关}
+
+three.js 为我们提供了很多 \texttt{Camera} 类型，它们都继承自抽象基类: \texttt{Camera}。
+
+\begin{itemize}
+  \item \link{https://threejs.org/docs/index.html\#api/zh/cameras/Camera}{查看文档}
+  \item \link{https://github.com/mrdoob/three.js/blob/master/src/cameras/Camera.js}{查看源码}
+\end{itemize}
+
+\begin{JavaScript}
+class Camera extends Object3D
+\end{JavaScript}
+
+由于是抽象基类，我们一般不会直接构造 \texttt{Camera} 对象。\texttt{Camera} 本省并没有实现实际的功能，仅仅是添加了相机公有的一些属性与标识。
+
+我们常用的相机有两类: \texttt{PerspectiveCamera} 透视摄像机，\texttt{OrthographicCamera} 正交摄像机。
+
+\subsubsection*{\texttt{PerspectiveCamera}}
+
+透视摄像机用于模拟人眼看到的景象。
+
+\begin{JavaScript}
+class PerspectiveCamera extends Camera
+\end{JavaScript}
+
+在构造函数中我们需要传入以下几个值:
+
+\begin{JavaScript}
+constructor( fov = 50, aspect = 1, near = 0.1, far = 2000 )
+\end{JavaScript}
+
+其中，\texttt{fov} 表示摄像机视锥体垂直视野角度，\texttt{aspect} 表示摄像机视锥体长宽比。
+
+除此之外，还有几个重要的属性:
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{\texttt{PerspectiveCamera} 属性}
+  \setlength{\tabcolsep}{4mm}
+  \begin{tabular}{l|l|l|l}
+    \toprule
+    \textbf{属性} & \textbf{类型} & \textbf{默认值} & \textbf{含义} \\
+    \midrule
+    focus & Focus & 10 & 焦点，用于设置景深 \\
+    view & Object & null &  \\
+    zoom & number & 1 & 设置摄像机缩放倍数 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\texttt{PerspectiveCamera} 基本都是 \texttt{get,set} 方法，没什么好讲的。
+
+正交摄像机的投影大小与物品距离相机远近无关。
+
+\subsubsection*{\texttt{OrthographicCamera}}
+
+\begin{JavaScript}
+class OrthographicCamera extends Camera
+\end{JavaScript}
+
+它的构造函数也不存在 fov 值:
+
+\begin{JavaScript}
+constructor( left = - 1, right = 1, top = 1, bottom = - 1, near = 0.1, far = 2000 )
+\end{JavaScript}
+
+其中上下左右分别达标锥体侧边与中心的距离。其属性与方法和透视相机类型。
+
+此外，还有几个不常用的相机类，做过摄影相关工作的人应该了解，不了解也没关系，不常用:
+\begin{itemize}
+  \item \texttt{ArrayCamera}: 用于包含一组子相机，继承自 \texttt{PerspectiveCamera}。
+  \item \texttt{CubeCamera}: 用于同时创建 6 个正交相机。
+  \item \texttt{StereoCamera}: 用于同时创建 2 个正交相机。
+\end{itemize}
+
+\newpage

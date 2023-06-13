@@ -38,3 +38,14 @@ Mother.call(son,"pionpill")
 注意，在 JavaScript 中，普通函数和构造函数没有任何区别(写法上，我们习惯将构造函数使用大驼峰写法)。如果是通过 \texttt{new} 创建，则会自动返回新对象，但如果不是，则执行普通函数的逻辑，不进行原型绑定，\texttt{this} 绑定，返回新对象等操作。
 
 此外，如果 \texttt{new} 构造函数，且构造函数中有返回值。假如返回值是基本类型，没有什么影响，\texttt{new} 的时候直接忽视，只对非 \texttt{new} 有影响。如果返回引用类型，那么返回的引用类型会替代原来的返回值。
+
+\subsection{手写 \texttt{new}}
+
+\begin{JavaScript}
+const customNew = (func, ...args) => {
+  if (typeof func !== "function") return null;
+  const newObj = Object.create(func.prototype);
+  const result = func.apply(newObj, args);
+  return typeof result === "object" ? result : newObj;
+};
+\end{JavaScript}

@@ -1,0 +1,62 @@
+\documentclass{PionpillNote-book}
+
+\title{Three.js}
+\author{
+    Pionpill \footnote{笔名：北岸，电子邮件：673486387@qq.com，Github：\url{https://github.com/Pionpill}} \\
+    Three.js 及相关 WebGL 库学习笔记\\
+}
+
+\date{\today}
+
+\begin{document}
+
+\pagestyle{plain}
+\maketitle
+
+\noindent\textbf{前言：}
+
+本文阅读前提: 具备良好的 HTML,CSS,JS 基础，看得懂 React(hooks),TS 写法, 有一定的3D建模基础。此外，本人使用 Blender(一款开源3D建模与渲染软件) 获取或修改一些3D模型。
+
+由于本人有三维建模基础，因此一些基础概念一带而过，如果读者不了解，可以先尝试学习一下 Blender。此外，3D 建模与渲染是一门很深的学问，本文可能涉及到材质漫射，高光，点光源，面光源，粒子，动画等专业知识。这是 3D 领域的理论知识，但不属于 three.js 技术层面，因此本文不会对这些概念做解释，读者如有问题，请自行查阅资料。本人强烈建议在系统学习 WebGL 之前，入门一下 Blender 或其他三维软件。
+
+本文主要参考文献:
+\begin{itemize}
+    \item Three.js 官方文档: \url{https://threejs.org/docs}
+    \item Three.js 源码仓库: \url{https://github.com/mrdoob/three.js}
+\end{itemize}
+
+本文撰写环境:
+
+\begin{itemize}
+    \item React: 18.2.0
+    \item IDE: VSCode 1.72 
+    \item Edge: 111.0
+    \item Chrome: 91.0
+    \item Node.js: 18.12
+    \item OS: Window11
+\end{itemize}
+
+\date{\today}
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\setcounter{page}{1} 
+\pagestyle{fancy}
+
+\import{Contents}{style.tex}
+\part{Three.js}
+\chapter{Three.js 基础概念}
+\import{Contents/Part-Three/Chapter-Basic}{introduction.tex}
+\import{Contents/Part-Three/Chapter-Basic}{basic.tex}
+\chapter{材质，灯光与几何体}
+\import{Contents/Part-Three/Chapter-Scene}{light.tex}
+\import{Contents/Part-Three/Chapter-Scene}{material.tex}
+\import{Contents/Part-Three/Chapter-Scene}{geometry.tex}
+\part{拓展包}
+\chapter{@react-three}
+\import{Contents/Part-Package/Chapter-React-Three}{fiber.tex}
+
+\end{document}

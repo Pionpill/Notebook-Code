@@ -1,0 +1,238 @@
+\section{Three.js 入门与介绍}
+
+首先了解一下 3D 绘图圈的一些概念。
+\begin{itemize}
+  \item OpenGL: 最广为人知且应用最广泛的 3D 绘图标准是 OpenGL。OpenGL 并不是一门技术，它是跨平台的跨语言的绘图规范。多数3D游戏引擎，建模软件都基于 OpenGL。
+  \item WebGL: OpenGL 在 Web 领域的规范，允许使用 JS 操作 OpenGL。
+  \item Three.js: 对原生 WebGL 进行了一层封装。
+\end{itemize}
+
+\subsection{安装 \texttt{three.js}}
+
+我们可以使用外部引入的方式导入 three.js。也可以通过 npm 下载。
+
+\begin{bash}
+npm install three
+\end{bash}
+
+three.js 只专注于最核心的引擎，他还有很多其他组件: 控制器，加载器，后处理器...这些组件由不同作者维护。
+
+此外，有些浏览器可能不支持 WebGL(虽然这很罕见)。我们可以通过如下代码进行兼容性检查:
+
+\begin{JavaScript}
+if (WebGL.isWebGLAvailable()) {
+  animate();
+} else {
+  const warning = WebGL.getWebGLErrorMessage();
+  document.getElementById('container').appendChild(warning);
+}
+\end{JavaScript}
+
+\subsection{入门例子}
+
+下面我们使用 WebGL 创建一个最基本的场景:
+
+\begin{JavaScript}
+import * as THREE from "https://unpkg.com/three/build/three.module.js";
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+\end{JavaScript}
+
+在这里我们建立了三维场景必要的几个对象:
+\begin{itemize}
+  \item 场景: 即整个画面。
+  \item 相机: 这里使用的是透视相机，传入了对应的参数，包括:
+  \begin{itemize}
+    \item FOV: 视野角度，广角长焦之类的。
+    \item 长宽比: 类似于显示屏长宽比。
+    \item 近截面: 物体与相机距离低于该值不进行渲染。
+    \item 远界面: 物体与相机距离高于该值不进行渲染。
+  \end{itemize}
+  \item 渲染器: 最核心的部分，接下来会细讲。
+\end{itemize}
+
+最后我们讲渲染器挂载到了 \texttt{body} 上。
+
+然后我们来创建一个物体，创建一个物体至少需要两个参数: 几何对象，材质。
+
+\begin{JavaScript}
+const geometry = new THREE.BoxGeometry(1, 1, 1);
+const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
+
+camera.position.z = 5;
+\end{JavaScript}
+
+我们首先分别创建了几何体与材质，其次应用这两个对象创建了一个正方体。最后讲正方体添加到场景中，并调整了相机位置。
+
+现在我们需要让我们添加的东西显示出来，此时就需要用到渲染，专业名词叫做: 渲染循环(render loop)或动画循环(animate loop)。
+
+\begin{JavaScript}
+const animate = () => {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+animate();
+\end{JavaScript}
+
+在这里我们创建了一个使渲染器能够在每次屏幕刷新时对场景进行绘制的循环(一般是 60fps)。这里的 \texttt{requestAnimationFrame} 相比 \texttt{setInterval} 做了很多优化。
+
+最后我们加上一些动画:
+
+\begin{JavaScript}
+const animate = () => {
+  requestAnimationFrame(animate);
+  cube.rotation.x += 0.01;
+  cube.rotation.y += 0.01;
+  renderer.render(scene, camera);
+}
+animate();
+\end{JavaScript}
+
+此时，这段代码每帧都会执行，并获得了一个旋转效果。
+
+让我们总结一下这个例子的流程:
+\begin{itemize}
+  \item 首先我们需要创建场景，相机与渲染器。这是 3D 绘图的基础部件。它们分别承担了装入模型，输出场景，渲染的功能。
+  \item 其次的，我们需要将我们需要的物品装入到场景中，这个过程涉及到模型，灯光，粒子...
+  \item 然后我们需要设置相机的位置，在显示器输出的时候有一个良好的效果。
+  \item 最后，在我们的渲染器中写入一些动画以及在运行过程中需要执行的逻辑。
+\end{itemize}
+
+这里我们总结整理一下整体逻辑:
+
+\begin{figure}[H]
+  \small
+  \centering
+  \begin{tikzpicture}[font=\small]
+    \node[block, fill=blue!40] (Scene) at (0,0) {Scene};
+    \node[block, fill=blue!20] (model) at (-1.5,-1) {资源};
+    \node[block, fill=blue!40] (scene) at (0,-2) {scene};
+    \draw(model) -| (scene);
+    \draw[-Stealth] (Scene) -- (scene) node [midway, right] {创建};
+    \node[block, fill=red!40] (Camera) at (3,0) {Camera};
+    \node[block, fill=red!40] (camera) at (3,-2) {camera};
+    \draw[-Stealth] (Camera) -- (camera) node [midway, right] {初始化};
+    \draw[dashed] (camera) -- (scene) node [midway, above] {确定场景}; 
+    \node[block, fill=orange!40] (Renderer) at (6,0) {Renderer};
+    \node[block, fill=orange!40] (renderer) at (6,-2) {renderer};
+    \draw[-Stealth] (Renderer) -- (renderer) node [midway, right] {初始化};
+    \node[block, fill=orange!40] (dom) at (6,-4) {dom};
+    \draw [-Stealth] (renderer) -- (dom) node [midway, right] {挂载};
+    \node[block, fill=orange!40] (render) at (1.5,-4) {render};
+    \draw [-Stealth] (dom) -- (render) node [midway, above] {显示};
+    \draw [-Stealth] (scene) -- (render);
+    \draw [-Stealth] (camera) -- (render);
+  \end{tikzpicture}
+  \caption{three.js 项目构建流程}
+  \label{fig:three.js 项目构建流程}
+\end{figure}
+
+\subsection{完善这个例子}
+
+上一个例子创建了一个最简单的 three.js 例子，这里我们创建一个更为复杂的例子:
+
+\begin{JavaScript}
+import * as THREE from "https://unpkg.com/three/build/three.module.js";
+
+const init = () => {
+  const scene = new THREE.Scene();
+
+  const camera = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+
+  const renderer = new THREE.WebGLRenderer();
+  renderer.setClearColor(new THREE.Color(0x000000));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  const axes = new THREE.AxesHelper(20);
+  scene.add(axes);
+
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(60, 20),
+    new THREE.MeshBasicMaterial({ color: 0xaaaaaa })
+  );
+  plane.rotation.x = -0.5 * Math.PI;
+  plane.position.set(15, 0, 0);
+  scene.add(plane);
+
+  const cube = new THREE.Mesh(
+    new THREE.BoxGeometry(4, 4, 4),
+    new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
+  );
+  cube.position.set(-4, 3, 0);
+  scene.add(cube);
+
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(4, 20, 20),
+    new THREE.MeshBasicMaterial({ color: 0x7777ff, wireframe: true })
+  );
+  sphere.position.set(20, 4, 2);
+  scene.add(sphere);
+
+  camera.position.set(-30, 40, 30);
+  camera.lookAt(scene.position);
+
+  document.body.appendChild(renderer.domElement);
+  renderer.render(scene, camera);
+};
+
+init();
+\end{JavaScript}
+
+这里我们添加了更多东西，椭圆，坐标轴。并自定义了几何体样式(线框式)。
+
+\subsubsection{材质，光源，阴影}
+
+在 three.js 中，光源决定了阴影，材质决定着对应不同光源饿反射效果:
+
+\begin{JavaScript}
+// 创建光源并设置位置
+const spotlight = new THREE.SpotLight(0xffffff);
+spotlight.position.set(-40, 40, -15);
+// 显示阴影
+spotlight.castShadow = true;
+// 设置阴影精度
+spotlight.shadow.mapSize = new THREE.Vector2(1024, 1024);
+spotlight.shadow.camera.far = 130;
+spotlight.shadow.camera.near = 40;
+scene.add(spotLight);
+\end{JavaScript}
+
+由于我们使用的是 \texttt{MeshBasicMaterial}，对光源不会有任何反应，只会通过指定颜色渲染物体。我们只需要将其改为其他可以反射阳光的材质即可，比如: \texttt{MeshLambertMaterial}。
+
+不过此时，仍然不会显示阴影，因为渲染阴影需要大量的计算资源，默认情况下渲染器不会渲染阴影，可以通过如下方式打开:
+
+\begin{JavaScript}
+renderer.shadowMap.enabled = true;
+\end{JavaScript}
+
+不过此时还是没有效果，我们需要设置光源，模型的开关:
+\begin{JavaScript}
+// 光源是否产生阴影
+spotLight.castShadow = true;
+// 地面是否接收阴影
+plane.receiveShadow = true;
+// 模型是否产生阴影
+cube.castShadow = true;
+sphere.castShadow = true;
+\end{JavaScript}
+
+由此看出，为物体添加阴影过程相对复杂，但这也是为了性能优化考虑，默认情况下，产生阴影的相关属性都是关闭的。
+
+\subsubsection{动画}
+
+我们说过 \texttt{requestAnimationFrame()} 比 \texttt{setInterval()} 性能更优。这需要体现在它会判断是否需要刷新，如果我们的场景没有动画，从始至终都是一样的，那么没必要进行刷新，这会带来极大的性能提升。
+
+
+\newpage
